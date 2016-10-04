@@ -1,0 +1,2 @@
+Create an atmi client, read from socket, pipe done via channel to pool.
+For config use NDRX_CCTAG env as sub-section.

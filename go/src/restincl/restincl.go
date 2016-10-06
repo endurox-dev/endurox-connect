@@ -17,9 +17,20 @@ const (
 	progsection = "RESTIN"
 )
 
+const (
+	UNSET = -1
+	FALSE = 0
+	TRUE  = 1
+)
+
 var M_port int16 = atmi.FAIL
 var M_ip string
 var M_url_map map[string]string
+
+/* TLS Settings: */
+var M_tls_enable int16 = FALSE
+var M_tls_cert_file string
+var M_tls_key_file string
 
 // Request handler
 func handler(w http.ResponseWriter, req *http.Request) {
@@ -59,12 +70,22 @@ func handler(w http.ResponseWriter, req *http.Request) {
 //Run the listener
 func apprun() error {
 
+	var err error
 	//TODO: Some works needed for TLS...
 	listen_on := fmt.Sprintf("%s:%d", M_ip, M_port)
 	atmi.TpLog(atmi.LOG_INFO, "About to listen on: (ip: %s, port: %d) %s",
 		M_ip, M_port, listen_on)
-	err := http.ListenAndServe(listen_on, nil)
-	atmi.TpLog(atmi.LOG_ERROR, "%s", err)
+	if TRUE == M_tls_enable {
+
+		/* To prepare cert (self-signed) do following steps:
+		 * - TODO
+		 */
+		err := http.ListenAndServeTLS(listen_on, M_tls_cert_file, M_tls_key_file, nil)
+		atmi.TpLog(atmi.LOG_ERROR, "ListenAndServeTLS() failed: %s", err)
+	} else {
+		err := http.ListenAndServe(listen_on, nil)
+		atmi.TpLog(atmi.LOG_ERROR, "ListenAndServe() failed: %s", err)
+	}
 
 	return err
 }
@@ -124,6 +145,15 @@ func appinit() error {
 			case "ip":
 				M_ip, _ = buf.BGetString(u.EX_CC_VALUE, occ)
 				break
+			case "tls_enable":
+				M_tls_enable, _ = buf.BGetInt16(u.EX_CC_VALUE, occ)
+				break
+			case "tls_cert_file":
+				M_tls_cert_file, _ = buf.BGetString(u.EX_CC_VALUE, occ)
+				break
+			case "tls_key_file":
+				M_tls_key_file, _ = buf.BGetString(u.EX_CC_VALUE, occ)
+				break
 			default:
 
 				if strings.HasPrefix(fld_name, "/") {
@@ -150,6 +180,15 @@ func appinit() error {
 	if atmi.FAIL == M_port || "" == M_ip {
 		atmi.TpLog(atmi.LOG_ERROR, "Invalid config: missing ip (%s) or port (%d)",
 			M_ip, M_port)
+		return errors.New("Invalid config: missing ip or port")
+	}
+
+	//Check the TLS settings
+	if TRUE == M_tls_enable && (M_tls_cert_file == "" || M_tls_key_file == "") {
+
+		atmi.TpLog(atmi.LOG_ERROR, "Invalid TLS settigns missing cert "+
+			"(%s) or keyfile (%s) ", M_tls_cert_file, M_tls_key_file)
+
 		return errors.New("Invalid config: missing ip or port")
 	}
 

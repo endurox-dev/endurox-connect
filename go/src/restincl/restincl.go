@@ -1,12 +1,11 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
-	"runtime"
 	"strings"
 	u "ubftab"
 
@@ -23,57 +22,100 @@ const (
 	TRUE  = 1
 )
 
-var M_port int16 = atmi.FAIL
+//Error handling type
+const (
+	ERRORS_HTTPS = 1
+	ERRORS_JSON  = 2
+	ERRORS_TEXT  = 3
+	ERRORS_RAW   = 4
+)
+
+//Conversion types resolved
+const (
+	CONV_JSON2UBF = 1
+	CONV_TEXT     = 2
+	CONV_JSON     = 3
+	CONV_RAW      = 4
+)
+
+//Defaults
+const (
+	ERRORS_DEFAULT             = ERRORS_JSON
+	NOTIMEOUT_DEFAULT          = FALSE /* we will use default timeout */
+	CONV_DEFAULT               = "json2ubf"
+	CONV_INT_DEFAULT           = CONV_JSON2UBF
+	ERRFMT_JSON_MSG_DEFAULT    = "errormsg=\"%s\""
+	ERRFMT_JSON_CODE_DEFAULT   = "errorcode=\"%d\""
+	ERRFMT_JSON_ONSUCC_DEFAULT = TRUE /* generate success message in JSON */
+	ERRFMT_TEXT_DEFAULT        = "%d: %s"
+	ERRFMT_RAW_DEFAULT         = "%d: %s"
+	ASYNCCALL_DEFAULT          = FALSE
+	WORKERS                    = 10 /* Number of worker processes */
+)
+
+//We will have most of the settings as defaults
+//And then these settings we can override with
+type ServiceMap struct {
+	url              string
+	svc              string `json:"svc"`
+	errors           int16  `json:"errors"`
+	notimeout        int16  `json:"notimeout"`
+	trantout         int64  `json:"trantout"` //If set, then using global transactions
+	errfmt_text      string `json:"errfmt_text"`
+	errfmt_raw       string `json:"errfmt_raw"`
+	errfmt_json_msg  string `json:"errfmt_json_msg"`
+	errfmt_json_code string `json:"errfmt_json_code"`
+	//If set, then generate code/message for success too
+	errfmt_json_onsucc int16       `json:"errfmt_json_onsucc"`
+	errmap_http        string      `json:"errmap_http"`
+	errmap_http_hash   map[int]int //Lookup map for tp->http codes
+	asynccall          int16       `json:"asynccall"` //use tpacall()
+	conv               string      `json:"conv"`      //Conv mode
+	conv_int           int16       //Resolve conversion type
+}
+
+var M_port int = atmi.FAIL
 var M_ip string
-var M_url_map map[string]string
+var M_url_map map[string]ServiceMap
+
+var M_defaults ServiceMap
 
 /* TLS Settings: */
 var M_tls_enable int16 = FALSE
 var M_tls_cert_file string
 var M_tls_key_file string
 
-// Request handler
-func handler(w http.ResponseWriter, req *http.Request) {
-	runtime.LockOSThread()
-	atmi.TpLog(atmi.LOG_DEBUG, "Got URL [%s]", req.URL)
+//Conversion types
+var M_convs = map[string]int{
 
-	/* Send json to service */
-	svc := M_url_map[req.URL.String()]
-	if "" != svc {
+	"json2ubf": CONV_JSON2UBF,
+	"text":     CONV_TEXT,
+	"json":     CONV_JSON,
+	"raw":      CONV_RAW,
+}
 
-		body, _ := ioutil.ReadAll(req.Body)
+var M_workers int
 
-		atmi.TpLog(atmi.LOG_DEBUG, "Requesting service [%s] buffer [%s]", svc, body)
+//Create a empy service object
+func newServiceMap() *ServiceMap {
+	var ret ServiceMap
 
-		buf, err := atmi.NewJSON(body)
-
-		if err != nil {
-			atmi.TpLog(atmi.LOG_ERROR, "ATMI Error %d:[%s]\n", err.Code(), err.Message())
-			return
-		}
-
-		if _, err := atmi.TpCall(svc, buf.GetBuf(), 0); err != nil {
-			w.Header().Set("Content-Type", "text/plain")
-			w.Write([]byte(err.Message()))
-		} else {
-			w.Header().Set("Content-Type", "text/json")
-			w.Write([]byte(buf.GetJSONText()))
-		}
-	}
-
-	/*
-		w.Write([]byte("{status:\"ok\"}\n"))
-	*/
+	ret.errors = UNSET
+	ret.notimeout = UNSET
+	ret.trantout = UNSET
+	ret.errfmt_json_onsucc = UNSET
+	ret.asynccall = UNSET
+	return &ret
 
 }
 
 //Run the listener
-func apprun() error {
+func apprun(ac *atmi.ATMICtx) error {
 
 	var err error
 	//TODO: Some works needed for TLS...
 	listen_on := fmt.Sprintf("%s:%d", M_ip, M_port)
-	atmi.TpLog(atmi.LOG_INFO, "About to listen on: (ip: %s, port: %d) %s",
+	ac.TpLog(atmi.LOG_INFO, "About to listen on: (ip: %s, port: %d) %s",
 		M_ip, M_port, listen_on)
 	if TRUE == M_tls_enable {
 
@@ -81,10 +123,10 @@ func apprun() error {
 		 * - TODO
 		 */
 		err := http.ListenAndServeTLS(listen_on, M_tls_cert_file, M_tls_key_file, nil)
-		atmi.TpLog(atmi.LOG_ERROR, "ListenAndServeTLS() failed: %s", err)
+		ac.TpLog(atmi.LOG_ERROR, "ListenAndServeTLS() failed: %s", err)
 	} else {
 		err := http.ListenAndServe(listen_on, nil)
-		atmi.TpLog(atmi.LOG_ERROR, "ListenAndServe() failed: %s", err)
+		ac.TpLog(atmi.LOG_ERROR, "ListenAndServe() failed: %s", err)
 	}
 
 	return err
@@ -93,28 +135,42 @@ func apprun() error {
 //Init function, read config (with CCTAG)
 
 //Un-init function
-func appinit() error {
+func appinit(ac *atmi.ATMICtx) error {
 	//runtime.LockOSThread()
 
-	M_url_map = make(map[string]string)
+	M_url_map = make(map[string]ServiceMap)
 
-	if err := atmi.TpInit(); err != nil {
+	//Setup default configuration
+	M_defaults.errors = ERRORS_DEFAULT
+	M_defaults.notimeout = NOTIMEOUT_DEFAULT
+	M_defaults.conv = CONV_DEFAULT
+	M_defaults.conv_int = CONV_INT_DEFAULT
+	M_defaults.errfmt_json_msg = ERRFMT_JSON_MSG_DEFAULT
+	M_defaults.errfmt_json_code = ERRFMT_JSON_CODE_DEFAULT
+	M_defaults.errfmt_json_onsucc = ERRFMT_JSON_ONSUCC_DEFAULT
+	M_defaults.errfmt_text = ERRFMT_TEXT_DEFAULT
+	M_defaults.errfmt_raw = ERRFMT_RAW_DEFAULT
+	M_defaults.asynccall = ASYNCCALL_DEFAULT
+
+	M_workers = WORKERS
+
+	if err := ac.TpInit(); err != nil {
 		return errors.New(err.Error())
 	}
 
 	//Get the configuration
 
-	buf, err := atmi.NewUBF(16 * 1024)
+	buf, err := ac.NewUBF(16 * 1024)
 	if nil != err {
-		atmi.TpLog(atmi.LOG_ERROR, "Failed to allocate buffer: [%s]", err.Error())
+		ac.TpLog(atmi.LOG_ERROR, "Failed to allocate buffer: [%s]", err.Error())
 		return errors.New(err.Error())
 	}
 
 	buf.BChg(u.EX_CC_CMD, 0, "g")
 	buf.BChg(u.EX_CC_LOOKUPSECTION, 0, fmt.Sprintf("%s/%s", progsection, os.Getenv("NDRX_CCTAG")))
 
-	if _, err := atmi.TpCall("@CCONF", buf, 0); nil != err {
-		atmi.TpLog(atmi.LOG_ERROR, "ATMI Error %d:[%s]\n", err.Code(), err.Message())
+	if _, err := ac.TpCall("@CCONF", buf, 0); nil != err {
+		ac.TpLog(atmi.LOG_ERROR, "ATMI Error %d:[%s]\n", err.Code(), err.Message())
 		return errors.New(err.Error())
 	}
 
@@ -126,19 +182,22 @@ func appinit() error {
 	for {
 		if fldid, occ, err := buf.BNext(first); nil == err {
 			first = false
-			atmi.TpLog(atmi.LOG_DEBUG, "BNext %d, %d", fldid, occ)
+			ac.TpLog(atmi.LOG_DEBUG, "BNext %d, %d", fldid, occ)
 			fld_name, err := buf.BGetString(fldid, occ)
 
 			if nil != err {
-				atmi.TpLog(atmi.LOG_ERROR, "Failed to get field "+
+				ac.TpLog(atmi.LOG_ERROR, "Failed to get field "+
 					"%d occ %d", fldid, occ)
 				return errors.New(err.Error())
 			}
 
-			atmi.TpLog(atmi.LOG_DEBUG, "Got config field [%s]", fld_name)
+			ac.TpLog(atmi.LOG_DEBUG, "Got config field [%s]", fld_name)
 
 			switch fld_name {
 
+			case "workers":
+				M_workers, _ = buf.BGetInt16(u.EX_CC_VALUE, occ)
+				break
 			case "port":
 				M_port, _ = buf.BGetInt16(u.EX_CC_VALUE, occ)
 				break
@@ -154,16 +213,39 @@ func appinit() error {
 			case "tls_key_file":
 				M_tls_key_file, _ = buf.BGetString(u.EX_CC_VALUE, occ)
 				break
+			case "defaults":
+				//Override the defaults
+				json_default, err := buf.BGetByteArr(u.EX_CC_VALUE, occ)
+
+				jerr := json.Unmarshal(json_default, &M_defaults)
+				if jerr != nil {
+					ac.TpLog(atmi.LOG_ERROR,
+						fmt.Sprintf("Failed to parse defaults: %s", jerr))
+					return jerr
+				}
+				break
 			default:
+				//Assign the defaults
 
+				//Load routes...
 				if strings.HasPrefix(fld_name, "/") {
-					cfg_val, _ := buf.BGetString(u.EX_CC_VALUE, occ)
+					cfg_val, _ := buf.BGetByteArr(u.EX_CC_VALUE, occ)
 
-					atmi.TpLog(atmi.LOG_DEBUG,
+					tmp := M_defaults
+
+					//Override the stuff from current config
+					err := json.Unmarshal(cfg_val, &tmp)
+					if err != nil {
+						ac.TpLog(atmi.LOG_ERROR,
+							fmt.Sprintf("Failed to parse defaults: %s", err))
+						return err
+					}
+
+					ac.TpLog(atmi.LOG_DEBUG,
 						"Got route: URL [%s] -> Service [%s]",
-						fld_name, cfg_val)
-					//Add route to hash list (or open listener on this..?)
-					M_url_map[fld_name] = cfg_val
+						fld_name, tmp.svc)
+					tmp.url = fld_name
+					M_url_map[fld_name] = tmp
 					//Add to HTTP listener
 					http.HandleFunc(fld_name, handler)
 				}
@@ -178,7 +260,7 @@ func appinit() error {
 	}
 
 	if atmi.FAIL == M_port || "" == M_ip {
-		atmi.TpLog(atmi.LOG_ERROR, "Invalid config: missing ip (%s) or port (%d)",
+		ac.TpLog(atmi.LOG_ERROR, "Invalid config: missing ip (%s) or port (%d)",
 			M_ip, M_port)
 		return errors.New("Invalid config: missing ip or port")
 	}
@@ -186,7 +268,7 @@ func appinit() error {
 	//Check the TLS settings
 	if TRUE == M_tls_enable && (M_tls_cert_file == "" || M_tls_key_file == "") {
 
-		atmi.TpLog(atmi.LOG_ERROR, "Invalid TLS settigns missing cert "+
+		ac.TpLog(atmi.LOG_ERROR, "Invalid TLS settigns missing cert "+
 			"(%s) or keyfile (%s) ", M_tls_cert_file, M_tls_key_file)
 
 		return errors.New("Invalid config: missing ip or port")
@@ -199,12 +281,19 @@ func appinit() error {
 
 func main() {
 
-	if err := appinit(); nil != err {
+	ac, err := atmi.NewATMICtx()
+
+	if nil != err {
+		fmt.Errorf("Failed to allocate cotnext!", err)
 		os.Exit(atmi.FAIL)
 	}
-	atmi.TpLog(atmi.LOG_DEBUG, "REST Incoming init ok - serving...")
 
-	if err := apprun(); nil != err {
+	if err := appinit(ac); nil != err {
+		os.Exit(atmi.FAIL)
+	}
+	ac.TpLog(atmi.LOG_DEBUG, "REST Incoming init ok - serving...")
+
+	if err := apprun(ac); nil != err {
 		os.Exit(atmi.FAIL)
 	}
 

@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	"runtime"
 
 	"github.com/endurox-dev/endurox-go/tests/06_ubf_marshal/src/atmi"
 )
@@ -38,42 +37,74 @@ var M_freechan chan int //List of free channels submitted by wokers
 
 var M_waitjobchan []chan HttpCall //Wokers channels each worker by it's number have a channel
 
-// Request handler
+//Generate response in the service configured way...
+//@w	handler for writting response to
+func GenRsp(svc *ServiceMap, w http.ResponseWriter, atmiErr *atmi.ATMIError) {
+
+	switch svc.errors {
+	case ERRORS_HTTPS:
+		break
+	case ERRORS_JSON:
+		break
+	case ERRORS_TEXT:
+		break
+	case ERRORS_RAW:
+		break
+	}
+
+}
+
+// Requesst handler
 //@param ac	ATMI Context
 //@param w	Response writer (as usual)
 //@param req	Request message (as usual)
 func HandleMessage(ac *atmi.ATMICtx, w http.ResponseWriter, req *http.Request) {
-	runtime.LockOSThread()
-	ac.TpLog(atmi.LOG_DEBUG, "Got URL [%s]", req.URL)
 
+	var flags int64 = 0
+
+	ac.TpLog(atmi.LOG_DEBUG, "Got URL [%s]", req.URL)
 	/* Send json to service */
 	svc := M_url_map[req.URL.String()]
+
 	if "" != svc.svc {
 
 		body, _ := ioutil.ReadAll(req.Body)
 
-		ac.TpLog(atmi.LOG_DEBUG, "Requesting service [%s] buffer [%s]", svc, body)
+		ac.TpLogDebug("Requesting service [%s] buffer [%s]", svc, body)
 
 		buf, err := ac.NewJSON(body)
 
 		if err != nil {
-			ac.TpLog(atmi.LOG_ERROR, "ATMI Error %d:[%s]\n", err.Code(), err.Message())
+			ac.TpLogError("ATMI Error %d:[%s]\n", err.Code(), err.Message())
 			return
 		}
 
-		if _, err := ac.TpCall(svc.svc, buf.GetBuf(), 0); err != nil {
-			w.Header().Set("Content-Type", "text/plain")
-			w.Write([]byte(err.Message()))
+		if 0 != svc.notime {
+			ac.TpLogWarn("No timeout flag for service call")
+			flags |= atmi.TPNOTIME
+		}
+
+		if 0 != svc.asynccall {
+			//TODO: Add error handling.
+			if _, err := ac.TpACall(svc.svc, buf.GetBuf(),
+				flags|atmi.TPNOREPLY); err != nil {
+				w.Header().Set("Content-Type", "text/plain")
+				w.Write([]byte(err.Message()))
+			} else {
+				w.Header().Set("Content-Type", "text/json")
+				w.Write([]byte(buf.GetJSONText()))
+			}
+
 		} else {
-			w.Header().Set("Content-Type", "text/json")
-			w.Write([]byte(buf.GetJSONText()))
+			if _, err := ac.TpCall(svc.svc, buf.GetBuf(), flags); err != nil {
+				w.Header().Set("Content-Type", "text/plain")
+				w.Write([]byte(err.Message()))
+			} else {
+				w.Header().Set("Content-Type", "text/json")
+				w.Write([]byte(buf.GetJSONText()))
+			}
 		}
 	}
-
-	/*
-		w.Write([]byte("{status:\"ok\"}\n"))
-	*/
-
 }
 
 //Run the worker

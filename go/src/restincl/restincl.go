@@ -1,5 +1,10 @@
 package main
 
+// Request types supported:
+// - json (TypedJSON, TypedUBF)
+// - plain text (TypedString)
+// - binary (TypedCarray)
+
 import (
 	"encoding/json"
 	"errors"
@@ -59,7 +64,7 @@ type ServiceMap struct {
 	url              string
 	svc              string `json:"svc"`
 	errors           int16  `json:"errors"`
-	notimeout        int16  `json:"notimeout"`
+	notime           int16  `json:"notime"`
 	trantout         int64  `json:"trantout"` //If set, then using global transactions
 	errfmt_text      string `json:"errfmt_text"`
 	errfmt_raw       string `json:"errfmt_raw"`
@@ -95,13 +100,14 @@ var M_convs = map[string]int{
 }
 
 var M_workers int
+var M_ac *atmi.ATMICtx //Mainly shared for logging....
 
 //Create a empy service object
 func newServiceMap() *ServiceMap {
 	var ret ServiceMap
 
 	ret.errors = UNSET
-	ret.notimeout = UNSET
+	ret.notime = UNSET
 	ret.trantout = UNSET
 	ret.errfmt_json_onsucc = UNSET
 	ret.asynccall = UNSET
@@ -134,6 +140,24 @@ func apprun(ac *atmi.ATMICtx) error {
 
 //Init function, read config (with CCTAG)
 
+func DispatchRequest(w http.ResponseWriter, req *http.Request) {
+	M_ac.TpLog(atmi.LOG_DEBUG, "Got URL [%s] getting free goroutine", req.URL)
+
+	var call HttpCall
+
+	call.w = w
+	call.req = req
+
+	nr := <-M_freechan
+
+	M_ac.TpLogInfo("Got free goroutine, nr %d", nr)
+
+	M_waitjobchan[nr] <- call
+
+	M_ac.TpLogInfo("Request successfully to %d", nr)
+
+}
+
 //Un-init function
 func appinit(ac *atmi.ATMICtx) error {
 	//runtime.LockOSThread()
@@ -142,7 +166,7 @@ func appinit(ac *atmi.ATMICtx) error {
 
 	//Setup default configuration
 	M_defaults.errors = ERRORS_DEFAULT
-	M_defaults.notimeout = NOTIMEOUT_DEFAULT
+	M_defaults.notime = NOTIMEOUT_DEFAULT
 	M_defaults.conv = CONV_DEFAULT
 	M_defaults.conv_int = CONV_INT_DEFAULT
 	M_defaults.errfmt_json_msg = ERRFMT_JSON_MSG_DEFAULT
@@ -196,10 +220,10 @@ func appinit(ac *atmi.ATMICtx) error {
 			switch fld_name {
 
 			case "workers":
-				M_workers, _ = buf.BGetInt16(u.EX_CC_VALUE, occ)
+				M_workers, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
 				break
 			case "port":
-				M_port, _ = buf.BGetInt16(u.EX_CC_VALUE, occ)
+				M_port, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
 				break
 			case "ip":
 				M_ip, _ = buf.BGetString(u.EX_CC_VALUE, occ)
@@ -247,7 +271,7 @@ func appinit(ac *atmi.ATMICtx) error {
 					tmp.url = fld_name
 					M_url_map[fld_name] = tmp
 					//Add to HTTP listener
-					http.HandleFunc(fld_name, handler)
+					http.HandleFunc(fld_name, DispatchRequest)
 				}
 				break
 			}
@@ -281,19 +305,20 @@ func appinit(ac *atmi.ATMICtx) error {
 
 func main() {
 
-	ac, err := atmi.NewATMICtx()
+	var err atmi.ATMIError
+	M_ac, err = atmi.NewATMICtx()
 
 	if nil != err {
 		fmt.Errorf("Failed to allocate cotnext!", err)
 		os.Exit(atmi.FAIL)
 	}
 
-	if err := appinit(ac); nil != err {
+	if err := appinit(M_ac); nil != err {
 		os.Exit(atmi.FAIL)
 	}
-	ac.TpLog(atmi.LOG_DEBUG, "REST Incoming init ok - serving...")
+	M_ac.TpLogDebug("REST Incoming init ok - serving...")
 
-	if err := apprun(ac); nil != err {
+	if err := apprun(M_ac); nil != err {
 		os.Exit(atmi.FAIL)
 	}
 

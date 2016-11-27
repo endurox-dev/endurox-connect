@@ -29,10 +29,12 @@ const (
 
 //Error handling type
 const (
-	ERRORS_HTTPS = 1
-	ERRORS_JSON  = 2
-	ERRORS_TEXT  = 3
-	ERRORS_RAW   = 4
+	ERRORS_HTTPS = 1 //Return error code in http
+	ERRORS_TEXT  = 2 //Return error as formatted text (from config)
+	ERRORS_RAW   = 3 //Use the raw formatting (just another kind for text)
+	ERRORS_JSON  = 4 //Contact the json fields to main respons block.
+	//Return the error code as UBF response (usable only in case if CONV_JSON2UBF used)
+	ERRORS_JSONUBF = 5
 )
 
 //Conversion types resolved

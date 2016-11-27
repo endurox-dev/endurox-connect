@@ -61,6 +61,8 @@ func GenRsp(svc *ServiceMap, w http.ResponseWriter, atmiErr *atmi.ATMIError) {
 func HandleMessage(ac *atmi.ATMICtx, w http.ResponseWriter, req *http.Request) {
 
 	var flags int64 = 0
+	var buf atmi.TypedBuffer
+	var err atmi.ATMIError
 
 	ac.TpLog(atmi.LOG_DEBUG, "Got URL [%s]", req.URL)
 	/* Send json to service */
@@ -70,9 +72,14 @@ func HandleMessage(ac *atmi.ATMICtx, w http.ResponseWriter, req *http.Request) {
 
 		body, _ := ioutil.ReadAll(req.Body)
 
-		ac.TpLogDebug("Requesting service [%s] buffer [%s]", svc, body)
+		ac.TpLogDebug("Requesting service [%s] buffer [%s]", svc.svc, body)
 
-		buf, err := ac.NewJSON(body)
+		switch svc.conv_int {
+		case CONV_JSON2UBF:
+			//Convert JSON 2 UBF...
+			buf, err = ac.NewJSON(body)
+			break
+		}
 
 		if err != nil {
 			ac.TpLogError("ATMI Error %d:[%s]\n", err.Code(), err.Message())
@@ -86,6 +93,8 @@ func HandleMessage(ac *atmi.ATMICtx, w http.ResponseWriter, req *http.Request) {
 
 		if 0 != svc.asynccall {
 			//TODO: Add error handling.
+			//In case if we have UBF, then we can send the same buffer
+			//back, but append the response with error fields.
 			if _, err := ac.TpACall(svc.svc, buf.GetBuf(),
 				flags|atmi.TPNOREPLY); err != nil {
 				w.Header().Set("Content-Type", "text/plain")

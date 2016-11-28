@@ -79,6 +79,8 @@ type ServiceMap struct {
 	asynccall          int16       `json:"asynccall"` //use tpacall()
 	conv               string      `json:"conv"`      //Conv mode
 	conv_int           int16       //Resolve conversion type
+	//Request logging classify service
+	reqlogsvc string `json:"reqlogsvc"`
 }
 
 var M_port int = atmi.FAIL
@@ -299,6 +301,9 @@ func appinit(ac *atmi.ATMICtx) error {
 
 		return errors.New("Invalid config: missing ip or port")
 	}
+
+	//TODO: If we have any global transaction service, then load the XA
+	//Drivers...
 
 	return nil
 }

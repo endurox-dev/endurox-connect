@@ -39,7 +39,8 @@ var M_waitjobchan []chan HttpCall //Wokers channels each worker by it's number h
 
 //Generate response in the service configured way...
 //@w	handler for writting response to
-func GenRsp(svc *ServiceMap, w http.ResponseWriter, atmiErr *atmi.ATMIError) {
+func GenRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc ServiceMap,
+	w http.ResponseWriter, atmiErr atmi.ATMIError) {
 
 	switch svc.errors {
 	case ERRORS_HTTPS:
@@ -58,7 +59,7 @@ func GenRsp(svc *ServiceMap, w http.ResponseWriter, atmiErr *atmi.ATMIError) {
 //@param ac	ATMI Context
 //@param w	Response writer (as usual)
 //@param req	Request message (as usual)
-func HandleMessage(ac *atmi.ATMICtx, w http.ResponseWriter, req *http.Request) {
+func HandleMessage(ac *atmi.ATMICtx, w http.ResponseWriter, req *http.Request) int {
 
 	var flags int64 = 0
 	var buf atmi.TypedBuffer
@@ -74,16 +75,78 @@ func HandleMessage(ac *atmi.ATMICtx, w http.ResponseWriter, req *http.Request) {
 
 		ac.TpLogDebug("Requesting service [%s] buffer [%s]", svc.svc, body)
 
+		//Prepare outgoing buffer...
 		switch svc.conv_int {
 		case CONV_JSON2UBF:
 			//Convert JSON 2 UBF...
-			buf, err = ac.NewJSON(body)
+
+			bufu, err1 := ac.NewUBF(1024)
+
+			if nil != err1 {
+				ac.TpLogError("failed to alloca ubf buffer %d:[%s]\n",
+					err1.Code(), err1.Message())
+				return atmi.FAIL
+			}
+
+			ac.TpLogDebug("Converting to UBF: [%s]", string(body))
+
+			if err1 := bufu.TpJSONToUBF(string(body)); err1 != nil {
+				ac.TpLogError("Failed to conver buffer to JSON %d:[%s]\n",
+					err1.Code(), err1.Message())
+
+				ac.TpLogError("Failed req: [%s]", string(body))
+				return atmi.FAIL
+			}
+
+			buf = bufu
+			break
+		case CONV_TEXT:
+			//Use request buffer as string
+
+			bufs, err1 := ac.NewString(string(body))
+
+			if nil != err1 {
+				ac.TpLogError("failed to alloc string/text buffer %d:[%s]\n",
+					err1.Code(), err1.Message())
+				return atmi.FAIL
+			}
+
+			buf = bufs
+
+			break
+		case CONV_RAW:
+			//Use request buffer as binary
+
+			bufc, err1 := ac.NewCarray(body)
+
+			if nil != err1 {
+				ac.TpLogError("failed to alloc carray/bin buffer %d:[%s]\n",
+					err1.Code(), err1.Message())
+				return atmi.FAIL
+			}
+
+			buf = bufc
+
+			break
+		case CONV_JSON:
+			//Use request buffer as JSON
+
+			bufj, err1 := ac.NewJSON(body)
+
+			if nil != err1 {
+				ac.TpLogError("failed to alloc carray/bin buffer %d:[%s]\n",
+					err1.Code(), err1.Message())
+				return atmi.FAIL
+			}
+
+			buf = bufj
+
 			break
 		}
 
 		if err != nil {
 			ac.TpLogError("ATMI Error %d:[%s]\n", err.Code(), err.Message())
-			return
+			return atmi.FAIL
 		}
 
 		if 0 != svc.notime {
@@ -91,29 +154,42 @@ func HandleMessage(ac *atmi.ATMICtx, w http.ResponseWriter, req *http.Request) {
 			flags |= atmi.TPNOTIME
 		}
 
+		//TODO: We need a support for starting global transaction
 		if 0 != svc.asynccall {
 			//TODO: Add error handling.
 			//In case if we have UBF, then we can send the same buffer
 			//back, but append the response with error fields.
-			if _, err := ac.TpACall(svc.svc, buf.GetBuf(),
-				flags|atmi.TPNOREPLY); err != nil {
-				w.Header().Set("Content-Type", "text/plain")
-				w.Write([]byte(err.Message()))
-			} else {
-				w.Header().Set("Content-Type", "text/json")
-				w.Write([]byte(buf.GetJSONText()))
-			}
+			_, err := ac.TpACall(svc.svc, buf.GetBuf(), flags|atmi.TPNOREPLY)
+
+			GenRsp(ac, buf, svc, w, err)
+
+			/*
+					flags|atmi.TPNOREPLY); err != nil {
+					w.Header().Set("Content-Type", "text/plain")
+					w.Write([]byte(err.Message()))
+				} else {
+					w.Header().Set("Content-Type", "text/json")
+					w.Write([]byte(buf.GetJSONText()))
+				}
+			*/
 
 		} else {
-			if _, err := ac.TpCall(svc.svc, buf.GetBuf(), flags); err != nil {
-				w.Header().Set("Content-Type", "text/plain")
-				w.Write([]byte(err.Message()))
-			} else {
-				w.Header().Set("Content-Type", "text/json")
-				w.Write([]byte(buf.GetJSONText()))
-			}
+			_, err := ac.TpCall(svc.svc, buf.GetBuf(), flags)
+			GenRsp(ac, buf, svc, w, err)
+
+			/*
+				if _, err := ac.TpCall(svc.svc, buf.GetBuf(), flags); err != nil {
+					w.Header().Set("Content-Type", "text/plain")
+					w.Write([]byte(err.Message()))
+				} else {
+					w.Header().Set("Content-Type", "text/json")
+					w.Write([]byte(buf.GetJSONText()))
+				}
+			*/
 		}
 	}
+
+	return atmi.SUCCEED
 }
 
 //Run the worker

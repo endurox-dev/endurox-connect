@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"ubftab"
 
 	"github.com/endurox-dev/endurox-go/tests/06_ubf_marshal/src/atmi"
 )
@@ -41,6 +42,105 @@ var M_waitjobchan []chan HttpCall //Wokers channels each worker by it's number h
 //@w	handler for writting response to
 func GenRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc ServiceMap,
 	w http.ResponseWriter, atmiErr atmi.ATMIError) {
+
+	var rsp []byte
+	var err atmi.ATMIError
+
+	//Have a common error handler
+	if nil == atmiErr {
+		err = atmi.NewCustomATMIError(atmi.TPMINVAL, "SUCCEED")
+	} else {
+		err = atmiErr
+	}
+	//Generate resposne accordingly...
+	switch svc.conv_int {
+	case CONV_JSON2UBF:
+		//Convert buffer back to JSON & send it back..
+		//But we could append the buffer with error here...
+
+		bufu, ok := buf.(*atmi.TypedUBF)
+
+		if !ok {
+			ac.TpLogError("Failed to cast TypedBuffer to TypedUBF!")
+			//Create empty buffer for generating response...
+
+			if svc.errors == ERRORS_JSONUBF {
+				bufu, _ = ac.NewUBF(1024)
+			}
+
+		}
+
+		//Add error & msg fields, if needed
+		if svc.errors == ERRORS_JSONUBF {
+			bufu.BChg(ubftab.EX_IF_ECODE, 0, err.Code())
+			bufu.BChg(ubftab.EX_IF_EMSG, 0, err.Message())
+		}
+
+		//Generate the resposne buffer...
+
+		ret, err1 := bufu.TpUBFToJSON()
+
+		if nil == err1 {
+			rsp = []byte(ret)
+		} else {
+			rsp = []byte(fmt.Sprintf("{EX_IF_ECODE:%d, EX_IF_EMSG:\"%s\"}",
+				err1.Code(), err1.Message()))
+		}
+
+		break
+	case CONV_TEXT: //This is string buffer...
+		//If there is no error & it is sync call, then just plot
+		//a buffer back
+		if 0 == svc.asynccall && atmi.TPMINVAL == err.Code() {
+
+			bufs, ok := buf.(*atmi.TypedString)
+
+			if !ok {
+				ac.TpLogError("Failed to cast buffer to TypedString")
+				err = atmi.NewCustomATMIError(atmi.TPEINVAL,
+					"Failed to cast buffer to TypedString")
+			} else {
+				//Set the bytes to string we got
+				rsp = []byte(bufs.GetString())
+			}
+		}
+
+		break
+	case CONV_RAW: //This is carray..
+		if 0 == svc.asynccall && atmi.TPMINVAL == err.Code() {
+
+			bufs, ok := buf.(*atmi.TypedCarray)
+
+			if !ok {
+				ac.TpLogError("Failed to cast buffer to TypedCarray")
+				err = atmi.NewCustomATMIError(atmi.TPEINVAL,
+					"Failed to cast buffer to TypedCarray")
+			} else {
+				//Set the bytes to string we got
+				rsp = bufs.GetBytes()
+			}
+		}
+		break
+	case CONV_JSON:
+
+		if 0 == svc.asynccall && atmi.TPMINVAL == err.Code() {
+
+			bufs, ok := buf.(*atmi.TypedJSON)
+
+			if !ok {
+				ac.TpLogError("Failed to cast buffer to TypedJSON")
+				err = atmi.NewCustomATMIError(atmi.TPEINVAL,
+					"Failed to cast buffer to ypedJSON")
+			} else {
+				//Set the bytes to string we got
+				rsp = []byte(bufs.GetJSON())
+			}
+		}
+		break
+	}
+
+	//OK Now if all ok, there is stuff in buffer (from JSONUBF) it will
+	//be there in any case, thus we do not handle that
 
 	switch svc.errors {
 	case ERRORS_HTTPS:

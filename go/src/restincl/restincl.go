@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"regexp"
+	"strconv"
 	"strings"
 	u "ubftab"
 
@@ -81,11 +83,17 @@ type ServiceMap struct {
 	conv_int           int16       //Resolve conversion type
 	//Request logging classify service
 	reqlogsvc string `json:"reqlogsvc"`
+	//Error mapping Enduro/X error code (including * for all):http error code
+	errors_fmt_http_map_str string `json:"errors_fmt_http_map"`
+	errors_fmt_http_map     map[string]int
 }
 
 var M_port int = atmi.FAIL
 var M_ip string
 var M_url_map map[string]ServiceMap
+
+//map the atmi error code (numbers + *) to some http error
+//We shall provide default mappings.
 
 var M_defaults ServiceMap
 
@@ -160,6 +168,48 @@ func DispatchRequest(w http.ResponseWriter, req *http.Request) {
 
 	M_ac.TpLogInfo("Request successfully to %d", nr)
 
+}
+
+//Map the ATMI Errors to Http errors
+//Format: <atmi_err>:<http_err>,<*>:<http_err>
+//* - means any other unmapped ATMI error
+//@param svc	Service map
+func parseHttpErrorMap(ac *atmi.ATMICtx, svc *ServiceMap) error {
+
+	ac.TpLogDebug("Splitting error mapping string [%s]",
+		svc.errors_fmt_http_map_str)
+
+	parsed := regexp.MustCompile(", *").Split(svc.errors_fmt_http_map_str, -1)
+
+	for index, element := range parsed {
+		ac.TpLogDebug("Got pair [%s] at %d", element, index)
+
+		pair := regexp.MustCompile(": *").Split(element, -1)
+
+		pair_len := len(pair)
+
+		if pair_len < 2 || pair_len > 2 {
+			ac.TpLogError("Invalid http error pair: [%s] "+
+				"parsed into %d elms", element, pair_len)
+
+			return errors.New(fmt.Sprintf("Invalid http error pair: [%s] "+
+				"parsed into %d elms", element, pair_len))
+		}
+
+		number, err := strconv.ParseInt(pair[1], 10, 0)
+
+		if err != nil {
+			ac.TpLogError("Failed to parse http error code %s (%s)",
+				pair[1], err)
+			return errors.New(fmt.Sprintf("Failed to parse http error code %s (%s)",
+				pair[1], err))
+		}
+
+		//Add to hash
+		svc.errors_fmt_http_map[pair[0]] = int(number)
+	}
+
+	return nil
 }
 
 //Un-init function
@@ -243,13 +293,19 @@ func appinit(ac *atmi.ATMICtx) error {
 				break
 			case "defaults":
 				//Override the defaults
-				json_default, err := buf.BGetByteArr(u.EX_CC_VALUE, occ)
+				json_default, _ := buf.BGetByteArr(u.EX_CC_VALUE, occ)
 
 				jerr := json.Unmarshal(json_default, &M_defaults)
 				if jerr != nil {
 					ac.TpLog(atmi.LOG_ERROR,
 						fmt.Sprintf("Failed to parse defaults: %s", jerr))
 					return jerr
+				}
+
+				if M_defaults.errors_fmt_http_map_str != "" {
+					if jerr := parseHttpErrorMap(ac, &M_defaults); err != nil {
+						return jerr
+					}
 				}
 				break
 			default:
@@ -273,6 +329,14 @@ func appinit(ac *atmi.ATMICtx) error {
 						"Got route: URL [%s] -> Service [%s]",
 						fld_name, tmp.svc)
 					tmp.url = fld_name
+
+					//Parse http errors for
+					if tmp.errors_fmt_http_map_str != "" {
+						if jerr := parseHttpErrorMap(ac, &tmp); err != nil {
+							return jerr
+						}
+					}
+
 					M_url_map[fld_name] = tmp
 					//Add to HTTP listener
 					http.HandleFunc(fld_name, DispatchRequest)

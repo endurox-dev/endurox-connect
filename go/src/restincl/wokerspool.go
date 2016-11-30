@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strconv"
 	"ubftab"
 
 	"github.com/endurox-dev/endurox-go/tests/06_ubf_marshal/src/atmi"
@@ -144,6 +145,29 @@ func GenRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc ServiceMap,
 
 	switch svc.errors {
 	case ERRORS_HTTPS:
+		var lookup map[string]int
+		//Map the resposne codes
+		if len(svc.errors_fmt_http_map) > 0 {
+			lookup = svc.errors_fmt_http_map
+		} else {
+			lookup = M_defaults.errors_fmt_http_map
+		}
+
+		estr := strconv.Itoa(err.Code())
+
+		http_code := 500
+
+		if 0 != lookup[estr] {
+			http_code = lookup[estr]
+		} else {
+			http_code = lookup["*"]
+		}
+
+		//Generate error response and pop out of the funcion
+		if 200 != http_code {
+
+		}
+
 		break
 	case ERRORS_JSON:
 		break
@@ -153,6 +177,7 @@ func GenRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc ServiceMap,
 		break
 	}
 
+	//Send resposne back (if ok...)
 }
 
 // Requesst handler

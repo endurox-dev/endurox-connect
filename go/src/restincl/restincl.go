@@ -366,8 +366,12 @@ func appinit(ac *atmi.ATMICtx) error {
 		return errors.New("Invalid config: missing ip or port")
 	}
 
-	//TODO: If we have any global transaction service, then load the XA
-	//Drivers...
+	//Add the default erorr mappings
+	if M_defaults.errors_fmt_http_map_str == "" {
+		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPESVCFAIL)] = http.StatusInternalServerError
+		//https://golang.org/src/net/http/status.go
+		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPESVCFAIL)] = http.StatusInternalServerError
+	}
 
 	return nil
 }

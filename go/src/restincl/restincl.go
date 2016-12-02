@@ -368,9 +368,66 @@ func appinit(ac *atmi.ATMICtx) error {
 
 	//Add the default erorr mappings
 	if M_defaults.errors_fmt_http_map_str == "" {
-		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPESVCFAIL)] = http.StatusInternalServerError
+
+		/*
+					Errors to map:
+
+			atmi.go:	TPEABORT      = 1
+			atmi.go:	TPEBADDESC    = 2
+			atmi.go:	TPEBLOCK      = 3
+			atmi.go:	TPEINVAL      = 4
+			atmi.go:	TPELIMIT      = 5
+			atmi.go:	TPENOENT      = 6
+			atmi.go:	TPEOS         = 7
+			atmi.go:	TPEPERM       = 8
+			atmi.go:	TPEPROTO      = 9
+			atmi.go:	TPESVCERR     = 10
+			atmi.go:	TPESVCFAIL    = 11
+			atmi.go:	TPESYSTEM     = 12
+			atmi.go:	TPETIME       = 13
+			atmi.go:	TPETRAN       = 14
+			atmi.go:	TPERMERR      = 16
+			atmi.go:	TPEITYPE      = 17
+			atmi.go:	TPEOTYPE      = 18
+			atmi.go:	TPERELEASE    = 19
+			atmi.go:	TPEHAZARD     = 20
+			atmi.go:	TPEHEURISTIC  = 21
+			atmi.go:	TPEEVENT      = 22
+			atmi.go:	TPEMATCH      = 23
+			atmi.go:	TPEDIAGNOSTIC = 24
+			atmi.go:	TPEMIB        = 25
+		*/
+
 		//https://golang.org/src/net/http/status.go
+		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPEABORT)] = http.StatusInternalServerError
+		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPEBADDESC)] = http.StatusBadRequest
+		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPEBLOCK)] = http.StatusInternalServerError
+		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPEINVAL)] = http.StatusBadRequest
+		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPELIMIT)] = http.StatusRequestEntityTooLarge
+		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPENOENT)] = http.StatusNotFound
+		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPEOS)] = http.StatusInternalServerError
+		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPEPERM)] = http.StatusUnauthorized
+		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPEPROTO)] = http.StatusBadRequest
+
+		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPESVCERR)] = http.StatusBadGateway
 		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPESVCFAIL)] = http.StatusInternalServerError
+		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPESYSTEM)] = http.StatusInternalServerError
+		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPETIME)] = http.StatusGatewayTimeout
+		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPETRAN)] = http.StatusInternalServerError
+		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPERMERR)] = http.StatusInternalServerError
+		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPEITYPE)] = http.StatusInternalServerError
+		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPEOTYPE)] = http.StatusInternalServerError
+		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPERELEASE)] = http.StatusInternalServerError
+		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPEHAZARD)] = http.StatusInternalServerError
+		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPEHEURISTIC)] = http.StatusInternalServerError
+		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPEEVENT)] = http.StatusInternalServerError
+		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPEMATCH)] = http.StatusInternalServerError
+		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPEDIAGNOSTIC)] = http.StatusInternalServerError
+		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPEMIB)] = http.StatusInternalServerError
+
+		//Anything other goes to server error.
+		M_defaults.errors_fmt_http_map["*"] = http.StatusInternalServerError
+
 	}
 
 	return nil

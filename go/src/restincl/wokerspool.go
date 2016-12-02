@@ -165,15 +165,21 @@ func GenRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc ServiceMap,
 
 		//Generate error response and pop out of the funcion
 		if 200 != http_code {
-
+			ac.TpLogWarn("Mapped response: tp %d -> http %d",
+				err.Code(), http_code)
+			w.WriteHeader(http_code)
 		}
 
 		break
 	case ERRORS_JSON:
+		//Send JSON error block, togher with buffer, if buffer empty
+		//Send simple json...
 		break
 	case ERRORS_TEXT:
+		//Send plain text
 		break
 	case ERRORS_RAW:
+		//Send plain text
 		break
 	}
 

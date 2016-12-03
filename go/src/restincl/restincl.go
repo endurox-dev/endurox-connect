@@ -175,6 +175,7 @@ func DispatchRequest(w http.ResponseWriter, req *http.Request) {
 //@param svc	Service map
 func parseHttpErrorMap(ac *atmi.ATMICtx, svc *ServiceMap) error {
 
+	svc.errors_fmt_http_map = make(map[string]int)
 	ac.TpLogDebug("Splitting error mapping string [%s]",
 		svc.errors_fmt_http_map_str)
 
@@ -253,99 +254,92 @@ func appinit(ac *atmi.ATMICtx) error {
 	buf.TpLogPrintUBF(atmi.LOG_DEBUG, "Got configuration.")
 
 	//Set the parameters (ip/port/services)
-	first := true
-	// Load in the config...
-	for {
-		//Have to loop over the key occurrences and not the whole buffer
-		if fldid, occ, err := buf.BNext(first); nil == err {
-			first = false
-			ac.TpLog(atmi.LOG_DEBUG, "BNext %d, %d", fldid, occ)
-			fld_name, err := buf.BGetString(fldid, occ)
 
-			if nil != err {
-				ac.TpLog(atmi.LOG_ERROR, "Failed to get field "+
-					"%d occ %d", fldid, occ)
-				return errors.New(err.Error())
+	occs, _ := buf.BOccur(u.EX_CC_KEY)
+	// Load in the config...
+	for occ := 0; occ < occs; occ++ {
+		ac.TpLog(atmi.LOG_DEBUG, "occ %d", occ)
+		fld_name, err := buf.BGetString(u.EX_CC_KEY, occ)
+
+		if nil != err {
+			ac.TpLog(atmi.LOG_ERROR, "Failed to get field "+
+				"%d occ %d", u.EX_CC_KEY, occ)
+			return errors.New(err.Error())
+		}
+
+		ac.TpLog(atmi.LOG_DEBUG, "Got config field [%s]", fld_name)
+
+		switch fld_name {
+
+		case "workers":
+			M_workers, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
+			break
+		case "port":
+			M_port, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
+			break
+		case "ip":
+			M_ip, _ = buf.BGetString(u.EX_CC_VALUE, occ)
+			break
+		case "tls_enable":
+			M_tls_enable, _ = buf.BGetInt16(u.EX_CC_VALUE, occ)
+			break
+		case "tls_cert_file":
+			M_tls_cert_file, _ = buf.BGetString(u.EX_CC_VALUE, occ)
+			break
+		case "tls_key_file":
+			M_tls_key_file, _ = buf.BGetString(u.EX_CC_VALUE, occ)
+			break
+		case "defaults":
+			//Override the defaults
+			json_default, _ := buf.BGetByteArr(u.EX_CC_VALUE, occ)
+
+			jerr := json.Unmarshal(json_default, &M_defaults)
+			if jerr != nil {
+				ac.TpLog(atmi.LOG_ERROR,
+					fmt.Sprintf("Failed to parse defaults: %s", jerr))
+				return jerr
 			}
 
-			ac.TpLog(atmi.LOG_DEBUG, "Got config field [%s]", fld_name)
-
-			switch fld_name {
-
-			case "workers":
-				M_workers, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
-				break
-			case "port":
-				M_port, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
-				break
-			case "ip":
-				M_ip, _ = buf.BGetString(u.EX_CC_VALUE, occ)
-				break
-			case "tls_enable":
-				M_tls_enable, _ = buf.BGetInt16(u.EX_CC_VALUE, occ)
-				break
-			case "tls_cert_file":
-				M_tls_cert_file, _ = buf.BGetString(u.EX_CC_VALUE, occ)
-				break
-			case "tls_key_file":
-				M_tls_key_file, _ = buf.BGetString(u.EX_CC_VALUE, occ)
-				break
-			case "defaults":
-				//Override the defaults
-				json_default, _ := buf.BGetByteArr(u.EX_CC_VALUE, occ)
-
-				jerr := json.Unmarshal(json_default, &M_defaults)
-				if jerr != nil {
-					ac.TpLog(atmi.LOG_ERROR,
-						fmt.Sprintf("Failed to parse defaults: %s", jerr))
+			if M_defaults.errors_fmt_http_map_str != "" {
+				if jerr := parseHttpErrorMap(ac, &M_defaults); err != nil {
 					return jerr
 				}
+			}
+			break
+		default:
+			//Assign the defaults
 
-				if M_defaults.errors_fmt_http_map_str != "" {
-					if jerr := parseHttpErrorMap(ac, &M_defaults); err != nil {
+			//Load routes...
+			if strings.HasPrefix(fld_name, "/") {
+				cfg_val, _ := buf.BGetByteArr(u.EX_CC_VALUE, occ)
+
+				tmp := M_defaults
+
+				//Override the stuff from current config
+				err := json.Unmarshal(cfg_val, &tmp)
+				if err != nil {
+					ac.TpLog(atmi.LOG_ERROR,
+						fmt.Sprintf("Failed to parse config key %s: %s",
+							fld_name, err))
+					return err
+				}
+
+				ac.TpLog(atmi.LOG_DEBUG,
+					"Got route: URL [%s] -> Service [%s]",
+					fld_name, tmp.svc)
+				tmp.url = fld_name
+
+				//Parse http errors for
+				if tmp.errors_fmt_http_map_str != "" {
+					if jerr := parseHttpErrorMap(ac, &tmp); err != nil {
 						return jerr
 					}
 				}
-				break
-			default:
-				//Assign the defaults
 
-				//Load routes...
-				if strings.HasPrefix(fld_name, "/") {
-					cfg_val, _ := buf.BGetByteArr(u.EX_CC_VALUE, occ)
-
-					tmp := M_defaults
-
-					//Override the stuff from current config
-					err := json.Unmarshal(cfg_val, &tmp)
-					if err != nil {
-						ac.TpLog(atmi.LOG_ERROR,
-							fmt.Sprintf("Failed to parse config key %s: %s",
-								fld_name, err))
-						return err
-					}
-
-					ac.TpLog(atmi.LOG_DEBUG,
-						"Got route: URL [%s] -> Service [%s]",
-						fld_name, tmp.svc)
-					tmp.url = fld_name
-
-					//Parse http errors for
-					if tmp.errors_fmt_http_map_str != "" {
-						if jerr := parseHttpErrorMap(ac, &tmp); err != nil {
-							return jerr
-						}
-					}
-
-					M_url_map[fld_name] = tmp
-					//Add to HTTP listener
-					http.HandleFunc(fld_name, DispatchRequest)
-				}
-				break
+				M_url_map[fld_name] = tmp
+				//Add to HTTP listener
+				http.HandleFunc(fld_name, DispatchRequest)
 			}
-
-		} else {
-			/* Done... */
 			break
 		}
 
@@ -399,6 +393,7 @@ func appinit(ac *atmi.ATMICtx) error {
 		*/
 
 		//https://golang.org/src/net/http/status.go
+		M_defaults.errors_fmt_http_map = make(map[string]int)
 		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPEABORT)] = http.StatusInternalServerError
 		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPEBADDESC)] = http.StatusBadRequest
 		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPEBLOCK)] = http.StatusInternalServerError
@@ -448,7 +443,8 @@ func main() {
 	if err := appinit(M_ac); nil != err {
 		os.Exit(atmi.FAIL)
 	}
-	M_ac.TpLogDebug("REST Incoming init ok - serving...")
+	M_ac.TpLog(atmi.LOG_ERROR, "REST Incoming init ok - serving... %s %d", "Y", 1)
+	M_ac.TpLogWarn("REST Incoming init ok - serving... %s %d", "Y", 2)
 
 	if err := apprun(M_ac); nil != err {
 		os.Exit(atmi.FAIL)

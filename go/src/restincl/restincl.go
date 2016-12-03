@@ -71,7 +71,6 @@ type ServiceMap struct {
 	notime           int16  `json:"notime"`
 	trantout         int64  `json:"trantout"` //If set, then using global transactions
 	errfmt_text      string `json:"errfmt_text"`
-	errfmt_raw       string `json:"errfmt_raw"`
 	errfmt_json_msg  string `json:"errfmt_json_msg"`
 	errfmt_json_code string `json:"errfmt_json_code"`
 	//If set, then generate code/message for success too
@@ -227,7 +226,6 @@ func appinit(ac *atmi.ATMICtx) error {
 	M_defaults.errfmt_json_code = ERRFMT_JSON_CODE_DEFAULT
 	M_defaults.errfmt_json_onsucc = ERRFMT_JSON_ONSUCC_DEFAULT
 	M_defaults.errfmt_text = ERRFMT_TEXT_DEFAULT
-	M_defaults.errfmt_raw = ERRFMT_RAW_DEFAULT
 	M_defaults.asynccall = ASYNCCALL_DEFAULT
 
 	M_workers = WORKERS
@@ -258,6 +256,7 @@ func appinit(ac *atmi.ATMICtx) error {
 	first := true
 	// Load in the config...
 	for {
+		//Have to loop over the key occurrences and not the whole buffer
 		if fldid, occ, err := buf.BNext(first); nil == err {
 			first = false
 			ac.TpLog(atmi.LOG_DEBUG, "BNext %d, %d", fldid, occ)
@@ -321,7 +320,8 @@ func appinit(ac *atmi.ATMICtx) error {
 					err := json.Unmarshal(cfg_val, &tmp)
 					if err != nil {
 						ac.TpLog(atmi.LOG_ERROR,
-							fmt.Sprintf("Failed to parse defaults: %s", err))
+							fmt.Sprintf("Failed to parse config key %s: %s",
+								fld_name, err))
 						return err
 					}
 

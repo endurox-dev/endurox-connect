@@ -6,9 +6,10 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"ubftab"
 
-	"github.com/endurox-dev/endurox-go/tests/06_ubf_marshal/src/atmi"
+	atmi "github.com/endurox-dev/endurox-go"
 )
 
 /*
@@ -46,6 +47,8 @@ func GenRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc ServiceMap,
 
 	var rsp []byte
 	var err atmi.ATMIError
+	/*	application/json */
+	rsp_type := "text/plain"
 
 	//Have a common error handler
 	if nil == atmiErr {
@@ -56,6 +59,7 @@ func GenRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc ServiceMap,
 	//Generate resposne accordingly...
 	switch svc.conv_int {
 	case CONV_JSON2UBF:
+		rsp_type = "text/json"
 		//Convert buffer back to JSON & send it back..
 		//But we could append the buffer with error here...
 
@@ -108,6 +112,7 @@ func GenRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc ServiceMap,
 
 		break
 	case CONV_RAW: //This is carray..
+		rsp_type = "application/octet-stream"
 		if 0 == svc.asynccall && atmi.TPMINVAL == err.Code() {
 
 			bufs, ok := buf.(*atmi.TypedCarray)
@@ -123,7 +128,7 @@ func GenRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc ServiceMap,
 		}
 		break
 	case CONV_JSON:
-
+		rsp_type = "text/json"
 		if 0 == svc.asynccall && atmi.TPMINVAL == err.Code() {
 
 			bufs, ok := buf.(*atmi.TypedJSON)
@@ -174,16 +179,43 @@ func GenRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc ServiceMap,
 	case ERRORS_JSON:
 		//Send JSON error block, togher with buffer, if buffer empty
 		//Send simple json...
+		strrsp := string(rsp)
+		if i := strings.LastIndex(strrsp, "}"); i > -1 {
+			//Add the trailing response code in JSON block
+			substring := strrsp[0:i]
+			errs := fmt.Sprintf("%s, %s}",
+				fmt.Sprintf(svc.errfmt_json_code, err.Code()),
+				fmt.Sprintf(svc.errfmt_json_code, err.Message()))
+
+			ac.TpLogWarn("Error code generated: [%s]", errs)
+			strrsp = substring + errs
+
+			ac.TpLogDebug("JSON Response generated: [%s]", strrsp)
+		} else {
+			rsp_type = "text/json"
+			//Send plaint json
+			strrsp = fmt.Sprintf("{%s, %s}",
+				fmt.Sprintf(svc.errfmt_json_code, err.Code()),
+				fmt.Sprintf(svc.errfmt_json_msg, err.Message()))
+			ac.TpLogDebug("JSON Response generated (2): [%s]", strrsp)
+		}
+
+		rsp = []byte(strrsp)
 		break
 	case ERRORS_TEXT:
 		//Send plain text
-		break
-	case ERRORS_RAW:
-		//Send plain text
+		rsp_type = "text/json"
+		//Send plaint json
+		strrsp := fmt.Sprintf(svc.errfmt_text, err.Code(), err.Message())
+		ac.TpLogDebug("TEXT Response generated (2): [%s]", strrsp)
+		rsp = []byte(strrsp)
+
 		break
 	}
 
 	//Send resposne back (if ok...)
+	w.Header().Set("Content-Type", rsp_type)
+	w.Write(rsp)
 }
 
 // Requesst handler

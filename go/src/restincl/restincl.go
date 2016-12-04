@@ -65,11 +65,12 @@ const (
 //We will have most of the settings as defaults
 //And then these settings we can override with
 type ServiceMap struct {
+	Svc string `json:"svc"`
+	//TODO: Move bello to upper case... otherwise decoder does not work.
 	url              string
-	svc              string `json:"svc"`
 	errors           int16  `json:"errors"`
-	notime           int16  `json:"notime"`
 	trantout         int64  `json:"trantout"` //If set, then using global transactions
+	notime           int16  `json:"notime"`
 	errfmt_text      string `json:"errfmt_text"`
 	errfmt_json_msg  string `json:"errfmt_json_msg"`
 	errfmt_json_code string `json:"errfmt_json_code"`
@@ -311,12 +312,19 @@ func appinit(ac *atmi.ATMICtx) error {
 
 			//Load routes...
 			if strings.HasPrefix(fld_name, "/") {
-				cfg_val, _ := buf.BGetByteArr(u.EX_CC_VALUE, occ)
+				cfg_val, _ := buf.BGetString(u.EX_CC_VALUE, occ)
+
+				ac.TpLogInfo("Got route config [%s]", cfg_val)
 
 				tmp := M_defaults
 
 				//Override the stuff from current config
-				err := json.Unmarshal(cfg_val, &tmp)
+
+				//err := json.Unmarshal(cfg_val, &tmp)
+				decoder := json.NewDecoder(strings.NewReader(cfg_val))
+				//conf := Config{}
+				err := decoder.Decode(&tmp)
+
 				if err != nil {
 					ac.TpLog(atmi.LOG_ERROR,
 						fmt.Sprintf("Failed to parse config key %s: %s",
@@ -326,7 +334,7 @@ func appinit(ac *atmi.ATMICtx) error {
 
 				ac.TpLog(atmi.LOG_DEBUG,
 					"Got route: URL [%s] -> Service [%s]",
-					fld_name, tmp.svc)
+					fld_name, tmp.Svc)
 				tmp.url = fld_name
 
 				//Parse http errors for
@@ -443,8 +451,7 @@ func main() {
 	if err := appinit(M_ac); nil != err {
 		os.Exit(atmi.FAIL)
 	}
-	M_ac.TpLog(atmi.LOG_ERROR, "REST Incoming init ok - serving... %s %d", "Y", 1)
-	M_ac.TpLogWarn("REST Incoming init ok - serving... %s %d", "Y", 2)
+	M_ac.TpLogWarn("REST Incoming init ok - serving...")
 
 	if err := apprun(M_ac); nil != err {
 		os.Exit(atmi.FAIL)

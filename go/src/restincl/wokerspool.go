@@ -232,11 +232,11 @@ func HandleMessage(ac *atmi.ATMICtx, w http.ResponseWriter, req *http.Request) i
 	/* Send json to service */
 	svc := M_url_map[req.URL.String()]
 
-	if "" != svc.svc {
+	if "" != svc.Svc {
 
 		body, _ := ioutil.ReadAll(req.Body)
 
-		ac.TpLogDebug("Requesting service [%s] buffer [%s]", svc.svc, body)
+		ac.TpLogDebug("Requesting service [%s] buffer [%s]", svc.Svc, body)
 
 		//Prepare outgoing buffer...
 		switch svc.conv_int {
@@ -322,7 +322,7 @@ func HandleMessage(ac *atmi.ATMICtx, w http.ResponseWriter, req *http.Request) i
 			//TODO: Add error handling.
 			//In case if we have UBF, then we can send the same buffer
 			//back, but append the response with error fields.
-			_, err := ac.TpACall(svc.svc, buf.GetBuf(), flags|atmi.TPNOREPLY)
+			_, err := ac.TpACall(svc.Svc, buf.GetBuf(), flags|atmi.TPNOREPLY)
 
 			GenRsp(ac, buf, svc, w, err)
 
@@ -337,7 +337,7 @@ func HandleMessage(ac *atmi.ATMICtx, w http.ResponseWriter, req *http.Request) i
 			*/
 
 		} else {
-			_, err := ac.TpCall(svc.svc, buf.GetBuf(), flags)
+			_, err := ac.TpCall(svc.Svc, buf.GetBuf(), flags)
 			GenRsp(ac, buf, svc, w, err)
 
 			/*

@@ -42,7 +42,7 @@ var M_waitjobchan []chan HttpCall //Wokers channels each worker by it's number h
 
 //Generate response in the service configured way...
 //@w	handler for writting response to
-func GenRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc ServiceMap,
+func GenRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 	w http.ResponseWriter, atmiErr atmi.ATMIError) {
 
 	var rsp []byte
@@ -57,7 +57,7 @@ func GenRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc ServiceMap,
 		err = atmiErr
 	}
 	//Generate resposne accordingly...
-	switch svc.conv_int {
+	switch svc.Conv_int {
 	case CONV_JSON2UBF:
 		rsp_type = "text/json"
 		//Convert buffer back to JSON & send it back..
@@ -69,14 +69,14 @@ func GenRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc ServiceMap,
 			ac.TpLogError("Failed to cast TypedBuffer to TypedUBF!")
 			//Create empty buffer for generating response...
 
-			if svc.errors == ERRORS_JSONUBF {
+			if svc.Errors_int == ERRORS_JSONUBF {
 				bufu, _ = ac.NewUBF(1024)
 			}
 
 		}
 
 		//Add error & msg fields, if needed
-		if svc.errors == ERRORS_JSONUBF {
+		if svc.Errors_int == ERRORS_JSONUBF {
 			bufu.BChg(ubftab.EX_IF_ECODE, 0, err.Code())
 			bufu.BChg(ubftab.EX_IF_EMSG, 0, err.Message())
 		}
@@ -96,7 +96,7 @@ func GenRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc ServiceMap,
 	case CONV_TEXT: //This is string buffer...
 		//If there is no error & it is sync call, then just plot
 		//a buffer back
-		if 0 == svc.asynccall && atmi.TPMINVAL == err.Code() {
+		if 0 == svc.Asynccall && atmi.TPMINVAL == err.Code() {
 
 			bufs, ok := buf.(*atmi.TypedString)
 
@@ -113,7 +113,7 @@ func GenRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc ServiceMap,
 		break
 	case CONV_RAW: //This is carray..
 		rsp_type = "application/octet-stream"
-		if 0 == svc.asynccall && atmi.TPMINVAL == err.Code() {
+		if 0 == svc.Asynccall && atmi.TPMINVAL == err.Code() {
 
 			bufs, ok := buf.(*atmi.TypedCarray)
 
@@ -129,7 +129,7 @@ func GenRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc ServiceMap,
 		break
 	case CONV_JSON:
 		rsp_type = "text/json"
-		if 0 == svc.asynccall && atmi.TPMINVAL == err.Code() {
+		if 0 == svc.Asynccall && atmi.TPMINVAL == err.Code() {
 
 			bufs, ok := buf.(*atmi.TypedJSON)
 
@@ -148,14 +148,14 @@ func GenRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc ServiceMap,
 	//OK Now if all ok, there is stuff in buffer (from JSONUBF) it will
 	//be there in any case, thus we do not handle that
 
-	switch svc.errors {
-	case ERRORS_HTTPS:
+	switch svc.Errors_int {
+	case ERRORS_HTTP:
 		var lookup map[string]int
 		//Map the resposne codes
-		if len(svc.errors_fmt_http_map) > 0 {
-			lookup = svc.errors_fmt_http_map
+		if len(svc.Errors_fmt_http_map) > 0 {
+			lookup = svc.Errors_fmt_http_map
 		} else {
-			lookup = M_defaults.errors_fmt_http_map
+			lookup = M_defaults.Errors_fmt_http_map
 		}
 
 		estr := strconv.Itoa(err.Code())
@@ -184,8 +184,8 @@ func GenRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc ServiceMap,
 			//Add the trailing response code in JSON block
 			substring := strrsp[0:i]
 			errs := fmt.Sprintf("%s, %s}",
-				fmt.Sprintf(svc.errfmt_json_code, err.Code()),
-				fmt.Sprintf(svc.errfmt_json_code, err.Message()))
+				fmt.Sprintf(svc.Errfmt_json_code, err.Code()),
+				fmt.Sprintf(svc.Errfmt_json_code, err.Message()))
 
 			ac.TpLogWarn("Error code generated: [%s]", errs)
 			strrsp = substring + errs
@@ -195,8 +195,8 @@ func GenRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc ServiceMap,
 			rsp_type = "text/json"
 			//Send plaint json
 			strrsp = fmt.Sprintf("{%s, %s}",
-				fmt.Sprintf(svc.errfmt_json_code, err.Code()),
-				fmt.Sprintf(svc.errfmt_json_msg, err.Message()))
+				fmt.Sprintf(svc.Errfmt_json_code, err.Code()),
+				fmt.Sprintf(svc.Errfmt_json_msg, err.Message()))
 			ac.TpLogDebug("JSON Response generated (2): [%s]", strrsp)
 		}
 
@@ -206,7 +206,7 @@ func GenRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc ServiceMap,
 		//Send plain text
 		rsp_type = "text/json"
 		//Send plaint json
-		strrsp := fmt.Sprintf(svc.errfmt_text, err.Code(), err.Message())
+		strrsp := fmt.Sprintf(svc.Errfmt_text, err.Code(), err.Message())
 		ac.TpLogDebug("TEXT Response generated (2): [%s]", strrsp)
 		rsp = []byte(strrsp)
 
@@ -222,7 +222,7 @@ func GenRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc ServiceMap,
 //@param ac	ATMI Context
 //@param w	Response writer (as usual)
 //@param req	Request message (as usual)
-func HandleMessage(ac *atmi.ATMICtx, w http.ResponseWriter, req *http.Request) int {
+func HandleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter, req *http.Request) int {
 
 	var flags int64 = 0
 	var buf atmi.TypedBuffer
@@ -230,7 +230,7 @@ func HandleMessage(ac *atmi.ATMICtx, w http.ResponseWriter, req *http.Request) i
 
 	ac.TpLog(atmi.LOG_DEBUG, "Got URL [%s]", req.URL)
 	/* Send json to service */
-	svc := M_url_map[req.URL.String()]
+	//svc := M_url_map[req.URL.String()]
 
 	if "" != svc.Svc {
 
@@ -239,7 +239,7 @@ func HandleMessage(ac *atmi.ATMICtx, w http.ResponseWriter, req *http.Request) i
 		ac.TpLogDebug("Requesting service [%s] buffer [%s]", svc.Svc, body)
 
 		//Prepare outgoing buffer...
-		switch svc.conv_int {
+		switch svc.Conv_int {
 		case CONV_JSON2UBF:
 			//Convert JSON 2 UBF...
 
@@ -312,13 +312,13 @@ func HandleMessage(ac *atmi.ATMICtx, w http.ResponseWriter, req *http.Request) i
 			return atmi.FAIL
 		}
 
-		if 0 != svc.notime {
+		if svc.Notime {
 			ac.TpLogWarn("No timeout flag for service call")
 			flags |= atmi.TPNOTIME
 		}
 
 		//TODO: We need a support for starting global transaction
-		if 0 != svc.asynccall {
+		if 0 != svc.Asynccall {
 			//TODO: Add error handling.
 			//In case if we have UBF, then we can send the same buffer
 			//back, but append the response with error fields.
@@ -363,7 +363,7 @@ func WorkerRun(mynr int) {
 	ac, err := atmi.NewATMICtx()
 
 	if nil != err {
-		fmt.Errorf("Goroutine %d Failed to allocate cotnext!", mynr, err)
+		fmt.Fprintf(os.Stderr, "Goroutine %d Failed to allocate cotnext: %s!", mynr, err)
 		os.Exit(atmi.FAIL)
 	}
 
@@ -382,12 +382,22 @@ func WorkerRun(mynr int) {
 
 		workblock := <-M_waitjobchan[mynr]
 
+		svc := M_url_map[workblock.req.URL.String()]
+
+		//TODO: Open request file if needed
+		if svc.Reqlogsvc != "" {
+			//Get the request buffer... (early?)
+			//ac.TpLogSetReqFile(data, filename, filesvc)
+		}
+
 		if !workblock.terminate {
-			HandleMessage(ac, workblock.w, workblock.req)
+			HandleMessage(ac, &svc, workblock.w, workblock.req)
 		} else {
 			terminate = true
 			ac.TpLogWarn("Thread %d got terminate message", mynr)
 		}
+
+		//TODO: Close request file if was open...
 
 	}
 }

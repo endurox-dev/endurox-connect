@@ -31,10 +31,10 @@ const (
 
 //Error handling type
 const (
-	ERRORS_HTTPS = 1 //Return error code in http
-	ERRORS_TEXT  = 2 //Return error as formatted text (from config)
-	ERRORS_RAW   = 3 //Use the raw formatting (just another kind for text)
-	ERRORS_JSON  = 4 //Contact the json fields to main respons block.
+	ERRORS_HTTP = 1 //Return error code in http
+	ERRORS_TEXT = 2 //Return error as formatted text (from config)
+	ERRORS_RAW  = 3 //Use the raw formatting (just another kind for text)
+	ERRORS_JSON = 4 //Contact the json fields to main respons block.
 	//Return the error code as UBF response (usable only in case if CONV_JSON2UBF used)
 	ERRORS_JSONUBF = 5
 )
@@ -50,7 +50,7 @@ const (
 //Defaults
 const (
 	ERRORS_DEFAULT             = ERRORS_JSON
-	NOTIMEOUT_DEFAULT          = FALSE /* we will use default timeout */
+	NOTIMEOUT_DEFAULT          = false /* we will use default timeout */
 	CONV_DEFAULT               = "json2ubf"
 	CONV_INT_DEFAULT           = CONV_JSON2UBF
 	ERRFMT_JSON_MSG_DEFAULT    = "errormsg=\"%s\""
@@ -67,25 +67,27 @@ const (
 type ServiceMap struct {
 	Svc string `json:"svc"`
 	//TODO: Move bello to upper case... otherwise decoder does not work.
-	url              string
-	errors           int16  `json:"errors"`
-	trantout         int64  `json:"trantout"` //If set, then using global transactions
-	notime           int16  `json:"notime"`
-	errfmt_text      string `json:"errfmt_text"`
-	errfmt_json_msg  string `json:"errfmt_json_msg"`
-	errfmt_json_code string `json:"errfmt_json_code"`
+	Url    string
+	Errors string `json:"errors"`
+	//Above converted to consntant
+	Errors_int       int
+	Trantout         int64  `json:"trantout"` //If set, then using global transactions
+	Notime           bool   `json:"notime"`
+	Errfmt_text      string `json:"errfmt_text"`
+	Errfmt_json_msg  string `json:"errfmt_json_msg"`
+	Errfmt_json_code string `json:"errfmt_json_code"`
 	//If set, then generate code/message for success too
-	errfmt_json_onsucc int16       `json:"errfmt_json_onsucc"`
-	errmap_http        string      `json:"errmap_http"`
-	errmap_http_hash   map[int]int //Lookup map for tp->http codes
-	asynccall          int16       `json:"asynccall"` //use tpacall()
-	conv               string      `json:"conv"`      //Conv mode
-	conv_int           int16       //Resolve conversion type
+	Errfmt_json_onsucc int16       `json:"errfmt_json_onsucc"`
+	Errmap_http        string      `json:"errmap_http"`
+	Errmap_http_hash   map[int]int //Lookup map for tp->http codes
+	Asynccall          int16       `json:"asynccall"` //use tpacall()
+	Conv               string      `json:"conv"`      //Conv mode
+	Conv_int           int16       //Resolve conversion type
 	//Request logging classify service
-	reqlogsvc string `json:"reqlogsvc"`
+	Reqlogsvc string `json:"reqlogsvc"`
 	//Error mapping Enduro/X error code (including * for all):http error code
-	errors_fmt_http_map_str string `json:"errors_fmt_http_map"`
-	errors_fmt_http_map     map[string]int
+	Errors_fmt_http_map_str string `json:"Errors_fmt_http_map"`
+	Errors_fmt_http_map     map[string]int
 }
 
 var M_port int = atmi.FAIL
@@ -115,16 +117,42 @@ var M_workers int
 var M_ac *atmi.ATMICtx //Mainly shared for logging....
 
 //Create a empy service object
+/*
 func newServiceMap() *ServiceMap {
 	var ret ServiceMap
 
-	ret.errors = UNSET
-	ret.notime = UNSET
-	ret.trantout = UNSET
-	ret.errfmt_json_onsucc = UNSET
-	ret.asynccall = UNSET
+	ret.Errors = UNSET
+	ret.Notime = UNSET
+	ret.Trantout = UNSET
+	ret.Errfmt_json_onsucc = UNSET
+	ret.Asynccall = UNSET
 	return &ret
 
+}
+*/
+
+//Remap the error from string to int constant
+//for better performance...
+func remapErrors(svc *ServiceMap) error {
+
+	switch svc.Errors {
+	case "http":
+		svc.Errors_int = ERRORS_HTTP
+		break
+	case "json":
+		svc.Errors_int = ERRORS_JSON
+		break
+	case "jsonubf":
+		svc.Errors_int = ERRORS_JSONUBF
+		break
+	case "text":
+		svc.Errors_int = ERRORS_TEXT
+		break
+	default:
+		return errors.New(fmt.Sprintf("Unsupported error type [%s]", svc.Errors))
+	}
+
+	return nil
 }
 
 //Run the listener
@@ -176,11 +204,11 @@ func DispatchRequest(w http.ResponseWriter, req *http.Request) {
 //@param svc	Service map
 func parseHttpErrorMap(ac *atmi.ATMICtx, svc *ServiceMap) error {
 
-	svc.errors_fmt_http_map = make(map[string]int)
+	svc.Errors_fmt_http_map = make(map[string]int)
 	ac.TpLogDebug("Splitting error mapping string [%s]",
-		svc.errors_fmt_http_map_str)
+		svc.Errors_fmt_http_map_str)
 
-	parsed := regexp.MustCompile(", *").Split(svc.errors_fmt_http_map_str, -1)
+	parsed := regexp.MustCompile(", *").Split(svc.Errors_fmt_http_map_str, -1)
 
 	for index, element := range parsed {
 		ac.TpLogDebug("Got pair [%s] at %d", element, index)
@@ -207,7 +235,7 @@ func parseHttpErrorMap(ac *atmi.ATMICtx, svc *ServiceMap) error {
 		}
 
 		//Add to hash
-		svc.errors_fmt_http_map[pair[0]] = int(number)
+		svc.Errors_fmt_http_map[pair[0]] = int(number)
 	}
 
 	return nil
@@ -220,15 +248,15 @@ func appinit(ac *atmi.ATMICtx) error {
 	M_url_map = make(map[string]ServiceMap)
 
 	//Setup default configuration
-	M_defaults.errors = ERRORS_DEFAULT
-	M_defaults.notime = NOTIMEOUT_DEFAULT
-	M_defaults.conv = CONV_DEFAULT
-	M_defaults.conv_int = CONV_INT_DEFAULT
-	M_defaults.errfmt_json_msg = ERRFMT_JSON_MSG_DEFAULT
-	M_defaults.errfmt_json_code = ERRFMT_JSON_CODE_DEFAULT
-	M_defaults.errfmt_json_onsucc = ERRFMT_JSON_ONSUCC_DEFAULT
-	M_defaults.errfmt_text = ERRFMT_TEXT_DEFAULT
-	M_defaults.asynccall = ASYNCCALL_DEFAULT
+	M_defaults.Errors_int = ERRORS_DEFAULT
+	M_defaults.Notime = NOTIMEOUT_DEFAULT
+	M_defaults.Conv = CONV_DEFAULT
+	M_defaults.Conv_int = CONV_INT_DEFAULT
+	M_defaults.Errfmt_json_msg = ERRFMT_JSON_MSG_DEFAULT
+	M_defaults.Errfmt_json_code = ERRFMT_JSON_CODE_DEFAULT
+	M_defaults.Errfmt_json_onsucc = ERRFMT_JSON_ONSUCC_DEFAULT
+	M_defaults.Errfmt_text = ERRFMT_TEXT_DEFAULT
+	M_defaults.Asynccall = ASYNCCALL_DEFAULT
 
 	M_workers = WORKERS
 
@@ -301,7 +329,7 @@ func appinit(ac *atmi.ATMICtx) error {
 				return jerr
 			}
 
-			if M_defaults.errors_fmt_http_map_str != "" {
+			if M_defaults.Errors_fmt_http_map_str != "" {
 				if jerr := parseHttpErrorMap(ac, &M_defaults); err != nil {
 					return jerr
 				}
@@ -335,10 +363,10 @@ func appinit(ac *atmi.ATMICtx) error {
 				ac.TpLog(atmi.LOG_DEBUG,
 					"Got route: URL [%s] -> Service [%s]",
 					fld_name, tmp.Svc)
-				tmp.url = fld_name
+				tmp.Url = fld_name
 
 				//Parse http errors for
-				if tmp.errors_fmt_http_map_str != "" {
+				if tmp.Errors_fmt_http_map_str != "" {
 					if jerr := parseHttpErrorMap(ac, &tmp); err != nil {
 						return jerr
 					}
@@ -369,7 +397,7 @@ func appinit(ac *atmi.ATMICtx) error {
 	}
 
 	//Add the default erorr mappings
-	if M_defaults.errors_fmt_http_map_str == "" {
+	if M_defaults.Errors_fmt_http_map_str == "" {
 
 		/*
 					Errors to map:
@@ -401,35 +429,35 @@ func appinit(ac *atmi.ATMICtx) error {
 		*/
 
 		//https://golang.org/src/net/http/status.go
-		M_defaults.errors_fmt_http_map = make(map[string]int)
-		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPEABORT)] = http.StatusInternalServerError
-		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPEBADDESC)] = http.StatusBadRequest
-		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPEBLOCK)] = http.StatusInternalServerError
-		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPEINVAL)] = http.StatusBadRequest
-		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPELIMIT)] = http.StatusRequestEntityTooLarge
-		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPENOENT)] = http.StatusNotFound
-		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPEOS)] = http.StatusInternalServerError
-		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPEPERM)] = http.StatusUnauthorized
-		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPEPROTO)] = http.StatusBadRequest
+		M_defaults.Errors_fmt_http_map = make(map[string]int)
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEABORT)] = http.StatusInternalServerError
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEBADDESC)] = http.StatusBadRequest
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEBLOCK)] = http.StatusInternalServerError
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEINVAL)] = http.StatusBadRequest
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPELIMIT)] = http.StatusRequestEntityTooLarge
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPENOENT)] = http.StatusNotFound
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEOS)] = http.StatusInternalServerError
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEPERM)] = http.StatusUnauthorized
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEPROTO)] = http.StatusBadRequest
 
-		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPESVCERR)] = http.StatusBadGateway
-		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPESVCFAIL)] = http.StatusInternalServerError
-		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPESYSTEM)] = http.StatusInternalServerError
-		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPETIME)] = http.StatusGatewayTimeout
-		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPETRAN)] = http.StatusInternalServerError
-		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPERMERR)] = http.StatusInternalServerError
-		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPEITYPE)] = http.StatusInternalServerError
-		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPEOTYPE)] = http.StatusInternalServerError
-		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPERELEASE)] = http.StatusInternalServerError
-		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPEHAZARD)] = http.StatusInternalServerError
-		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPEHEURISTIC)] = http.StatusInternalServerError
-		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPEEVENT)] = http.StatusInternalServerError
-		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPEMATCH)] = http.StatusInternalServerError
-		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPEDIAGNOSTIC)] = http.StatusInternalServerError
-		M_defaults.errors_fmt_http_map[strconv.Itoa(atmi.TPEMIB)] = http.StatusInternalServerError
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPESVCERR)] = http.StatusBadGateway
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPESVCFAIL)] = http.StatusInternalServerError
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPESYSTEM)] = http.StatusInternalServerError
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPETIME)] = http.StatusGatewayTimeout
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPETRAN)] = http.StatusInternalServerError
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPERMERR)] = http.StatusInternalServerError
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEITYPE)] = http.StatusInternalServerError
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEOTYPE)] = http.StatusInternalServerError
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPERELEASE)] = http.StatusInternalServerError
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEHAZARD)] = http.StatusInternalServerError
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEHEURISTIC)] = http.StatusInternalServerError
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEEVENT)] = http.StatusInternalServerError
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEMATCH)] = http.StatusInternalServerError
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEDIAGNOSTIC)] = http.StatusInternalServerError
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEMIB)] = http.StatusInternalServerError
 
 		//Anything other goes to server error.
-		M_defaults.errors_fmt_http_map["*"] = http.StatusInternalServerError
+		M_defaults.Errors_fmt_http_map["*"] = http.StatusInternalServerError
 
 	}
 
@@ -444,7 +472,7 @@ func main() {
 	M_ac, err = atmi.NewATMICtx()
 
 	if nil != err {
-		fmt.Errorf("Failed to allocate cotnext!", err)
+		fmt.Fprintf(os.Stderr, "Failed to allocate cotnext %s!\n", err)
 		os.Exit(atmi.FAIL)
 	}
 

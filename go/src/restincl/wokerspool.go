@@ -30,7 +30,7 @@ Workes will wait on <-M_waitjobchan[M_workers], when complete they will do Nr ->
 */
 
 //Needed for channel work submit
-type HttpCall struct {
+type HTTPCall struct {
 	w         http.ResponseWriter
 	req       *http.Request
 	terminate bool //Sent packet when thread should terminate
@@ -38,7 +38,7 @@ type HttpCall struct {
 
 var M_freechan chan int //List of free channels submitted by wokers
 
-var M_waitjobchan []chan HttpCall //Wokers channels each worker by it's number have a channel
+var M_waitjobchan []chan HTTPCall //Wokers channels each worker by it's number have a channel
 
 //Generate response in the service configured way...
 //@w	handler for writting response to
@@ -227,7 +227,7 @@ func HandleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter, req
 	var flags int64 = 0
 	var buf atmi.TypedBuffer
 	var err atmi.ATMIError
-
+	reqlogOpen := false
 	ac.TpLog(atmi.LOG_DEBUG, "Got URL [%s]", req.URL)
 	/* Send json to service */
 	//svc := M_url_map[req.URL.String()]
@@ -236,7 +236,7 @@ func HandleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter, req
 
 		body, _ := ioutil.ReadAll(req.Body)
 
-		ac.TpLogDebug("Requesting service [%s] buffer [%s]", svc.Svc, body)
+		ac.TpLogDebug("Requesting service [%s] buffer [%s]", svc.Svc, string(body))
 
 		//Prepare outgoing buffer...
 		switch svc.Conv_int {
@@ -251,7 +251,7 @@ func HandleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter, req
 				return atmi.FAIL
 			}
 
-			ac.TpLogDebug("Converting to UBF: [%s]", string(body))
+			ac.TpLogDebug("Converting to UBF: [%s]", body)
 
 			if err1 := bufu.TpJSONToUBF(string(body)); err1 != nil {
 				ac.TpLogError("Failed to conver buffer to JSON %d:[%s]\n",
@@ -317,6 +317,19 @@ func HandleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter, req
 			flags |= atmi.TPNOTIME
 		}
 
+		//Open then PAN file if needed & buffer type is UBF
+		var btype string
+
+		if "" != svc.Reqlogsvc {
+			if _, err := buf.GetBuf().TpTypes(&btype, nil); err == nil {
+				ac.TpLogDebug("UBF buffer - requesting logfile from %s", svc.Reqlogsvc)
+
+				if err := ac.TpLogSetReqFile(buf.GetBuf(), "", svc.Reqlogsvc); err == nil {
+					reqlogOpen = true
+				}
+			}
+		}
+
 		//TODO: We need a support for starting global transaction
 		if 0 != svc.Asynccall {
 			//TODO: Add error handling.
@@ -352,6 +365,10 @@ func HandleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter, req
 		}
 	}
 
+	if reqlogOpen {
+		ac.TpLogCloseReqFile()
+	}
+
 	return atmi.SUCCEED
 }
 
@@ -384,11 +401,7 @@ func WorkerRun(mynr int) {
 
 		svc := M_url_map[workblock.req.URL.String()]
 
-		//TODO: Open request file if needed
-		if svc.Reqlogsvc != "" {
-			//Get the request buffer... (early?)
-			//ac.TpLogSetReqFile(data, filename, filesvc)
-		}
+		ac.TpLogDebug("Worker %d got workblock", mynr)
 
 		if !workblock.terminate {
 			HandleMessage(ac, &svc, workblock.w, workblock.req)
@@ -396,9 +409,6 @@ func WorkerRun(mynr int) {
 			terminate = true
 			ac.TpLogWarn("Thread %d got terminate message", mynr)
 		}
-
-		//TODO: Close request file if was open...
-
 	}
 }
 
@@ -408,7 +418,7 @@ func InitPool() {
 	M_freechan = make(chan int)
 
 	for i := 0; i < M_workers; i++ {
-		var callHanlder chan HttpCall
+		callHanlder := make(chan HTTPCall, 1000)
 		M_waitjobchan = append(M_waitjobchan, callHanlder)
 		go WorkerRun(i)
 	}

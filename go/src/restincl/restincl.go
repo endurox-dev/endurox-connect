@@ -181,9 +181,9 @@ func apprun(ac *atmi.ATMICtx) error {
 //Init function, read config (with CCTAG)
 
 func DispatchRequest(w http.ResponseWriter, req *http.Request) {
-	M_ac.TpLog(atmi.LOG_DEBUG, "Got URL [%s] getting free goroutine", req.URL)
+	M_ac.TpLog(atmi.LOG_DEBUG, "URL [%s] getting free goroutine", req.URL)
 
-	var call HttpCall
+	var call HTTPCall
 
 	call.w = w
 	call.req = req
@@ -460,6 +460,10 @@ func appinit(ac *atmi.ATMICtx) error {
 		M_defaults.Errors_fmt_http_map["*"] = http.StatusInternalServerError
 
 	}
+
+	ac.TpLogInfo("About to init woker pool, number of workers: %d", M_workers)
+
+	InitPool()
 
 	return nil
 }

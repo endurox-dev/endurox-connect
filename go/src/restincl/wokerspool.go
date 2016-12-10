@@ -62,7 +62,7 @@ func GenRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 	//Generate resposne accordingly...
 	switch svc.Conv_int {
 	case CONV_JSON2UBF:
-		rsp_type = "text/json"
+		//rsp_type = "text/json"
 		//Convert buffer back to JSON & send it back..
 		//But we could append the buffer with error here...
 
@@ -227,7 +227,7 @@ func GenRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 		break
 	case ERRORS_TEXT:
 		//Send plain text
-		rsp_type = "text/json"
+		//rsp_type = "text/json"
 		//Send plaint json
 		strrsp := fmt.Sprintf(svc.Errfmt_text, err.Code(), err.Message())
 		ac.TpLogDebug("TEXT Response generated (2): [%s]", strrsp)
@@ -238,10 +238,14 @@ func GenRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 
 	//Send resposne back (if ok...)
 	ac.TpLogDebug("Returning context type: %s", rsp_type)
-	w.Header().Set("Content-Type", rsp_type)
+	//w.Header().Set("Content-Type", rsp_type)
 
 	ac.TpLogDump(atmi.LOG_INFO, "Sending response back", rsp, len(rsp))
+	//w.Write(rsp)
+	//w.Write([]byte("Hello world!!!!"))
+	w.Header().Set("Content-Length", strconv.Itoa(len(rsp)))
 	w.Write(rsp)
+	//fmt.Fprintf(w, "Hello, world")
 }
 
 // Requesst handler

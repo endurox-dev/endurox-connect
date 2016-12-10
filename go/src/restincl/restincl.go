@@ -12,9 +12,11 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
 	"regexp"
 	"strconv"
 	"strings"
+	"syscall"
 	u "ubftab"
 
 	atmi "github.com/endurox-dev/endurox-go"
@@ -37,7 +39,7 @@ const (
 	ERRORS_RAW  = 3 //Use the raw formatting (just another kind for text)
 	ERRORS_JSON = 4 //Contact the json fields to main respons block.
 	//Return the error code as UBF response (usable only in case if CONV_JSON2UBF used)
-	ERRORS_JSONUBF = 5
+	ERRORS_JSON2UBF = 5
 )
 
 //Conversion types resolved
@@ -56,7 +58,7 @@ const (
 	CONV_INT_DEFAULT           = CONV_JSON2UBF
 	ERRFMT_JSON_MSG_DEFAULT    = "errormsg=\"%s\""
 	ERRFMT_JSON_CODE_DEFAULT   = "errorcode=\"%d\""
-	ERRFMT_JSON_ONSUCC_DEFAULT = TRUE /* generate success message in JSON */
+	ERRFMT_JSON_ONSUCC_DEFAULT = true /* generate success message in JSON */
 	ERRFMT_TEXT_DEFAULT        = "%d: %s"
 	ERRFMT_RAW_DEFAULT         = "%d: %s"
 	ASYNCCALL_DEFAULT          = FALSE
@@ -66,8 +68,7 @@ const (
 //We will have most of the settings as defaults
 //And then these settings we can override with
 type ServiceMap struct {
-	Svc string `json:"svc"`
-	//TODO: Move bello to upper case... otherwise decoder does not work.
+	Svc    string `json:"svc"`
 	Url    string
 	Errors string `json:"errors"`
 	//Above converted to consntant
@@ -78,12 +79,12 @@ type ServiceMap struct {
 	Errfmt_json_msg  string `json:"errfmt_json_msg"`
 	Errfmt_json_code string `json:"errfmt_json_code"`
 	//If set, then generate code/message for success too
-	Errfmt_json_onsucc int16       `json:"errfmt_json_onsucc"`
+	Errfmt_json_onsucc bool        `json:"errfmt_json_onsucc"`
 	Errmap_http        string      `json:"errmap_http"`
 	Errmap_http_hash   map[int]int //Lookup map for tp->http codes
 	Asynccall          int16       `json:"asynccall"` //use tpacall()
 	Conv               string      `json:"conv"`      //Conv mode
-	Conv_int           int16       //Resolve conversion type
+	Conv_int           int         //Resolve conversion type
 	//Request logging classify service
 	Reqlogsvc string `json:"reqlogsvc"`
 	//Error mapping Enduro/X error code (including * for all):http error code
@@ -117,21 +118,6 @@ var M_convs = map[string]int{
 var M_workers int
 var M_ac *atmi.ATMICtx //Mainly shared for logging....
 
-//Create a empy service object
-/*
-func newServiceMap() *ServiceMap {
-	var ret ServiceMap
-
-	ret.Errors = UNSET
-	ret.Notime = UNSET
-	ret.Trantout = UNSET
-	ret.Errfmt_json_onsucc = UNSET
-	ret.Asynccall = UNSET
-	return &ret
-
-}
-*/
-
 //Remap the error from string to int constant
 //for better performance...
 func remapErrors(svc *ServiceMap) error {
@@ -143,14 +129,14 @@ func remapErrors(svc *ServiceMap) error {
 	case "json":
 		svc.Errors_int = ERRORS_JSON
 		break
-	case "jsonubf":
-		svc.Errors_int = ERRORS_JSONUBF
+	case "json2ubf":
+		svc.Errors_int = ERRORS_JSON2UBF
 		break
 	case "text":
 		svc.Errors_int = ERRORS_TEXT
 		break
 	default:
-		return errors.New(fmt.Sprintf("Unsupported error type [%s]", svc.Errors))
+		return fmt.Errorf("Unsupported error type [%s]", svc.Errors)
 	}
 
 	return nil
@@ -161,18 +147,18 @@ func apprun(ac *atmi.ATMICtx) error {
 
 	var err error
 	//TODO: Some works needed for TLS...
-	listen_on := fmt.Sprintf("%s:%d", M_ip, M_port)
+	listenOn := fmt.Sprintf("%s:%d", M_ip, M_port)
 	ac.TpLog(atmi.LOG_INFO, "About to listen on: (ip: %s, port: %d) %s",
-		M_ip, M_port, listen_on)
+		M_ip, M_port, listenOn)
 	if TRUE == M_tls_enable {
 
 		/* To prepare cert (self-signed) do following steps:
 		 * - TODO
 		 */
-		err := http.ListenAndServeTLS(listen_on, M_tls_cert_file, M_tls_key_file, nil)
+		err := http.ListenAndServeTLS(listenOn, M_tls_cert_file, M_tls_key_file, nil)
 		ac.TpLog(atmi.LOG_ERROR, "ListenAndServeTLS() failed: %s", err)
 	} else {
-		err := http.ListenAndServe(listen_on, nil)
+		err := http.ListenAndServe(listenOn, nil)
 		ac.TpLog(atmi.LOG_ERROR, "ListenAndServe() failed: %s", err)
 	}
 
@@ -181,25 +167,16 @@ func apprun(ac *atmi.ATMICtx) error {
 
 //Init function, read config (with CCTAG)
 
-func DispatchRequest(w http.ResponseWriter, req *http.Request) {
+func dispatchRequest(w http.ResponseWriter, req *http.Request) {
 	M_ac.TpLog(atmi.LOG_DEBUG, "URL [%s] getting free goroutine", req.URL)
 
-	var call HTTPCall
-
-	call.w = w
-	call.req = req
-
-	//	nr := <-M_freechan
 	nr := <-M_freechan
 
 	svc := M_url_map[req.URL.String()]
 
 	M_ac.TpLogInfo("Got free goroutine, nr %d", nr)
 
-	//M_waitjobchan[nr] <- call
-	//Get the free ATMI context
-
-	HandleMessage(M_ctxs[nr], &svc, w, req)
+	handleMessage(M_ctxs[nr], &svc, w, req)
 
 	M_ac.TpLogInfo("Request processing done %d... releasing the context", nr)
 
@@ -211,7 +188,7 @@ func DispatchRequest(w http.ResponseWriter, req *http.Request) {
 //Format: <atmi_err>:<http_err>,<*>:<http_err>
 //* - means any other unmapped ATMI error
 //@param svc	Service map
-func parseHttpErrorMap(ac *atmi.ATMICtx, svc *ServiceMap) error {
+func parseHTTPErrorMap(ac *atmi.ATMICtx, svc *ServiceMap) error {
 
 	svc.Errors_fmt_http_map = make(map[string]int)
 	ac.TpLogDebug("Splitting error mapping string [%s]",
@@ -224,14 +201,14 @@ func parseHttpErrorMap(ac *atmi.ATMICtx, svc *ServiceMap) error {
 
 		pair := regexp.MustCompile(": *").Split(element, -1)
 
-		pair_len := len(pair)
+		pairLen := len(pair)
 
-		if pair_len < 2 || pair_len > 2 {
+		if pairLen < 2 || pairLen > 2 {
 			ac.TpLogError("Invalid http error pair: [%s] "+
-				"parsed into %d elms", element, pair_len)
+				"parsed into %d elms", element, pairLen)
 
-			return errors.New(fmt.Sprintf("Invalid http error pair: [%s] "+
-				"parsed into %d elms", element, pair_len))
+			return fmt.Errorf("Invalid http error pair: [%s] "+
+				"parsed into %d elms", element, pairLen)
 		}
 
 		number, err := strconv.ParseInt(pair[1], 10, 0)
@@ -239,8 +216,8 @@ func parseHttpErrorMap(ac *atmi.ATMICtx, svc *ServiceMap) error {
 		if err != nil {
 			ac.TpLogError("Failed to parse http error code %s (%s)",
 				pair[1], err)
-			return errors.New(fmt.Sprintf("Failed to parse http error code %s (%s)",
-				pair[1], err))
+			return fmt.Errorf("Failed to parse http error code %s (%s)",
+				pair[1], err)
 		}
 
 		//Add to hash
@@ -297,7 +274,7 @@ func appinit(ac *atmi.ATMICtx) error {
 	// Load in the config...
 	for occ := 0; occ < occs; occ++ {
 		ac.TpLog(atmi.LOG_DEBUG, "occ %d", occ)
-		fld_name, err := buf.BGetString(u.EX_CC_KEY, occ)
+		fldName, err := buf.BGetString(u.EX_CC_KEY, occ)
 
 		if nil != err {
 			ac.TpLog(atmi.LOG_ERROR, "Failed to get field "+
@@ -305,9 +282,9 @@ func appinit(ac *atmi.ATMICtx) error {
 			return errors.New(err.Error())
 		}
 
-		ac.TpLog(atmi.LOG_DEBUG, "Got config field [%s]", fld_name)
+		ac.TpLog(atmi.LOG_DEBUG, "Got config field [%s]", fldName)
 
-		switch fld_name {
+		switch fldName {
 
 		case "workers":
 			M_workers, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
@@ -329,9 +306,9 @@ func appinit(ac *atmi.ATMICtx) error {
 			break
 		case "defaults":
 			//Override the defaults
-			json_default, _ := buf.BGetByteArr(u.EX_CC_VALUE, occ)
+			jsonDefault, _ := buf.BGetByteArr(u.EX_CC_VALUE, occ)
 
-			jerr := json.Unmarshal(json_default, &M_defaults)
+			jerr := json.Unmarshal(jsonDefault, &M_defaults)
 			if jerr != nil {
 				ac.TpLog(atmi.LOG_ERROR,
 					fmt.Sprintf("Failed to parse defaults: %s", jerr))
@@ -339,51 +316,69 @@ func appinit(ac *atmi.ATMICtx) error {
 			}
 
 			if M_defaults.Errors_fmt_http_map_str != "" {
-				if jerr := parseHttpErrorMap(ac, &M_defaults); err != nil {
+				if jerr := parseHTTPErrorMap(ac, &M_defaults); err != nil {
 					return jerr
 				}
 			}
+
+			remapErrors(&M_defaults)
+
+			M_defaults.Conv_int = M_convs[M_defaults.Conv]
+			if M_defaults.Conv_int == 0 {
+				return fmt.Errorf("Invalid conv: %s", M_defaults.Conv)
+			}
+
 			break
 		default:
 			//Assign the defaults
 
 			//Load routes...
-			if strings.HasPrefix(fld_name, "/") {
-				cfg_val, _ := buf.BGetString(u.EX_CC_VALUE, occ)
+			if strings.HasPrefix(fldName, "/") {
+				cfgVal, _ := buf.BGetString(u.EX_CC_VALUE, occ)
 
-				ac.TpLogInfo("Got route config [%s]", cfg_val)
+				ac.TpLogInfo("Got route config [%s]", cfgVal)
 
 				tmp := M_defaults
 
 				//Override the stuff from current config
 
-				//err := json.Unmarshal(cfg_val, &tmp)
-				decoder := json.NewDecoder(strings.NewReader(cfg_val))
+				//err := json.Unmarshal(cfgVal, &tmp)
+				decoder := json.NewDecoder(strings.NewReader(cfgVal))
 				//conf := Config{}
 				err := decoder.Decode(&tmp)
 
 				if err != nil {
 					ac.TpLog(atmi.LOG_ERROR,
 						fmt.Sprintf("Failed to parse config key %s: %s",
-							fld_name, err))
+							fldName, err))
 					return err
 				}
 
 				ac.TpLog(atmi.LOG_DEBUG,
 					"Got route: URL [%s] -> Service [%s]",
-					fld_name, tmp.Svc)
-				tmp.Url = fld_name
+					fldName, tmp.Svc)
+				tmp.Url = fldName
 
 				//Parse http errors for
 				if tmp.Errors_fmt_http_map_str != "" {
-					if jerr := parseHttpErrorMap(ac, &tmp); err != nil {
+					if jerr := parseHTTPErrorMap(ac, &tmp); err != nil {
 						return jerr
 					}
 				}
 
-				M_url_map[fld_name] = tmp
+				remapErrors(&tmp)
+				//Map the conv
+				tmp.Conv_int = M_convs[tmp.Conv]
+
+				if tmp.Conv_int == 0 {
+					return fmt.Errorf("Invalid conv: %s", tmp.Conv)
+				}
+
+				M_url_map[fldName] = tmp
+
 				//Add to HTTP listener
-				http.HandleFunc(fld_name, DispatchRequest)
+				http.HandleFunc(fldName, dispatchRequest)
+
 			}
 			break
 		}
@@ -408,37 +403,11 @@ func appinit(ac *atmi.ATMICtx) error {
 	//Add the default erorr mappings
 	if M_defaults.Errors_fmt_http_map_str == "" {
 
-		/*
-					Errors to map:
-
-			atmi.go:	TPEABORT      = 1
-			atmi.go:	TPEBADDESC    = 2
-			atmi.go:	TPEBLOCK      = 3
-			atmi.go:	TPEINVAL      = 4
-			atmi.go:	TPELIMIT      = 5
-			atmi.go:	TPENOENT      = 6
-			atmi.go:	TPEOS         = 7
-			atmi.go:	TPEPERM       = 8
-			atmi.go:	TPEPROTO      = 9
-			atmi.go:	TPESVCERR     = 10
-			atmi.go:	TPESVCFAIL    = 11
-			atmi.go:	TPESYSTEM     = 12
-			atmi.go:	TPETIME       = 13
-			atmi.go:	TPETRAN       = 14
-			atmi.go:	TPERMERR      = 16
-			atmi.go:	TPEITYPE      = 17
-			atmi.go:	TPEOTYPE      = 18
-			atmi.go:	TPERELEASE    = 19
-			atmi.go:	TPEHAZARD     = 20
-			atmi.go:	TPEHEURISTIC  = 21
-			atmi.go:	TPEEVENT      = 22
-			atmi.go:	TPEMATCH      = 23
-			atmi.go:	TPEDIAGNOSTIC = 24
-			atmi.go:	TPEMIB        = 25
-		*/
-
 		//https://golang.org/src/net/http/status.go
 		M_defaults.Errors_fmt_http_map = make(map[string]int)
+		//Accepted
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPMINVAL)] = http.StatusOK
+		//Errors:
 		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEABORT)] = http.StatusInternalServerError
 		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEBADDESC)] = http.StatusBadRequest
 		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEBLOCK)] = http.StatusInternalServerError
@@ -448,7 +417,6 @@ func appinit(ac *atmi.ATMICtx) error {
 		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEOS)] = http.StatusInternalServerError
 		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEPERM)] = http.StatusUnauthorized
 		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEPROTO)] = http.StatusBadRequest
-
 		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPESVCERR)] = http.StatusBadGateway
 		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPESVCFAIL)] = http.StatusInternalServerError
 		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPESYSTEM)] = http.StatusInternalServerError
@@ -472,9 +440,38 @@ func appinit(ac *atmi.ATMICtx) error {
 
 	ac.TpLogInfo("About to init woker pool, number of workers: %d", M_workers)
 
-	InitPool(ac)
+	initPool(ac)
 
 	return nil
+}
+
+//Un-init & Terminate the application
+func unInit(ac *atmi.ATMICtx, retCode int) {
+
+	for i := 0; i < M_workers; i++ {
+		nr := <-M_freechan
+
+		ac.TpLogWarn("Terminating %d context", nr)
+		M_ctxs[nr].TpTerm()
+		M_ctxs[nr].FreeATMICtx()
+	}
+
+	ac.TpTerm()
+	ac.FreeATMICtx()
+	os.Exit(retCode)
+}
+
+//Handle the shutdown
+func handleShutdown(ac *atmi.ATMICtx) {
+	signalChannel := make(chan os.Signal, 2)
+	signal.Notify(signalChannel, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		sig := <-signalChannel
+		//Shutdown all contexts...
+		ac.TpLogWarn("Got signal %d - shutting down all XATMI client contexts",
+			sig)
+		unInit(ac, atmi.SUCCEED)
+	}()
 }
 
 //Service Main
@@ -492,11 +489,14 @@ func main() {
 	if err := appinit(M_ac); nil != err {
 		os.Exit(atmi.FAIL)
 	}
+
+	handleShutdown(M_ac)
+
 	M_ac.TpLogWarn("REST Incoming init ok - serving...")
 
 	if err := apprun(M_ac); nil != err {
-		os.Exit(atmi.FAIL)
+		unInit(M_ac, atmi.FAIL)
 	}
 
-	os.Exit(atmi.SUCCEED)
+	unInit(M_ac, atmi.SUCCEED)
 }

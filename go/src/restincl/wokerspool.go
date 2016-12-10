@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 	"ubftab"
@@ -38,7 +37,11 @@ type HTTPCall struct {
 
 var M_freechan chan int //List of free channels submitted by wokers
 
+var M_ctxs []*atmi.ATMICtx //List of contexts
+
+/*
 var M_waitjobchan []chan HTTPCall //Wokers channels each worker by it's number have a channel
+*/
 
 //Generate response in the service configured way...
 //@w	handler for writting response to
@@ -69,27 +72,38 @@ func GenRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 			ac.TpLogError("Failed to cast TypedBuffer to TypedUBF!")
 			//Create empty buffer for generating response...
 
-			if svc.Errors_int == ERRORS_JSONUBF {
-				bufu, _ = ac.NewUBF(1024)
+			if err.Code() == atmi.TPMINVAL {
+				err = atmi.NewCustomATMIError(atmi.TPESYSTEM, "Invalid buffer")
 			}
 
-		}
-
-		//Add error & msg fields, if needed
-		if svc.Errors_int == ERRORS_JSONUBF {
-			bufu.BChg(ubftab.EX_IF_ECODE, 0, err.Code())
-			bufu.BChg(ubftab.EX_IF_EMSG, 0, err.Message())
-		}
-
-		//Generate the resposne buffer...
-
-		ret, err1 := bufu.TpUBFToJSON()
-
-		if nil == err1 {
-			rsp = []byte(ret)
+			if svc.Errors_int == ERRORS_JSONUBF {
+				rsp = []byte(fmt.Sprintf("{EX_IF_ECODE:%d, EX_IF_EMSG:\"%s\"}",
+					err.Code(), err.Message()))
+			}
 		} else {
-			rsp = []byte(fmt.Sprintf("{EX_IF_ECODE:%d, EX_IF_EMSG:\"%s\"}",
-				err1.Code(), err1.Message()))
+
+			if svc.Errors_int == ERRORS_JSONUBF {
+				bufu.BChg(ubftab.EX_IF_ECODE, 0, err.Code())
+				bufu.BChg(ubftab.EX_IF_EMSG, 0, err.Message())
+			}
+
+			ret, err1 := bufu.TpUBFToJSON()
+
+			if nil == err1 {
+				//Generate the resposne buffer...
+				rsp = []byte(ret)
+			} else {
+
+				if err.Code() == atmi.TPMINVAL {
+					err = err1
+				}
+
+				if svc.Errors_int == ERRORS_JSONUBF {
+					rsp = []byte(fmt.Sprintf("{EX_IF_ECODE:%d, EX_IF_EMSG:\"%s\"}",
+						err1.Code(), err1.Message()))
+				}
+
+			}
 		}
 
 		break
@@ -102,8 +116,11 @@ func GenRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 
 			if !ok {
 				ac.TpLogError("Failed to cast buffer to TypedString")
-				err = atmi.NewCustomATMIError(atmi.TPEINVAL,
-					"Failed to cast buffer to TypedString")
+
+				if err.Code() == atmi.TPMINVAL {
+					err = atmi.NewCustomATMIError(atmi.TPEINVAL,
+						"Failed to cast buffer to TypedString")
+				}
 			} else {
 				//Set the bytes to string we got
 				rsp = []byte(bufs.GetString())
@@ -119,8 +136,11 @@ func GenRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 
 			if !ok {
 				ac.TpLogError("Failed to cast buffer to TypedCarray")
-				err = atmi.NewCustomATMIError(atmi.TPEINVAL,
-					"Failed to cast buffer to TypedCarray")
+
+				if err.Code() == atmi.TPMINVAL {
+					err = atmi.NewCustomATMIError(atmi.TPEINVAL,
+						"Failed to cast buffer to TypedCarray")
+				}
 			} else {
 				//Set the bytes to string we got
 				rsp = bufs.GetBytes()
@@ -138,8 +158,11 @@ func GenRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 				err = atmi.NewCustomATMIError(atmi.TPEINVAL,
 					"Failed to cast buffer to ypedJSON")
 			} else {
-				//Set the bytes to string we got
-				rsp = []byte(bufs.GetJSON())
+
+				if err.Code() == atmi.TPMINVAL {
+					//Set the bytes to string we got
+					rsp = []byte(bufs.GetJSON())
+				}
 			}
 		}
 		break
@@ -214,7 +237,10 @@ func GenRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 	}
 
 	//Send resposne back (if ok...)
+	ac.TpLogDebug("Returning context type: %s", rsp_type)
 	w.Header().Set("Content-Type", rsp_type)
+
+	ac.TpLogDump(atmi.LOG_INFO, "Sending response back", rsp, len(rsp))
 	w.Write(rsp)
 }
 
@@ -248,6 +274,8 @@ func HandleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter, req
 			if nil != err1 {
 				ac.TpLogError("failed to alloca ubf buffer %d:[%s]\n",
 					err1.Code(), err1.Message())
+
+				GenRsp(ac, nil, svc, w, err1)
 				return atmi.FAIL
 			}
 
@@ -258,6 +286,8 @@ func HandleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter, req
 					err1.Code(), err1.Message())
 
 				ac.TpLogError("Failed req: [%s]", string(body))
+
+				GenRsp(ac, nil, svc, w, err1)
 				return atmi.FAIL
 			}
 
@@ -271,6 +301,8 @@ func HandleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter, req
 			if nil != err1 {
 				ac.TpLogError("failed to alloc string/text buffer %d:[%s]\n",
 					err1.Code(), err1.Message())
+
+				GenRsp(ac, nil, svc, w, err1)
 				return atmi.FAIL
 			}
 
@@ -285,6 +317,7 @@ func HandleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter, req
 			if nil != err1 {
 				ac.TpLogError("failed to alloc carray/bin buffer %d:[%s]\n",
 					err1.Code(), err1.Message())
+				GenRsp(ac, nil, svc, w, err1)
 				return atmi.FAIL
 			}
 
@@ -299,6 +332,7 @@ func HandleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter, req
 			if nil != err1 {
 				ac.TpLogError("failed to alloc carray/bin buffer %d:[%s]\n",
 					err1.Code(), err1.Message())
+				GenRsp(ac, nil, svc, w, err1)
 				return atmi.FAIL
 			}
 
@@ -309,6 +343,8 @@ func HandleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter, req
 
 		if err != nil {
 			ac.TpLogError("ATMI Error %d:[%s]\n", err.Code(), err.Message())
+
+			GenRsp(ac, buf, svc, w, err)
 			return atmi.FAIL
 		}
 
@@ -374,6 +410,7 @@ func HandleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter, req
 
 //Run the worker
 //@param mynr	Woker number
+/*
 func WorkerRun(mynr int) {
 	terminate := false
 	//Get the ATMI context
@@ -411,15 +448,33 @@ func WorkerRun(mynr int) {
 		}
 	}
 }
-
+*/
 //Initialise channels and work pools
-func InitPool() {
+func InitPool(ac *atmi.ATMICtx) error {
 
-	M_freechan = make(chan int)
+	M_freechan = make(chan int, M_workers)
 
 	for i := 0; i < M_workers; i++ {
-		callHanlder := make(chan HTTPCall, 1000)
-		M_waitjobchan = append(M_waitjobchan, callHanlder)
-		go WorkerRun(i)
+
+		ctx, err := atmi.NewATMICtx()
+
+		if err != nil {
+			ac.TpLogError("Failed to create context: %s", err.Message())
+			return err
+		}
+
+		M_ctxs = append(M_ctxs, ctx)
+
+		//Submit the free ATMI context
+		M_freechan <- i
+
+		/*
+			callHanlder := make(chan HTTPCall, 1000)
+			M_waitjobchan = append(M_waitjobchan, callHanlder)
+			go WorkerRun(i)
+		*/
 	}
+
+	return nil
+
 }

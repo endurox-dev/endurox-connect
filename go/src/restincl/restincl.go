@@ -5,6 +5,7 @@ package main
 // - plain text (TypedString)
 // - binary (TypedCarray)
 
+//Hmm we might need to put in channels a free ATMI contexts..
 import (
 	"encoding/json"
 	"errors"
@@ -188,13 +189,21 @@ func DispatchRequest(w http.ResponseWriter, req *http.Request) {
 	call.w = w
 	call.req = req
 
+	//	nr := <-M_freechan
 	nr := <-M_freechan
+
+	svc := M_url_map[req.URL.String()]
 
 	M_ac.TpLogInfo("Got free goroutine, nr %d", nr)
 
-	M_waitjobchan[nr] <- call
+	//M_waitjobchan[nr] <- call
+	//Get the free ATMI context
 
-	M_ac.TpLogInfo("Request successfully to %d", nr)
+	HandleMessage(M_ctxs[nr], &svc, w, req)
+
+	M_ac.TpLogInfo("Request processing done %d... releasing the context", nr)
+
+	M_freechan <- nr
 
 }
 
@@ -463,7 +472,7 @@ func appinit(ac *atmi.ATMICtx) error {
 
 	ac.TpLogInfo("About to init woker pool, number of workers: %d", M_workers)
 
-	InitPool()
+	InitPool(ac)
 
 	return nil
 }

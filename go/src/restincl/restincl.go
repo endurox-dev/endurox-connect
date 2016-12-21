@@ -22,6 +22,11 @@ import (
 	atmi "github.com/endurox-dev/endurox-go"
 )
 
+/*
+#include <signal.h>
+*/
+import "C"
+
 const (
 	progsection = "RESTIN"
 )
@@ -61,7 +66,7 @@ const (
 	ERRFMT_JSON_ONSUCC_DEFAULT = true /* generate success message in JSON */
 	ERRFMT_TEXT_DEFAULT        = "%d: %s"
 	ERRFMT_RAW_DEFAULT         = "%d: %s"
-	ASYNCCALL_DEFAULT          = FALSE
+	ASYNCCALL_DEFAULT          = false
 	WORKERS                    = 10 /* Number of worker processes */
 )
 
@@ -82,8 +87,8 @@ type ServiceMap struct {
 	Errfmt_json_onsucc bool        `json:"errfmt_json_onsucc"`
 	Errmap_http        string      `json:"errmap_http"`
 	Errmap_http_hash   map[int]int //Lookup map for tp->http codes
-	Asynccall          int16       `json:"asynccall"` //use tpacall()
-	Conv               string      `json:"conv"`      //Conv mode
+	Asynccall          bool        `json:"async"` //use tpacall()
+	Conv               string      `json:"conv"`  //Conv mode
 	Conv_int           int         //Resolve conversion type
 	//Request logging classify service
 	Reqlogsvc string `json:"reqlogsvc"`
@@ -155,10 +160,10 @@ func apprun(ac *atmi.ATMICtx) error {
 		/* To prepare cert (self-signed) do following steps:
 		 * - TODO
 		 */
-		err := http.ListenAndServeTLS(listenOn, M_tls_cert_file, M_tls_key_file, nil)
+		err = http.ListenAndServeTLS(listenOn, M_tls_cert_file, M_tls_key_file, nil)
 		ac.TpLog(atmi.LOG_ERROR, "ListenAndServeTLS() failed: %s", err)
 	} else {
-		err := http.ListenAndServe(listenOn, nil)
+		err = http.ListenAndServe(listenOn, nil)
 		ac.TpLog(atmi.LOG_ERROR, "ListenAndServe() failed: %s", err)
 	}
 
@@ -227,6 +232,15 @@ func parseHTTPErrorMap(ac *atmi.ATMICtx, svc *ServiceMap) error {
 	return nil
 }
 
+//Print the summary of the service after init
+func printSvcSummary(ac *atmi.ATMICtx, svc *ServiceMap) {
+	ac.TpLogWarn("Service: %s, Url: %s, Async mode: %t Log request svc: [%s]",
+		svc.Svc,
+		svc.Url,
+		svc.Asynccall,
+		svc.Reqlogsvc)
+}
+
 //Un-init function
 func appinit(ac *atmi.ATMICtx) error {
 	//runtime.LockOSThread()
@@ -289,6 +303,17 @@ func appinit(ac *atmi.ATMICtx) error {
 		case "workers":
 			M_workers, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
 			break
+		case "gencore":
+			gencore, _ := buf.BGetInt(u.EX_CC_VALUE, occ)
+
+			if TRUE == gencore {
+				//Process signals by default handlers
+				ac.TpLogInfo("gencore=1 - SIGSEG signal will be " +
+					"processed by default OS handler")
+				// Have some core dumps...
+				C.signal(11, nil)
+			}
+			break
 		case "port":
 			M_port, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
 			break
@@ -328,6 +353,8 @@ func appinit(ac *atmi.ATMICtx) error {
 				return fmt.Errorf("Invalid conv: %s", M_defaults.Conv)
 			}
 
+			printSvcSummary(ac, &M_defaults)
+
 			break
 		default:
 			//Assign the defaults
@@ -354,8 +381,7 @@ func appinit(ac *atmi.ATMICtx) error {
 					return err
 				}
 
-				ac.TpLog(atmi.LOG_DEBUG,
-					"Got route: URL [%s] -> Service [%s]",
+				ac.TpLogDebug("Got route: URL [%s] -> Service [%s]",
 					fldName, tmp.Svc)
 				tmp.Url = fldName
 
@@ -373,6 +399,8 @@ func appinit(ac *atmi.ATMICtx) error {
 				if tmp.Conv_int == 0 {
 					return fmt.Errorf("Invalid conv: %s", tmp.Conv)
 				}
+
+				printSvcSummary(ac, &tmp)
 
 				M_url_map[fldName] = tmp
 
@@ -406,33 +434,57 @@ func appinit(ac *atmi.ATMICtx) error {
 		//https://golang.org/src/net/http/status.go
 		M_defaults.Errors_fmt_http_map = make(map[string]int)
 		//Accepted
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPMINVAL)] = http.StatusOK
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPMINVAL)] =
+			http.StatusOK
 		//Errors:
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEABORT)] = http.StatusInternalServerError
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEBADDESC)] = http.StatusBadRequest
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEBLOCK)] = http.StatusInternalServerError
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEINVAL)] = http.StatusBadRequest
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPELIMIT)] = http.StatusRequestEntityTooLarge
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPENOENT)] = http.StatusNotFound
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEOS)] = http.StatusInternalServerError
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEPERM)] = http.StatusUnauthorized
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEPROTO)] = http.StatusBadRequest
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPESVCERR)] = http.StatusBadGateway
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPESVCFAIL)] = http.StatusInternalServerError
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPESYSTEM)] = http.StatusInternalServerError
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPETIME)] = http.StatusGatewayTimeout
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPETRAN)] = http.StatusInternalServerError
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPERMERR)] = http.StatusInternalServerError
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEITYPE)] = http.StatusInternalServerError
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEOTYPE)] = http.StatusInternalServerError
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPERELEASE)] = http.StatusInternalServerError
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEHAZARD)] = http.StatusInternalServerError
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEHEURISTIC)] = http.StatusInternalServerError
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEEVENT)] = http.StatusInternalServerError
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEMATCH)] = http.StatusInternalServerError
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEDIAGNOSTIC)] = http.StatusInternalServerError
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEMIB)] = http.StatusInternalServerError
-
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEABORT)] =
+			http.StatusInternalServerError
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEBADDESC)] =
+			http.StatusBadRequest
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEBLOCK)] =
+			http.StatusInternalServerError
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEINVAL)] =
+			http.StatusBadRequest
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPELIMIT)] =
+			http.StatusRequestEntityTooLarge
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPENOENT)] =
+			http.StatusNotFound
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEOS)] =
+			http.StatusInternalServerError
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEPERM)] =
+			http.StatusUnauthorized
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEPROTO)] =
+			http.StatusBadRequest
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPESVCERR)] =
+			http.StatusBadGateway
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPESVCFAIL)] =
+			http.StatusInternalServerError
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPESYSTEM)] =
+			http.StatusInternalServerError
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPETIME)] =
+			http.StatusGatewayTimeout
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPETRAN)] =
+			http.StatusInternalServerError
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPERMERR)] =
+			http.StatusInternalServerError
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEITYPE)] =
+			http.StatusInternalServerError
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEOTYPE)] =
+			http.StatusInternalServerError
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPERELEASE)] =
+			http.StatusInternalServerError
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEHAZARD)] =
+			http.StatusInternalServerError
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEHEURISTIC)] =
+			http.StatusInternalServerError
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEEVENT)] =
+			http.StatusInternalServerError
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEMATCH)] =
+			http.StatusInternalServerError
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEDIAGNOSTIC)] =
+			http.StatusInternalServerError
+		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEMIB)] =
+			http.StatusInternalServerError
 		//Anything other goes to server error.
 		M_defaults.Errors_fmt_http_map["*"] = http.StatusInternalServerError
 

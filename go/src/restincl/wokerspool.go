@@ -103,7 +103,7 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 	case CONV_TEXT: //This is string buffer...
 		//If there is no error & it is sync call, then just plot
 		//a buffer back
-		if 0 == svc.Asynccall && atmi.TPMINVAL == err.Code() {
+		if svc.Asynccall && atmi.TPMINVAL == err.Code() {
 
 			bufs, ok := buf.(*atmi.TypedString)
 
@@ -123,7 +123,7 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 		break
 	case CONV_RAW: //This is carray..
 		rspType = "application/octet-stream"
-		if 0 == svc.Asynccall && atmi.TPMINVAL == err.Code() {
+		if svc.Asynccall && atmi.TPMINVAL == err.Code() {
 
 			bufs, ok := buf.(*atmi.TypedCarray)
 
@@ -142,7 +142,7 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 		break
 	case CONV_JSON:
 		rspType = "text/json"
-		if 0 == svc.Asynccall && atmi.TPMINVAL == err.Code() {
+		if svc.Asynccall && atmi.TPMINVAL == err.Code() {
 
 			bufs, ok := buf.(*atmi.TypedJSON)
 
@@ -224,7 +224,6 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 
 			ac.TpLogWarn("Error code generated: [%s]", errs)
 			strrsp = substring + errs
-
 			ac.TpLogDebug("JSON Response generated: [%s]", strrsp)
 		} else {
 			//rsp_type = "text/json"
@@ -377,7 +376,7 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter, req
 			}
 		}
 
-		if 0 != svc.Asynccall {
+		if svc.Asynccall {
 			_, err := ac.TpACall(svc.Svc, buf.GetBuf(), flags|atmi.TPNOREPLY)
 			genRsp(ac, buf, svc, w, err)
 		} else {

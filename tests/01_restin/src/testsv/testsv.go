@@ -1,10 +1,12 @@
 package main
 
 import (
-	atmi "github.com/endurox-dev/endurox-go"
 	"fmt"
 	"os"
-//	u "ubftab"
+
+	u "ubftab"
+
+	atmi "github.com/endurox-dev/endurox-go"
 )
 
 const (
@@ -12,13 +14,13 @@ const (
 	FAIL    = -1
 )
 
-//TESTSVC service
+//DATASV1 service
 //@param ac ATMI Context
 //@param svc Service call information
-func TESTSVC(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
+func DATASV1(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 
 	ret := SUCCEED
-	
+
 	//Return to the caller
 	defer func() {
 
@@ -29,25 +31,40 @@ func TESTSVC(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 			ac.TpReturn(atmi.TPFAIL, 0, &svc.Data, 0)
 		}
 	}()
-	
-	
+
 	//Get UBF Handler
 	ub, _ := ac.CastToUBF(&svc.Data)
 
 	//Print the buffer to stdout
-	//fmt.Println("Incoming request:")
 	ub.TpLogPrintUBF(atmi.LOG_DEBUG, "Incoming request:")
 
 	//Resize buffer, to have some more space
 	if err := ub.TpRealloc(1024); err != nil {
 		ac.TpLogError("TpRealloc() Got error: %d:[%s]\n", err.Code(), err.Message())
 		ret = FAIL
-                return
+		return
 	}
-	
-	
-	//TODO: Run your processing here, and keep the succeed or fail status in 
+
+	//TODO: Run your processing here, and keep the succeed or fail status in
 	//in "ret" flag.
+
+	//Copy the incoming data from 1 to second field
+	char_val, err := ub.BGetByte(u.T_CHAR_FLD, 0)
+	if nil != err {
+
+		ac.TpLogError("Failed to get T_CHAR_FLD: %s", err.Message())
+		ret = FAIL
+		return
+	}
+
+	err = ub.BChg(u.T_CHAR_2_FLD, 0, char_val)
+
+	if nil != err {
+
+		ac.TpLogError("Failed to set T_CHAR_2_FLD: %s", err.Message())
+		ret = FAIL
+		return
+	}
 
 	return
 }
@@ -56,9 +73,9 @@ func TESTSVC(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 //@param ac ATMI Context
 func Init(ac *atmi.ATMICtx) int {
 
-	ac.TpLogWarn("Doing server init...");
+	ac.TpLogWarn("Doing server init...")
 	//Advertize TESTSVC
-	if err := ac.TpAdvertise("TESTSVC", "TESTSVC", TESTSVC); err != nil {
+	if err := ac.TpAdvertise("DATASV1", "DATASV1", DATASV1); err != nil {
 		fmt.Println(err)
 		return atmi.FAIL
 	}
@@ -69,7 +86,7 @@ func Init(ac *atmi.ATMICtx) int {
 //Server shutdown
 //@param ac ATMI Context
 func Uninit(ac *atmi.ATMICtx) {
-	ac.TpLogWarn("Server is shutting down...");
+	ac.TpLogWarn("Server is shutting down...")
 }
 
 //Executable main entry point
@@ -78,7 +95,7 @@ func main() {
 	ac, err := atmi.NewATMICtx()
 
 	if nil != err {
-		fmt.Errorf("Failed to allocate context!", err)
+		fmt.Fprintf(os.Stderr, "Failed to allocate new context: %s", err)
 		os.Exit(atmi.FAIL)
 	} else {
 		//Run as server

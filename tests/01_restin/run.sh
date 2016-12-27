@@ -4,13 +4,11 @@
 # @(#) Test 01 - Rest-IN interface tests...
 #
 
-rm -rf ./tmp 2>/dev/null
-
 pushd .
 
-mkdir tmp
+rm runtime/log/* 2>/dev/null
 
-cd tmp
+cd runtime
 
 #
 # Create the env..
@@ -24,11 +22,11 @@ xadmin provision -d \
         -vusv1_name=testsv \
         -vusv1=y \
         -vusv1_sysopt='-e ${NDRX_APPHOME}/log/testsv.log -r' \
-        -vaddubf=test.fd
-
-# Add resources
-ln -s ../src/testsv/testsv bin/testsv
-ln -s ../src/ubftab/test.fd ubftab/test.fd
+        -vaddubf=test.fd \
+        -vucl1=y \
+        -vusv1_cmdline=restincl \
+        -vusv1_tag=RESTIN \
+        -vusv1_log='${NDRX_APPHOME}/log/restin.log'
 
 cd conf
 
@@ -36,6 +34,10 @@ cd conf
 
 xadmin start -y
 
+sleep 2
+
 xadmin stop -c -y
+
+popd
 
 return 0

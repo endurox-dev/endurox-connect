@@ -18,9 +18,17 @@ cd tmp
 
 #
 # So we need to add some demo server
+# We need to add server process here + we need to register ubftab (test.fd)
 #
-xadmin provision -d 
+xadmin provision -d \
+        -vusv1_name=testsv \
+        -vusv1=y \
+        -vusv1_sysopt='-e ${NDRX_APPHOME}/log/testsv.log -r' \
+        -vaddubf=test.fd
 
+# Add resources
+ln -s ../src/testsv/testsv bin/testsv
+ln -s ../src/ubftab/test.fd ubftab/test.fd
 
 cd conf
 

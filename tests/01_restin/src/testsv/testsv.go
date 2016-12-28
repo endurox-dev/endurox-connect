@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
 
 	u "ubftab"
 
@@ -13,6 +14,41 @@ const (
 	SUCCEED = 0
 	FAIL    = -1
 )
+
+//Will set the trace file
+func GETFILE(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
+
+	ret := SUCCEED
+
+	//Return to the caller
+	defer func() {
+
+		ac.TpLogCloseReqFile()
+		if SUCCEED == ret {
+			ac.TpReturn(atmi.TPSUCCESS, 0, &svc.Data, 0)
+		} else {
+			ac.TpReturn(atmi.TPFAIL, 0, &svc.Data, 0)
+		}
+	}()
+
+	//Get UBF Handler
+	ub, _ := ac.CastToUBF(&svc.Data)
+
+	//Print the buffer to stdout
+	ub.TpLogPrintUBF(atmi.LOG_DEBUG, "Incoming request:")
+
+	//Resize buffer, to have some more space
+	if err := ub.TpRealloc(1024); err != nil {
+		ac.TpLogError("TpRealloc() Got error: %d:[%s]\n", err.Code(), err.Message())
+		ret = FAIL
+		return
+	}
+
+	ub.BChg(u.EX_NREQLOGFILE, 0, fmt.Sprintf("%s/log/TRACE_%d",
+		os.Getenv("NDRX_APPHOME"), time.Now().UnixNano()))
+
+	return
+}
 
 //DATASV1 service
 //@param ac ATMI Context
@@ -34,6 +70,9 @@ func DATASV1(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 
 	//Get UBF Handler
 	ub, _ := ac.CastToUBF(&svc.Data)
+
+	//Set request logging
+	ac.TpLogSetReqFile(&ub, "", "")
 
 	//Print the buffer to stdout
 	ub.TpLogPrintUBF(atmi.LOG_DEBUG, "Incoming request:")
@@ -76,6 +115,11 @@ func Init(ac *atmi.ATMICtx) int {
 	ac.TpLogWarn("Doing server init...")
 	//Advertize TESTSVC
 	if err := ac.TpAdvertise("DATASV1", "DATASV1", DATASV1); err != nil {
+		fmt.Println(err)
+		return atmi.FAIL
+	}
+
+	if err := ac.TpAdvertise("GETFILE", "GETFILE", GETFILE); err != nil {
 		fmt.Println(err)
 		return atmi.FAIL
 	}

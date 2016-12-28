@@ -34,7 +34,13 @@ cd conf
 
 xadmin start -y
 
+# Let restin to start
 sleep 2
+
+#
+# First test, call some service with json stuff
+#
+curl -H "Content-Type: application/json" -X POST -d '{"T_CHAR_FLD":"A"}' http://localhost:8080/svc1
 
 xadmin stop -c -y
 

@@ -61,8 +61,8 @@ const (
 	NOTIMEOUT_DEFAULT          = false /* we will use default timeout */
 	CONV_DEFAULT               = "json2ubf"
 	CONV_INT_DEFAULT           = CONV_JSON2UBF
-	ERRFMT_JSON_MSG_DEFAULT    = "errormsg=\"%s\""
-	ERRFMT_JSON_CODE_DEFAULT   = "errorcode=\"%d\""
+	ERRFMT_JSON_MSG_DEFAULT    = "\"errormsg\":\"%s\""
+	ERRFMT_JSON_CODE_DEFAULT   = "\"errorcode\":\"%d\""
 	ERRFMT_JSON_ONSUCC_DEFAULT = true /* generate success message in JSON */
 	ERRFMT_TEXT_DEFAULT        = "%d: %s"
 	ERRFMT_RAW_DEFAULT         = "%d: %s"
@@ -93,8 +93,9 @@ type ServiceMap struct {
 	//Request logging classify service
 	Reqlogsvc string `json:"reqlogsvc"`
 	//Error mapping Enduro/X error code (including * for all):http error code
-	Errors_fmt_http_map_str string `json:"Errors_fmt_http_map"`
+	Errors_fmt_http_map_str string `json:"errors_fmt_http_map"`
 	Errors_fmt_http_map     map[string]int
+	Noreqfilersp            bool `json:noreqfilersp` //Do not sent request file in respones
 }
 
 var M_port int = atmi.FAIL

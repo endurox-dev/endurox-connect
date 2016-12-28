@@ -37,13 +37,26 @@ xadmin start -y
 # Let restin to start
 sleep 2
 
-#
+RET=0
+###############################################################################
 # First test, call some service with json stuff
-#
-curl -H "Content-Type: application/json" -X POST -d '{"T_CHAR_FLD":"A"}' http://localhost:8080/svc1
+###############################################################################
+for i in {1..100}
+do
+        RSP=`curl -H "Content-Type: application/json" -X POST -d '{"T_CHAR_FLD":"A"}' http://localhost:8080/svc1`
+        RSP_EXPECTED='{"T_CHAR_FLD":"A","T_CHAR_2_FLD":"A", "error_code": 0, "error_message": "SUCCEED"}'
+        echo "Response: [$RSP]"
+
+        if [ "X$RSP" != "X$RSP_EXPECTED" ]; then
+                echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+                RET=1
+        fi
+done
+###############################################################################
 
 xadmin stop -c -y
 
 popd
 
-return 0
+exit $RET
+

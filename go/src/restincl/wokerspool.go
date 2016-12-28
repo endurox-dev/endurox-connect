@@ -378,9 +378,21 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter, req
 
 		if svc.Asynccall {
 			_, err := ac.TpACall(svc.Svc, buf.GetBuf(), flags|atmi.TPNOREPLY)
+			//Remove request logfile if was open and not needed in rsp.
+			if reqlogOpen && svc.Noreqfilersp {
+				ac.TpLogDebug("Removing request file")
+				u, _ := ac.CastToUBF(buf.GetBuf())
+				_ = u.BDel(ubftab.EX_NREQLOGFILE, 0)
+			}
 			genRsp(ac, buf, svc, w, err)
 		} else {
 			_, err := ac.TpCall(svc.Svc, buf.GetBuf(), flags)
+			//Remove request logfile if was open and not needed in rsp
+			if reqlogOpen && svc.Noreqfilersp {
+				ac.TpLogDebug("Removing request file")
+				u, _ := ac.CastToUBF(buf.GetBuf())
+				_ = u.BDel(ubftab.EX_NREQLOGFILE, 0)
+			}
 			genRsp(ac, buf, svc, w, err)
 		}
 	}

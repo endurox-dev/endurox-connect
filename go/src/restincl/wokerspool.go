@@ -36,12 +36,19 @@ var M_ctxs []*atmi.ATMICtx //List of contexts
 //Generate response in the service configured way...
 //@w	handler for writting response to
 func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
-	w http.ResponseWriter, atmiErr atmi.ATMIError) {
+	w http.ResponseWriter, atmiErr atmi.ATMIError, reqlogOpen bool) {
 
 	var rsp []byte
 	var err atmi.ATMIError
 	/*	application/json */
 	rspType := "text/plain"
+
+	//Remove request logfile if was open and not needed in rsp.
+	if reqlogOpen && svc.Noreqfilersp {
+		ac.TpLogDebug("Removing request file")
+		u, _ := ac.CastToUBF(buf.GetBuf())
+		_ = u.BDel(ubftab.EX_NREQLOGFILE, 0)
+	}
 
 	//Have a common error handler
 	if nil == atmiErr {
@@ -285,7 +292,7 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter, req
 				ac.TpLogError("failed to alloca ubf buffer %d:[%s]\n",
 					err1.Code(), err1.Message())
 
-				genRsp(ac, nil, svc, w, err1)
+				genRsp(ac, nil, svc, w, err1, false)
 				return atmi.FAIL
 			}
 
@@ -297,7 +304,7 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter, req
 
 				ac.TpLogError("Failed req: [%s]", string(body))
 
-				genRsp(ac, nil, svc, w, err1)
+				genRsp(ac, nil, svc, w, err1, false)
 				return atmi.FAIL
 			}
 
@@ -312,7 +319,7 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter, req
 				ac.TpLogError("failed to alloc string/text buffer %d:[%s]\n",
 					err1.Code(), err1.Message())
 
-				genRsp(ac, nil, svc, w, err1)
+				genRsp(ac, nil, svc, w, err1, false)
 				return atmi.FAIL
 			}
 
@@ -327,7 +334,7 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter, req
 			if nil != err1 {
 				ac.TpLogError("failed to alloc carray/bin buffer %d:[%s]\n",
 					err1.Code(), err1.Message())
-				genRsp(ac, nil, svc, w, err1)
+				genRsp(ac, nil, svc, w, err1, false)
 				return atmi.FAIL
 			}
 
@@ -342,7 +349,7 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter, req
 			if nil != err1 {
 				ac.TpLogError("failed to alloc carray/bin buffer %d:[%s]\n",
 					err1.Code(), err1.Message())
-				genRsp(ac, nil, svc, w, err1)
+				genRsp(ac, nil, svc, w, err1, false)
 				return atmi.FAIL
 			}
 
@@ -354,7 +361,7 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter, req
 		if err != nil {
 			ac.TpLogError("ATMI Error %d:[%s]\n", err.Code(), err.Message())
 
-			genRsp(ac, buf, svc, w, err)
+			genRsp(ac, buf, svc, w, err, false)
 			return atmi.FAIL
 		}
 
@@ -376,24 +383,15 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter, req
 			}
 		}
 
-		if svc.Asynccall {
+		//Do not send service, just echo buffer back
+		if svc.Echo {
+			genRsp(ac, buf, svc, w, err, reqlogOpen)
+		} else if svc.Asynccall {
 			_, err := ac.TpACall(svc.Svc, buf.GetBuf(), flags|atmi.TPNOREPLY)
-			//Remove request logfile if was open and not needed in rsp.
-			if reqlogOpen && svc.Noreqfilersp {
-				ac.TpLogDebug("Removing request file")
-				u, _ := ac.CastToUBF(buf.GetBuf())
-				_ = u.BDel(ubftab.EX_NREQLOGFILE, 0)
-			}
-			genRsp(ac, buf, svc, w, err)
+			genRsp(ac, buf, svc, w, err, reqlogOpen)
 		} else {
 			_, err := ac.TpCall(svc.Svc, buf.GetBuf(), flags)
-			//Remove request logfile if was open and not needed in rsp
-			if reqlogOpen && svc.Noreqfilersp {
-				ac.TpLogDebug("Removing request file")
-				u, _ := ac.CastToUBF(buf.GetBuf())
-				_ = u.BDel(ubftab.EX_NREQLOGFILE, 0)
-			}
-			genRsp(ac, buf, svc, w, err)
+			genRsp(ac, buf, svc, w, err, reqlogOpen)
 		}
 	}
 

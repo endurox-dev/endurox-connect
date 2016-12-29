@@ -26,7 +26,8 @@ xadmin provision -d \
         -vucl1=y \
         -vusv1_cmdline=restincl \
         -vusv1_tag=RESTIN \
-        -vusv1_log='${NDRX_APPHOME}/log/restin.log'
+        -vusv1_log='${NDRX_APPHOME}/log/restin.log' \
+        -vtimeout=2
 
 cd conf
 
@@ -38,8 +39,51 @@ xadmin start -y
 sleep 2
 
 RET=0
+
+
 ###############################################################################
-# First test, call some service with json stuff
+echo "First test, call some service with json stuff"
+###############################################################################
+for i in {1..1000}
+do
+
+        RSP=`curl -H "Content-Type: application/json" -X POST -d \
+"{\"T_CHAR_FLD\":\"A\",\
+\"T_SHORT_FLD\":123,\
+\"T_LONG_FLD\":444444444,\
+\"T_FLOAT_FLD\":1.33,\
+\"T_DOUBLE_FLD\":4444.3333,\
+\"T_STRING_FLD\":\"HELLO\",\
+\"T_CARRAY_FLD\":\"SGVsbG8=\"}" \
+http://localhost:8080/juerrors`
+
+
+        RSP_EXPECTED="{\"T_SHORT_FLD\":123,\
+\"T_SHORT_2_FLD\":123,\
+\"T_LONG_FLD\":444444444,\
+\"T_LONG_2_FLD\":444444444,\
+\"T_CHAR_FLD\":\"A\",\
+\"T_CHAR_2_FLD\":\"A\",\
+\"T_FLOAT_FLD\":1.330000,\
+\"T_FLOAT_2_FLD\":1.330000,\
+\"T_DOUBLE_FLD\":4444.333300,\
+\"T_DOUBLE_2_FLD\":4444.333300,\
+\"T_STRING_FLD\":\"HELLO\",\
+\"T_STRING_2_FLD\":\"HELLO\",\
+\"T_CARRAY_FLD\":\"SGVsbG8=\",\
+\"T_CARRAY_2_FLD\":\"SGVsbG8=\",\
+\"error_code\":0,\
+\"error_message\":\"SUCCEED\"}"
+
+        echo "Response: [$RSP]"
+
+        if [ "X$RSP" != "X$RSP_EXPECTED" ]; then
+                echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+                RET=1
+        fi
+done
+###############################################################################
+echo "First test, call some service with json stuff"
 ###############################################################################
 for i in {1..1000}
 do
@@ -80,6 +124,113 @@ http://localhost:8080/svc1`
         fi
 done
 ###############################################################################
+echo "Echo test"
+###############################################################################
+for i in {1..1000}
+do
+
+        RSP=`curl -H "Content-Type: application/json" -X POST -d \
+"{\"T_CHAR_FLD\":\"A\",\
+\"T_SHORT_FLD\":123,\
+\"T_LONG_FLD\":444444444,\
+\"T_FLOAT_FLD\":1.33,\
+\"T_DOUBLE_FLD\":4444.3333,\
+\"T_STRING_FLD\":\"HELLO\",\
+\"T_CARRAY_FLD\":\"SGVsbG8=\"}" \
+http://localhost:8080/echo`
+
+
+        RSP_EXPECTED="{\"T_SHORT_FLD\":123,\
+\"T_LONG_FLD\":444444444,\
+\"T_CHAR_FLD\":\"A\",\
+\"T_FLOAT_FLD\":1.330000,\
+\"T_DOUBLE_FLD\":4444.333300,\
+\"T_STRING_FLD\":\"HELLO\",\
+\"T_CARRAY_FLD\":\"SGVsbG8=\",\
+\"error_code\":0,\
+\"error_message\":\"SUCCEED\"}"
+
+        echo "Response: [$RSP]"
+
+        if [ "X$RSP" != "X$RSP_EXPECTED" ]; then
+                echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+                RET=1
+        fi
+done
+
+###############################################################################
+echo "Async test"
+###############################################################################
+for i in {1..1000}
+do
+
+        RSP=`curl -H "Content-Type: application/json" -X POST -d \
+"{\"T_CHAR_FLD\":\"A\",\
+\"T_SHORT_FLD\":123,\
+\"T_LONG_FLD\":444444444,\
+\"T_FLOAT_FLD\":1.33,\
+\"T_DOUBLE_FLD\":4444.3333,\
+\"T_STRING_FLD\":\"HELLO\",\
+\"T_CARRAY_FLD\":\"SGVsbG8=\"}" \
+http://localhost:8080/svc1/async`
+
+
+        RSP_EXPECTED="{\"T_SHORT_FLD\":123,\
+\"T_LONG_FLD\":444444444,\
+\"T_CHAR_FLD\":\"A\",\
+\"T_FLOAT_FLD\":1.330000,\
+\"T_DOUBLE_FLD\":4444.333300,\
+\"T_STRING_FLD\":\"HELLO\",\
+\"T_CARRAY_FLD\":\"SGVsbG8=\",\
+\"error_code\":0,\
+\"error_message\":\"SUCCEED\"}"
+
+        echo "Response: [$RSP]"
+
+        if [ "X$RSP" != "X$RSP_EXPECTED" ]; then
+                echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+                RET=1
+        fi
+done
+
+###############################################################################
+echo "Timeout test"
+###############################################################################
+for i in {1..1}
+do
+
+        RSP=`curl -H "Content-Type: application/json" -X POST -d "{\"T_CHAR_FLD\":\"A\"}" \
+http://localhost:8080/longop/tout`
+
+        RSP_EXPECTED="{\"T_CHAR_FLD\":\"A\",\"error_code\":13,\"error_message\":\"13:TPETIME (last error 13: ndrx_mq_receive failed: Connection timed out)\"}"
+
+        echo "Response: [$RSP]"
+
+        if [ "X$RSP" != "X$RSP_EXPECTED" ]; then
+                echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+                RET=1
+        fi
+done
+
+###############################################################################
+echo "Notime"
+###############################################################################
+for i in {1..1}
+do
+
+        RSP=`curl -H "Content-Type: application/json" -X POST -d "{\"T_CHAR_FLD\":\"A\"}" \
+http://localhost:8080/longop/ok`
+
+        RSP_EXPECTED="{\"T_CHAR_FLD\":\"A\",\"T_CHAR_2_FLD\":\"A\",\"error_code\":0,\"error_message\":\"SUCCEED\"}"
+
+        echo "Response: [$RSP]"
+
+        if [ "X$RSP" != "X$RSP_EXPECTED" ]; then
+                echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+                RET=1
+        fi
+done
+
 
 xadmin stop -c -y
 

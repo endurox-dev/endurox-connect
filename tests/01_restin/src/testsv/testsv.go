@@ -50,6 +50,63 @@ func GETFILE(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	return
 }
 
+//LONGOP service
+//@param ac ATMI Context
+//@param svc Service call information
+func LONGOP(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
+
+	ret := SUCCEED
+
+	//Return to the caller
+	defer func() {
+		if SUCCEED == ret {
+			ac.TpReturn(atmi.TPSUCCESS, 0, &svc.Data, 0)
+		} else {
+			ac.TpReturn(atmi.TPFAIL, 0, &svc.Data, 0)
+		}
+	}()
+
+	//Get UBF Handler
+	ub, _ := ac.CastToUBF(&svc.Data)
+
+	//Print the buffer to stdout
+	ub.TpLogPrintUBF(atmi.LOG_DEBUG, "Incoming request:")
+	ac.TpLogWarn("Sleeping 4 sec...")
+	time.Sleep(4000 * time.Millisecond)
+
+	//Resize buffer, to have some more space
+	if err := ub.TpRealloc(1024); err != nil {
+		ac.TpLogError("TpRealloc() Got error: %d:[%s]\n", err.Code(), err.Message())
+		ret = FAIL
+		return
+	}
+
+	//TODO: Run your processing here, and keep the succeed or fail status in
+	//in "ret" flag.
+
+	//Copy the incoming data from 1 to second field
+
+	//Char
+	char_val, err := ub.BGetByte(u.T_CHAR_FLD, 0)
+	if nil != err {
+
+		ac.TpLogError("Failed to get T_CHAR_FLD: %s", err.Message())
+		ret = FAIL
+		return
+	}
+
+	err = ub.BChg(u.T_CHAR_2_FLD, 0, char_val)
+
+	if nil != err {
+
+		ac.TpLogError("Failed to set T_CHAR_2_FLD: %s", err.Message())
+		ret = FAIL
+		return
+	}
+
+	return
+}
+
 //DATASV1 service
 //@param ac ATMI Context
 //@param svc Service call information
@@ -71,9 +128,6 @@ func DATASV1(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	//Get UBF Handler
 	ub, _ := ac.CastToUBF(&svc.Data)
 
-	//Set request logging
-	ac.TpLogSetReqFile(&ub, "", "")
-
 	//Print the buffer to stdout
 	ub.TpLogPrintUBF(atmi.LOG_DEBUG, "Incoming request:")
 
@@ -83,6 +137,9 @@ func DATASV1(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 		ret = FAIL
 		return
 	}
+
+	//Set request logging
+	ac.TpLogSetReqFile(&ub, "", "")
 
 	//TODO: Run your processing here, and keep the succeed or fail status in
 	//in "ret" flag.
@@ -234,6 +291,10 @@ func Init(ac *atmi.ATMICtx) int {
 		return atmi.FAIL
 	}
 
+	if err := ac.TpAdvertise("LONGOP", "LONGOP", LONGOP); err != nil {
+		fmt.Println(err)
+		return atmi.FAIL
+	}
 	return atmi.SUCCEED
 }
 

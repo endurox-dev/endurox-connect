@@ -88,6 +88,8 @@ func DATASV1(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	//in "ret" flag.
 
 	//Copy the incoming data from 1 to second field
+
+	//Char
 	char_val, err := ub.BGetByte(u.T_CHAR_FLD, 0)
 	if nil != err {
 
@@ -101,6 +103,114 @@ func DATASV1(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	if nil != err {
 
 		ac.TpLogError("Failed to set T_CHAR_2_FLD: %s", err.Message())
+		ret = FAIL
+		return
+	}
+
+	//Short
+	short_val, err := ub.BGetInt16(u.T_SHORT_FLD, 0)
+	if nil != err {
+
+		ac.TpLogError("Failed to get T_SHORT_FLD: %s", err.Message())
+		ret = FAIL
+		return
+	}
+
+	err = ub.BChg(u.T_SHORT_2_FLD, 0, short_val)
+
+	if nil != err {
+
+		ac.TpLogError("Failed to set T_SHORT_2_FLD: %s", err.Message())
+		ret = FAIL
+		return
+	}
+
+	//Long
+	long_val, err := ub.BGetInt64(u.T_LONG_FLD, 0)
+	if nil != err {
+
+		ac.TpLogError("Failed to get T_LONG_FLD: %s", err.Message())
+		ret = FAIL
+		return
+	}
+
+	err = ub.BChg(u.T_LONG_2_FLD, 0, long_val)
+
+	if nil != err {
+
+		ac.TpLogError("Failed to set T_LONG_2_FLD: %s", err.Message())
+		ret = FAIL
+		return
+	}
+
+	//Float
+	float_val, err := ub.BGetFloat32(u.T_FLOAT_FLD, 0)
+	if nil != err {
+
+		ac.TpLogError("Failed to get T_FLOAT_FLD: %s", err.Message())
+		ret = FAIL
+		return
+	}
+
+	err = ub.BChg(u.T_FLOAT_2_FLD, 0, float_val)
+
+	if nil != err {
+
+		ac.TpLogError("Failed to set T_FLOAT_2_FLD: %s", err.Message())
+		ret = FAIL
+		return
+	}
+
+	//Double
+	double_val, err := ub.BGetFloat64(u.T_DOUBLE_FLD, 0)
+	if nil != err {
+
+		ac.TpLogError("Failed to get T_DOUBLE_FLD: %s", err.Message())
+		ret = FAIL
+		return
+	}
+
+	err = ub.BChg(u.T_DOUBLE_2_FLD, 0, double_val)
+
+	if nil != err {
+
+		ac.TpLogError("Failed to set T_DOUBLE_2_FLD: %s", err.Message())
+		ret = FAIL
+		return
+	}
+
+	//String
+	string_val, err := ub.BGetString(u.T_STRING_FLD, 0)
+	if nil != err {
+
+		ac.TpLogError("Failed to get T_STRING_FLD: %s", err.Message())
+		ret = FAIL
+		return
+	}
+
+	err = ub.BChg(u.T_STRING_2_FLD, 0, string_val)
+
+	if nil != err {
+
+		ac.TpLogError("Failed to set T_STRING_2_FLD: %s", err.Message())
+		ret = FAIL
+		return
+	}
+
+	//Byte array
+	carray_val, err := ub.BGetString(u.T_CARRAY_FLD, 0)
+	if nil != err {
+
+		ac.TpLogError("Failed to get T_CARRAY_FLD: %s", err.Message())
+		ret = FAIL
+		return
+	}
+
+	err = ub.BChg(u.T_CARRAY_2_FLD, 0, carray_val)
+
+	if nil != err {
+
+		ac.TpLogError("Failed to set T_CARRAY_2_FLD: %s", err.Message())
 		ret = FAIL
 		return
 	}

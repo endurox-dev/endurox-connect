@@ -211,13 +211,13 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 
 			if match {
 				ac.TpLogInfo("Empty JSON rsp")
-				errs = fmt.Sprintf("%s, %s}",
+				errs = fmt.Sprintf("%s,%s}",
 					fmt.Sprintf(svc.Errfmt_json_code, err.Code()),
 					fmt.Sprintf(svc.Errfmt_json_msg, err.Message()))
 			} else {
 
 				ac.TpLogInfo("Have some data in JSON rsp")
-				errs = fmt.Sprintf(", %s, %s}",
+				errs = fmt.Sprintf(",%s,%s}",
 					fmt.Sprintf(svc.Errfmt_json_code, err.Code()),
 					fmt.Sprintf(svc.Errfmt_json_msg, err.Message()))
 			}
@@ -228,7 +228,7 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 		} else {
 			//rsp_type = "text/json"
 			//Send plaint json
-			strrsp = fmt.Sprintf("{%s, %s}",
+			strrsp = fmt.Sprintf("{%s,%s}",
 				fmt.Sprintf(svc.Errfmt_json_code, err.Code()),
 				fmt.Sprintf(svc.Errfmt_json_msg, err.Message()))
 			ac.TpLogDebug("JSON Response generated (2): [%s]", strrsp)

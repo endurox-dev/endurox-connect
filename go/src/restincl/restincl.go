@@ -236,11 +236,13 @@ func parseHTTPErrorMap(ac *atmi.ATMICtx, svc *ServiceMap) error {
 
 //Print the summary of the service after init
 func printSvcSummary(ac *atmi.ATMICtx, svc *ServiceMap) {
-	ac.TpLogWarn("Service: %s, Url: %s, Async mode: %t Log request svc: [%s]",
+	ac.TpLogWarn("Service: %s, Url: %s, Async mode: %t, Log request svc: [%s], Errors:%d (%s)",
 		svc.Svc,
 		svc.Url,
 		svc.Asynccall,
-		svc.Reqlogsvc)
+		svc.Reqlogsvc,
+		svc.Errors_int,
+		svc.Errors)
 }
 
 //Un-init function

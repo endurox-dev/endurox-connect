@@ -77,14 +77,25 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 			}
 
 			if svc.Errors_int == ERRORS_JSON2UBF {
-				rsp = []byte(fmt.Sprintf("{EX_IF_ECODE:%d, EX_IF_EMSG:\"%s\"}",
+				rsp = []byte(fmt.Sprintf("{\"EX_IF_ECODE\":%d,\"EX_IF_EMSG\":\"%s\"}",
 					err.Code(), err.Message()))
 			}
 		} else {
 
 			if svc.Errors_int == ERRORS_JSON2UBF {
-				bufu.BChg(ubftab.EX_IF_ECODE, 0, err.Code())
-				bufu.BChg(ubftab.EX_IF_EMSG, 0, err.Message())
+				ac.TpLogInfo("Setting JSON2UBF buffer error codes to: %d/%s",
+					err.Code(), err.Message())
+
+				if e1 := bufu.BChg(ubftab.EX_IF_ECODE, 0, err.Code()); nil != e1 {
+					ac.TpLogError("Failed to set EX_IF_ECODE: %s/%s ",
+						e1.Code(), e1.Message())
+
+				}
+
+				if e2 := bufu.BChg(ubftab.EX_IF_EMSG, 0, err.Message()); nil != e2 {
+					ac.TpLogError("Failed to set EX_IF_EMSG: %s/%s ",
+						e2.Code(), e2.Message())
+				}
 			}
 
 			ret, err1 := bufu.TpUBFToJSON()
@@ -142,7 +153,7 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 						"Failed to cast buffer to TypedCarray")
 				}
 			} else {
-				//Set the bytes to string we got
+				//raw/Set the bytes to string we got
 				rsp = bufs.GetBytes()
 			}
 		}

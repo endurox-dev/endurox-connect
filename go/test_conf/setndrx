@@ -1,5 +1,0 @@
-#!/bin/bash
-
-export NDRX_CCONFIG=`pwd`
-export NDRX_APPHOME=`pwd`/..
-export PATH=$PATH:$NDRX_APPHOME/bin

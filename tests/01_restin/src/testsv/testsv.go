@@ -50,6 +50,33 @@ func GETFILE(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	return
 }
 
+//FAILSV1 service - returns error to caller, always
+//@param ac ATMI Context
+//@param svc Service call information
+func FAILSV1(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
+
+	ret := SUCCEED
+
+	//Return to the caller
+	defer func() {
+		if SUCCEED == ret {
+			ac.TpReturn(atmi.TPSUCCESS, 0, &svc.Data, 0)
+		} else {
+			ac.TpReturn(atmi.TPFAIL, 0, &svc.Data, 0)
+		}
+	}()
+
+	//Get UBF Handler
+	ub, _ := ac.CastToUBF(&svc.Data)
+
+	//Print the buffer to stdout
+	ub.TpLogPrintUBF(atmi.LOG_DEBUG, "Incoming request:")
+
+	ret = FAIL
+
+	return
+}
+
 //LONGOP service
 //@param ac ATMI Context
 //@param svc Service call information
@@ -295,6 +322,12 @@ func Init(ac *atmi.ATMICtx) int {
 		fmt.Println(err)
 		return atmi.FAIL
 	}
+
+	if err := ac.TpAdvertise("FAILSV1", "FAILSV1", FAILSV1); err != nil {
+		fmt.Println(err)
+		return atmi.FAIL
+	}
+
 	return atmi.SUCCEED
 }
 

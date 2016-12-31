@@ -51,6 +51,90 @@ function go_out {
 }
 
 ###############################################################################
+echo "Http error hanlding, fail case, timeout 504"
+###############################################################################
+for i in {1..1}
+do
+
+	# Having a -i means to print the headers
+        RSP=`(curl -s -i -H "Content-Type: application/json" -X POST -d \
+"{\"T_CHAR_FLD\":\"A\",\
+\"T_SHORT_FLD\":123,\
+\"T_LONG_FLD\":444444444,\
+\"T_FLOAT_FLD\":1.33,\
+\"T_DOUBLE_FLD\":4444.3333,\
+\"T_STRING_FLD\":\"HELLO\",\
+\"T_CARRAY_FLD\":\"SGVsbG8=\"}" \
+http://localhost:8080/httpe/tout 2>&1 )`
+
+
+        RSP_EXPECTED="504"
+
+        echo "Response: [$RSP]"
+
+        if [[ "X$RSP" != *"$RSP_EXPECTED"* ]]; then
+                echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+                go_out 9
+        fi
+done
+
+###############################################################################
+echo "Http error hanlding, fail case, 500"
+###############################################################################
+for i in {1..1000}
+do
+
+	# Having a -i means to print the headers
+        RSP=`curl -s -i -H "Content-Type: application/json" -X POST -d \
+"{\"T_CHAR_FLD\":\"A\",\
+\"T_SHORT_FLD\":123,\
+\"T_LONG_FLD\":444444444,\
+\"T_FLOAT_FLD\":1.33,\
+\"T_DOUBLE_FLD\":4444.3333,\
+\"T_STRING_FLD\":\"HELLO\",\
+\"T_CARRAY_FLD\":\"SGVsbG8=\"}" \
+http://localhost:8080/httpe/fail 2>&1`
+
+
+        RSP_EXPECTED="500"
+
+        echo "Response: [$RSP]"
+
+        if [[ "X$RSP" != *"$RSP_EXPECTED"* ]]; then
+                echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+                go_out 8
+        fi
+done
+
+
+###############################################################################
+echo "Http error hanlding, ok case"
+###############################################################################
+for i in {1..1000}
+do
+
+        RSP=`curl -i -H "Content-Type: application/json" -X POST -d \
+"{\"T_CHAR_FLD\":\"A\",\
+\"T_SHORT_FLD\":123,\
+\"T_LONG_FLD\":444444444,\
+\"T_FLOAT_FLD\":1.33,\
+\"T_DOUBLE_FLD\":4444.3333,\
+\"T_STRING_FLD\":\"HELLO\",\
+\"T_CARRAY_FLD\":\"SGVsbG8=\"}" \
+http://localhost:8080/httpe/ok 2>&1`
+
+
+        RSP_EXPECTED="200"
+
+        echo "Response: [$RSP]"
+
+        if [[ "X$RSP" != *"$RSP_EXPECTED"* ]]; then
+                echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+                go_out 7
+        fi
+done
+
+###############################################################################
 echo "JSON2UBF errors handling"
 ###############################################################################
 for i in {1..1000}
@@ -87,7 +171,7 @@ http://localhost:8080/juerrors`
 
         echo "Response: [$RSP]"
 
-        if [ "X$RSP" != "X$RSP_EXPECTED" ]; then
+        if [[ "X$RSP" != "X$RSP_EXPECTED" ]]; then
                 echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
                 go_out 6
         fi

@@ -286,7 +286,7 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter, req
 	reqlogOpen := false
 	ac.TpLog(atmi.LOG_DEBUG, "Got URL [%s]", req.URL)
 
-	if "" != svc.Svc {
+	if "" != svc.Svc || svc.Echo {
 
 		body, _ := ioutil.ReadAll(req.Body)
 

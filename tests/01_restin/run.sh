@@ -212,11 +212,12 @@ do
         RSP=`curl -H "Content-Type: application/json" -X POST -d "{\"T_CHAR_FLD\":\"A\"}" \
 http://localhost:8080/longop/tout`
 
-        RSP_EXPECTED="{\"T_CHAR_FLD\":\"A\",\"error_code\":13,\"error_message\":\"13:TPETIME (last error 13: ndrx_mq_receive failed: Connection timed out)\"}"
+        #RSP_EXPECTED="{\"T_CHAR_FLD\":\"A\",\"error_code\":13,\"error_message\":\"13:TPETIME (last error 13: ndrx_mq_receive failed: Connection timed out)\"}"
+        RSP_EXPECTED="TPETIME"
 
         echo "Response: [$RSP]"
 
-        if [ "X$RSP" != "X$RSP_EXPECTED" ]; then
+        if [[ "X$RSP" != *"$RSP_EXPECTE"* ]]; then
                 echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
                 go_out 2
         fi

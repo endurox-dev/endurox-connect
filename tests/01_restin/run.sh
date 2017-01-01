@@ -51,6 +51,34 @@ function go_out {
 }
 
 ###############################################################################
+echo "Http error hanlding, fail case, timeout mapped to 404"
+###############################################################################
+for i in {1..1}
+do
+
+	# Having a -i means to print the headers
+        RSP=`(curl -s -i -H "Content-Type: application/json" -X POST -d \
+"{\"T_CHAR_FLD\":\"A\",\
+\"T_SHORT_FLD\":123,\
+\"T_LONG_FLD\":444444444,\
+\"T_FLOAT_FLD\":1.33,\
+\"T_DOUBLE_FLD\":4444.3333,\
+\"T_STRING_FLD\":\"HELLO\",\
+\"T_CARRAY_FLD\":\"SGVsbG8=\"}" \
+http://localhost:8080/httpe/tout/mapped 2>&1 )`
+
+
+        RSP_EXPECTED="404"
+        echo "Response: [$RSP]"
+
+        if [[ "X$RSP" != *"$RSP_EXPECTED"* ]]; then
+                echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+                go_out 10
+        fi
+done
+
+
+###############################################################################
 echo "Http error hanlding, fail case, timeout 504"
 ###############################################################################
 for i in {1..1}

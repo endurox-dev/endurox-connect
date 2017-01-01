@@ -5,6 +5,7 @@ all:
 
 clean:
 	rm -rf pkg bin
+	$(MAKE) -C src clean
 
 
 .PHONY: clean all

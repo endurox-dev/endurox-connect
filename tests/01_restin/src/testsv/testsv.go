@@ -328,6 +328,11 @@ func Init(ac *atmi.ATMICtx) int {
 		return atmi.FAIL
 	}
 
+	if err := ac.TpAdvertise("JSONSV", "JSONSV", JSONSV); err != nil {
+		fmt.Println(err)
+		return atmi.FAIL
+	}
+
 	return atmi.SUCCEED
 }
 

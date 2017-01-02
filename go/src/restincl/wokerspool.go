@@ -121,60 +121,62 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 	case CONV_TEXT: //This is string buffer...
 		//If there is no error & it is sync call, then just plot
 		//a buffer back
-		if !svc.Asynccall && atmi.TPMINVAL == err.Code() {
+		/* if !svc.Asynccall && atmi.TPMINVAL == err.Code() {
+		Lets reply back with same buffer...
+		*/
 
-			bufs, ok := buf.(*atmi.TypedString)
+		bufs, ok := buf.(*atmi.TypedString)
 
-			if !ok {
-				ac.TpLogError("Failed to cast buffer to TypedString")
+		if !ok {
+			ac.TpLogError("Failed to cast buffer to TypedString")
 
-				if err.Code() == atmi.TPMINVAL {
-					err = atmi.NewCustomATMIError(atmi.TPEINVAL,
-						"Failed to cast buffer to TypedString")
-				}
-			} else {
-				//Set the bytes to string we got
-				rsp = []byte(bufs.GetString())
+			if err.Code() == atmi.TPMINVAL {
+				err = atmi.NewCustomATMIError(atmi.TPEINVAL,
+					"Failed to cast buffer to TypedString")
 			}
+		} else {
+			//Set the bytes to string we got
+			rsp = []byte(bufs.GetString())
 		}
+		/* } */
 
 		break
 	case CONV_RAW: //This is carray..
 		rspType = "application/octet-stream"
-		if !svc.Asynccall && atmi.TPMINVAL == err.Code() {
+		/*
+			if !svc.Asynccall && atmi.TPMINVAL == err.Code() {
+			Lets reply back with same buffer.
+		*/
+		bufs, ok := buf.(*atmi.TypedCarray)
 
-			bufs, ok := buf.(*atmi.TypedCarray)
+		if !ok {
+			ac.TpLogError("Failed to cast buffer to TypedCarray")
 
-			if !ok {
-				ac.TpLogError("Failed to cast buffer to TypedCarray")
-
-				if err.Code() == atmi.TPMINVAL {
-					err = atmi.NewCustomATMIError(atmi.TPEINVAL,
-						"Failed to cast buffer to TypedCarray")
-				}
-			} else {
-				//raw/Set the bytes to string we got
-				rsp = bufs.GetBytes()
+			if err.Code() == atmi.TPMINVAL {
+				err = atmi.NewCustomATMIError(atmi.TPEINVAL,
+					"Failed to cast buffer to TypedCarray")
 			}
+		} else {
+			//raw/Set the bytes to string we got
+			rsp = bufs.GetBytes()
 		}
+		/* } */
 		break
 	case CONV_JSON:
 		rspType = "text/json"
-		if !svc.Asynccall && atmi.TPMINVAL == err.Code() {
+		/*		if !svc.Asynccall && atmi.TPMINVAL == err.Code() { why?
+				Lets reply back with same incoming buffer...
+		*/
 
-			bufs, ok := buf.(*atmi.TypedJSON)
+		bufs, ok := buf.(*atmi.TypedJSON)
 
-			if !ok {
-				ac.TpLogError("Failed to cast buffer to TypedJSON")
-				err = atmi.NewCustomATMIError(atmi.TPEINVAL,
-					"Failed to cast buffer to ypedJSON")
-			} else {
-
-				if err.Code() == atmi.TPMINVAL {
-					//Set the bytes to string we got
-					rsp = []byte(bufs.GetJSON())
-				}
-			}
+		if !ok {
+			ac.TpLogError("Failed to cast buffer to TypedJSON")
+			err = atmi.NewCustomATMIError(atmi.TPEINVAL,
+				"Failed to cast buffer to ypedJSON")
+		} else {
+			//Set the bytes to string we got
+			rsp = []byte(bufs.GetJSON())
 		}
 		break
 	}
@@ -214,7 +216,7 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 		//Send JSON error block, togher with buffer, if buffer empty
 		//Send simple json...
 
-		if !svc.Errfmt_json_onsucc {
+		if atmi.TPMINVAL == err.Code() && !svc.Errfmt_json_onsucc {
 			break //Do no generate on success.
 		}
 		strrsp := string(rsp)

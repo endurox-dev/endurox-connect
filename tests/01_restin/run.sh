@@ -49,10 +49,67 @@ function go_out {
     popd 2>/dev/null
     exit $1
 }
+###############################################################################
+echo "JSON buffer, call error"
+###############################################################################
+for i in {1..1000}
+do
 
+	# Having a -i means to print the headers
+        RSP=`(curl -s -H "Content-Type: application/json" -X POST -d \
+"{\"StringField\":\"Hello\",\
+\"NumField\":12345,\
+\"BoolField\":true}" \
+http://localhost:8080/jsonbuf/fail 2>&1 )`
+
+        RSP_EXPECTED="{\
+\"StringField\":\"Hello\"\
+,\"NumField\":12345\
+,\"BoolField\":true\
+,\"error_code\":11\
+,\"error_message\":\"11:TPESVCFAIL (last error 11: Service returned 1)\"\
+}"
+        echo "Response: [$RSP]"
+
+        if [[ "X$RSP" != "X$RSP_EXPECTED" ]]; then
+                echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+                go_out 13
+        fi
+done
 
 ###############################################################################
-echo "JSON buffer, JSON errors"
+echo "JSON buffer, no status"
+###############################################################################
+for i in {1..1000}
+do
+
+	# Having a -i means to print the headers
+        RSP=`(curl -s -H "Content-Type: application/json" -X POST -d \
+"{\
+\"StringField\":\"Hello\"\
+,\"NumField\":12345\
+,\"BoolField\":true\
+}" \
+http://localhost:8080/jsonbuf/ok/no/status 2>&1 )`
+
+        RSP_EXPECTED="{\
+\"StringField\":\"Hello\"\
+,\"StringField2\":\"Hello\"\
+,\"NumField\":12345\
+,\"NumField2\":12345\
+,\"BoolField\":true\
+,\"BoolField2\":true\
+}"
+        echo "Response: [$RSP]"
+
+        if [[ "X$RSP" != "X$RSP_EXPECTED" ]]; then
+                echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+                go_out 12
+        fi
+done
+
+###############################################################################
+echo "JSON buffer"
 ###############################################################################
 for i in {1..1000}
 do
@@ -81,7 +138,6 @@ http://localhost:8080/jsonbuf/ok 2>&1 )`
                 go_out 11
         fi
 done
-
 
 ###############################################################################
 echo "Http error hanlding, fail case, timeout mapped to 404"
@@ -268,8 +324,8 @@ http://localhost:8080/svc1`
 \"T_STRING_2_FLD\":\"HELLO\",\
 \"T_CARRAY_FLD\":\"SGVsbG8=\",\
 \"T_CARRAY_2_FLD\":\"SGVsbG8=\",\
-\"error_code\":0,\
-\"error_message\":\"SUCCEED\"}"
+\"error_code1\":0,\
+\"error_message1\":\"SUCCEED\"}"
 
         echo "Response: [$RSP]"
 

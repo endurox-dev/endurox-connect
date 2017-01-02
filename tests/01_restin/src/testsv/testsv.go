@@ -66,12 +66,6 @@ func FAILSV1(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 		}
 	}()
 
-	//Get UBF Handler
-	ub, _ := ac.CastToUBF(&svc.Data)
-
-	//Print the buffer to stdout
-	ub.TpLogPrintUBF(atmi.LOG_DEBUG, "Incoming request:")
-
 	ret = FAIL
 
 	return

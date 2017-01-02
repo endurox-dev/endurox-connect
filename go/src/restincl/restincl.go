@@ -61,8 +61,8 @@ const (
 	NOTIMEOUT_DEFAULT          = false /* we will use default timeout */
 	CONV_DEFAULT               = "json2ubf"
 	CONV_INT_DEFAULT           = CONV_JSON2UBF
-	ERRFMT_JSON_MSG_DEFAULT    = "\"errormsg\":\"%s\""
-	ERRFMT_JSON_CODE_DEFAULT   = "\"errorcode\":\"%d\""
+	ERRFMT_JSON_MSG_DEFAULT    = "\"error_message\":\"%s\""
+	ERRFMT_JSON_CODE_DEFAULT   = "\"error_code\":%d"
 	ERRFMT_JSON_ONSUCC_DEFAULT = true /* generate success message in JSON */
 	ERRFMT_TEXT_DEFAULT        = "%d: %s"
 	ERRFMT_RAW_DEFAULT         = "%d: %s"

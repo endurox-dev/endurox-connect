@@ -50,6 +50,29 @@ function go_out {
     exit $1
 }
 ###############################################################################
+echo "JSON buffer, call async"
+###############################################################################
+for i in {1..1000}
+do
+        # Having a -i means to print the headers
+        RSP=`(curl -s -H "Content-Type: application/json" -X POST -d \
+"{\"StringField\":\"Hello\",\
+\"NumField\":12345,\
+\"BoolField\":true}" \
+http://localhost:8080/jsonbuf/ok/async 2>&1 )`
+
+        RSP_EXPECTED="{\
+\"error_code\":0\
+,\"error_message\":\"SUCCEED\"\
+}"
+        echo "Response: [$RSP]"
+
+        if [[ "X$RSP" != "X$RSP_EXPECTED" ]]; then
+                echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+                go_out 14
+        fi
+done
+###############################################################################
 echo "JSON buffer, call error"
 ###############################################################################
 for i in {1..1000}

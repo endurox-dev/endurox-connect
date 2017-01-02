@@ -118,6 +118,7 @@ type ServiceMap struct {
 	Errmap_http        string      `json:"errmap_http"`
 	Errmap_http_hash   map[int]int //Lookup map for tp->http codes
 	Asynccall          bool        `json:"async"` //use tpacall()
+	Asyncecho	   bool		`json:"asyncecho"`//echo message in async mode
 	Conv               string      `json:"conv"`  //Conv mode
 	Conv_int           int         //Resolve conversion type
 	//Request logging classify service
@@ -266,13 +267,14 @@ func parseHTTPErrorMap(ac *atmi.ATMICtx, svc *ServiceMap) error {
 
 //Print the summary of the service after init
 func printSvcSummary(ac *atmi.ATMICtx, svc *ServiceMap) {
-	ac.TpLogWarn("Service: %s, Url: %s, Async mode: %t, Log request svc: [%s], Errors:%d (%s)",
+	ac.TpLogWarn("Service: %s, Url: %s, Async mode: %t, Log request svc: [%s], Errors:%d (%s), Async echo %t",
 		svc.Svc,
 		svc.Url,
 		svc.Asynccall,
 		svc.Reqlogsvc,
 		svc.Errors_int,
-		svc.Errors)
+		svc.Errors,
+		svc.Asyncecho)
 }
 
 //Un-init function

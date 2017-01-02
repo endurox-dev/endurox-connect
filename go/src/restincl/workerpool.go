@@ -1,7 +1,7 @@
 /*
 ** Enduro/X XATMI session pool & call handlers
 **
-** @file workerspool.go
+** @file workerpool.go
 ** -----------------------------------------------------------------------------
 ** Enduro/X Middleware Platform for Distributed Transaction Processing
 ** Copyright (C) 2015, ATR Baltic, SIA. All Rights Reserved.
@@ -98,7 +98,12 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 
 		bufu, ok := buf.(*atmi.TypedUBF)
 
-		if !ok {
+		if svc.Asynccall && svc.Asyncecho {
+			if svc.Errors_int == ERRORS_JSON2UBF {
+				rsp = []byte(fmt.Sprintf("{\"EX_IF_ECODE\":%d,\"EX_IF_EMSG\":\"%s\"}",
+				err.Code(), err.Message()))
+			}
+		} else if !ok {
 			ac.TpLogError("Failed to cast TypedBuffer to TypedUBF!")
 			//Create empty buffer for generating response...
 
@@ -154,6 +159,7 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 		/* if !svc.Asynccall && atmi.TPMINVAL == err.Code() {
 		Lets reply back with same buffer...
 		*/
+		if !svc.Asynccall || svc.Asyncecho {
 
 		bufs, ok := buf.(*atmi.TypedString)
 
@@ -168,15 +174,19 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 			//Set the bytes to string we got
 			rsp = []byte(bufs.GetString())
 		}
-		/* } */
+
+		} 
 
 		break
 	case CONV_RAW: //This is carray..
 		rspType = "application/octet-stream"
+
+
 		/*
 			if !svc.Asynccall && atmi.TPMINVAL == err.Code() {
 			Lets reply back with same buffer.
 		*/
+		if !svc.Asynccall || svc.Asyncecho {
 		bufs, ok := buf.(*atmi.TypedCarray)
 
 		if !ok {
@@ -190,14 +200,14 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 			//raw/Set the bytes to string we got
 			rsp = bufs.GetBytes()
 		}
-		/* } */
+		}
 		break
 	case CONV_JSON:
 		rspType = "text/json"
 		/*		if !svc.Asynccall && atmi.TPMINVAL == err.Code() { why?
 				Lets reply back with same incoming buffer...
 		*/
-
+		if !svc.Asynccall || svc.Asyncecho {
 		bufs, ok := buf.(*atmi.TypedJSON)
 
 		if !ok {
@@ -207,6 +217,7 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 		} else {
 			//Set the bytes to string we got
 			rsp = []byte(bufs.GetJSON())
+		}
 		}
 		break
 	}

@@ -575,6 +575,7 @@ func main() {
 	}
 
 	if err := appinit(M_ac); nil != err {
+                M_ac.TpLogError("Failed to init: %s", err)
 		os.Exit(atmi.FAIL)
 	}
 

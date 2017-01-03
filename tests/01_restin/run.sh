@@ -50,6 +50,9 @@ function go_out {
     exit $1
 }
 
+# Test the buffer:
+# curl -s -H "Content-Type: text/plain" -X POST --data-binary "@binary.test" http://localhost:8080/binary/ok 
+
 ###############################################################################
 echo "Text buffer, async, echo"
 ###############################################################################

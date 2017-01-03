@@ -332,6 +332,11 @@ func Init(ac *atmi.ATMICtx) int {
 		return atmi.FAIL
 	}
 
+	if err := ac.TpAdvertise("BINARYSV", "BINARYSV", BINARYSV); err != nil {
+		fmt.Println(err)
+		return atmi.FAIL
+	}
+
 	return atmi.SUCCEED
 }
 

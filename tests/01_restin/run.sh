@@ -49,6 +49,26 @@ function go_out {
     popd 2>/dev/null
     exit $1
 }
+
+time curl -s -H "Content-Type: text/plain" -X POST -d "Hello from curl" http://localhost:8080/text/ok
+###############################################################################
+echo "Text buffer, call ok"
+###############################################################################
+for i in {1..1000}
+do
+        # Having a -i means to print the headers
+        RSP=`(curl -s -H "Content-Type: text/plain" -X POST\
+		-d "Hello from curl" http://localhost:8080/text/ok 2>&1 )`
+
+        RSP_EXPECTED="Hello from EnduroX"
+        echo "Response: [$RSP]"
+
+        if [[ "X$RSP" != "X$RSP_EXPECTED" ]]; then
+                echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+                go_out 15
+        fi
+done
+
 ###############################################################################
 echo "JSON buffer, call async"
 ###############################################################################

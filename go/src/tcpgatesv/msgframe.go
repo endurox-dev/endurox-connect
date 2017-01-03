@@ -1,7 +1,7 @@
 /*
-** Enduro/X -> World (OUT) Request handling...
+** Message framing, varous format support, including socket reading support
 **
-** @file outreq.go
+** @file msgframe.go
 ** -----------------------------------------------------------------------------
 ** Enduro/X Middleware Platform for Distributed Transaction Processing
 ** Copyright (C) 2015, ATR Baltic, SIA. All Rights Reserved.
@@ -29,29 +29,3 @@
 ** -----------------------------------------------------------------------------
  */
 package main
-
-import (
-	atmi "github.com/endurox-dev/endurox-go"
-)
-
-//Dispatcht the XATMI call (in own go routine)
-func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf *atmi.TypedUBF) {
-
-	ret := SUCCEED
-	ac := pool.ctxs[nr]
-
-	defer func() {
-		if SUCCEED == ret {
-			ac.TpReturn(atmi.SUCCEED, 0, buf, 0)
-		} else {
-			ac.TpReturn(atmi.TPFAIL, 0, buf, 0)
-		}
-	}()
-
-	ac.TpSrvSetCtxData(ctxData, 0)
-
-	//OK so our context have a call, now do something with it
-
-	//Put back the channel
-	pool.freechan <- nr
-}

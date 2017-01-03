@@ -1,7 +1,7 @@
 /*
-** Enduro/X -> World (OUT) Request handling...
+** This module contains periodic callback processing
 **
-** @file outreq.go
+** @file periodic.go
 ** -----------------------------------------------------------------------------
 ** Enduro/X Middleware Platform for Distributed Transaction Processing
 ** Copyright (C) 2015, ATR Baltic, SIA. All Rights Reserved.
@@ -34,24 +34,46 @@ import (
 	atmi "github.com/endurox-dev/endurox-go"
 )
 
-//Dispatcht the XATMI call (in own go routine)
-func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf *atmi.TypedUBF) {
+//Check the outgoint connections
+func CheckDial(ac *atmi.ATMICtx) {
 
-	ret := SUCCEED
-	ac := pool.ctxs[nr]
+	var openConns int64 = MMaxConnections - int64(len(MConnections))
+	var i int64
+	MConnMutex.Lock()
+	for i = 0; i < openConns; i++ {
 
-	defer func() {
-		if SUCCEED == ret {
-			ac.TpReturn(atmi.SUCCEED, 0, buf, 0)
-		} else {
-			ac.TpReturn(atmi.TPFAIL, 0, buf, 0)
+		//Spawn new connection threads
+		var con ExCon
+
+		//1. Prepare connection block
+		con.id, con.id_stamp, con.id_comp = GetNewConnectionId()
+
+		if con.id == FAIL {
+			ac.TpLogError("Failed to get connection id - max reached?")
+			break
 		}
-	}()
 
-	ac.TpSrvSetCtxData(ctxData, 0)
+		//2. Add to hash
+		MConnections[con.id] = &con
 
-	//OK so our context have a call, now do something with it
+		//3. and spawn the routine...
+		go GoDial(&con)
+	}
 
-	//Put back the channel
-	pool.freechan <- nr
+	MConnMutex.Unlock()
+
+}
+
+//Periodic callback function
+//Hmm do we have some context here?
+//We will spawn connections here..
+func Periodic(ac *atmi.ATMICtx) int {
+
+	//if we are active, check that we have enought connections
+	if MType == CON_TYPE_ACTIVE {
+		ac.TpLogInfo("Active connection, checking outgoing connections...")
+
+	}
+
+	return SUCCEED
 }

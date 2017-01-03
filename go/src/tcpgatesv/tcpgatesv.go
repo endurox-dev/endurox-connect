@@ -18,34 +18,39 @@ const (
 )
 
 //XATMI sessions for outgoing (Enduro/X sends to Network)
-var MworkersOut int = 5
+var MWorkersOut int = 5
 
 //XATMI sessions for incoming (network sends to Enduro/X)
 var MworkersIn int = 5
 
 //TCP Gateway
-var Mgateway string = "tcpgate"
-var Mframing string = "llll"
+var MGateway string = "tcpgate"
+var MFraming string = "llll"
 
 //In case if framing is "d"
-var MdelimStart byte = 0x02      //can be optional
-var MdelimStop byte = 0x03       //Can be optional
-var Mtype string = "P"           //A - Active, P - Pasive
-var Mip string = "0.0.0.0"       //IP to listen or to connect to if Active
-var Mport int = 5555             //Port to connect to or listen on depending on active/passive role
-var MincomingService string = "" //Incomding service to send to incoming async traffic
-var MperZero int = 60            //Period by witch to which send zero length message to all channels...
-var Mstatussvc string = ""       //Status service to which send connection information
+var MDelimStart byte = 0x02  //can be optional
+var MDelimStop byte = 0x03   //Can be optional
+var MType string = "P"       //A - Active, P - Pasive
+var MIp string = "0.0.0.0"   //IP to listen or to connect to if Active
+var MPort int = 5555         //Port to connect to or listen on depending on active/passive role
+var MAddr string = ""        //Compiled ip:port
+var MIncomingSvc string = "" //Incomding service to send to incoming async traffic
+var MPerZero int = 60        //Period by witch to which send zero length message to all channels...
+var MStatussvc string = ""   //Status service to which send connection information
 //Max number to connection to connect to server, or allow max incomings in the same time.
-var MmaxConnections int = 5
+var MMaxConnections int64 = 5
 
 //Request reply model, alos for in-out, sync mode
 //Open connection for incoming wait for reply,
 //and Close the connection .
-var MreqReply bool = false
+var MReqReply bool = false
 
 //Timeout for req-reply model
-var MreqReplyTimeout = 60
+var MReqReplyTimeout = 60
+
+//Correlator service for incoming messages
+//This is used case if driver operates in sync mode over the persistently conneced lines
+var MCorrSvc = ""
 
 //TCPGATE service
 //@param ac ATMI Context
@@ -88,7 +93,7 @@ func TCPGATE(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 		return
 	}
 	nr := getFreeXChan(ac, &MoutXPool)
-	go XATMIDispatchCall(&MoutXPool, nr, ctxData, ub)
+	go XATMIDispatchCall(&MoutXPool, nr, ctxData, &ub)
 
 	return
 }
@@ -98,9 +103,6 @@ func TCPGATE(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 func Init(ac *atmi.ATMICtx) int {
 
 	ac.TpLogWarn("Doing server init...")
-	if err := ac.TpInit(); err != nil {
-		return FAIL
-	}
 
 	//Get the configuration
 
@@ -140,84 +142,88 @@ func Init(ac *atmi.ATMICtx) int {
 		switch fldName {
 
 		case "workers_out":
-			MworkersOut, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
-			ac.TpLogDebug("Got [%s] = [%d] ", fldName, MworkersOut)
+			MWorkersOut, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
+			ac.TpLogDebug("Got [%s] = [%d] ", fldName, MWorkersOut)
 			break
 		case "workers_in":
 			MworkersIn, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
 			ac.TpLogDebug("Got [%s] = [%d] ", fldName, MworkersIn)
 			break
 		case "gateway":
-			Mgateway, _ = buf.BGetString(u.EX_CC_VALUE, occ)
-			ac.TpLogDebug("Got [%s] = [%s] ", fldName, Mgateway)
+			MGateway, _ = buf.BGetString(u.EX_CC_VALUE, occ)
+			ac.TpLogDebug("Got [%s] = [%s] ", fldName, MGateway)
 			break
 		case "framing":
-			Mframing, _ = buf.BGetString(u.EX_CC_VALUE, occ)
-			ac.TpLogDebug("Got [%s] = [%s] ", fldName, Mframing)
+			MFraming, _ = buf.BGetString(u.EX_CC_VALUE, occ)
+			ac.TpLogDebug("Got [%s] = [%s] ", fldName, MFraming)
 			break
 		case "delim_start":
-			MdelimStart, _ = buf.BGetByte(u.EX_CC_VALUE, occ)
-			ac.TpLogDebug("Got [%s] = [%b] ", fldName, MdelimStart)
+			MDelimStart, _ = buf.BGetByte(u.EX_CC_VALUE, occ)
+			ac.TpLogDebug("Got [%s] = [%b] ", fldName, MDelimStart)
 			break
 		case "delim_stop":
-			MdelimStop, _ = buf.BGetByte(u.EX_CC_VALUE, occ)
-			ac.TpLogDebug("Got [%s] = [%b] ", fldName, MdelimStop)
+			MDelimStop, _ = buf.BGetByte(u.EX_CC_VALUE, occ)
+			ac.TpLogDebug("Got [%s] = [%b] ", fldName, MDelimStop)
 			break
 		case "type":
-			Mtype, _ = buf.BGetString(u.EX_CC_VALUE, occ)
-			ac.TpLogDebug("Got [%s] = [%s] ", fldName, Mtype)
+			MType, _ = buf.BGetString(u.EX_CC_VALUE, occ)
+			ac.TpLogDebug("Got [%s] = [%s] ", fldName, MType)
 
-			if Mtype == "a" {
-				Mtype = CON_TYPE_ACTIVE
-			} else if Mtype == "p" {
-				Mtype = CON_TYPE_PASSIVE
+			if MType == "a" {
+				MType = CON_TYPE_ACTIVE
+			} else if MType == "p" {
+				MType = CON_TYPE_PASSIVE
 			}
 
-			if Mtype != "p" && Mtype != "P" && Mtype != "a" && Mtype != "A" {
+			if MType != "p" && MType != "P" && MType != "a" && MType != "A" {
 				ac.TpLogError("Invalid connection type [%s] - "+
-					"support a/A/p/P ", Mtype)
+					"support a/A/p/P ", MType)
 				return FAIL
 			}
 			break
 		case "ip":
-			Mip, _ = buf.BGetString(u.EX_CC_VALUE, occ)
-			ac.TpLogDebug("Got [%s] = [%s] ", fldName, Mip)
+			MIp, _ = buf.BGetString(u.EX_CC_VALUE, occ)
+			ac.TpLogDebug("Got [%s] = [%s] ", fldName, MIp)
 			break
 		case "port":
-			Mport, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
-			ac.TpLogDebug("Got [%s] = [%d] ", fldName, Mport)
+			MPort, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
+			ac.TpLogDebug("Got [%s] = [%d] ", fldName, MPort)
 			break
-		case "incoming_service":
-			MincomingService, _ = buf.BGetString(u.EX_CC_VALUE, occ)
-			ac.TpLogDebug("Got [%s] = [%s] ", fldName, MincomingService)
+		case "incoming_svc":
+			MIncomingSvc, _ = buf.BGetString(u.EX_CC_VALUE, occ)
+			ac.TpLogDebug("Got [%s] = [%s] ", fldName, MIncomingSvc)
 			break
 		case "per_zero":
-			MperZero, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
-			ac.TpLogDebug("Got [%s] = [%d] ", fldName, MperZero)
+			MPerZero, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
+			ac.TpLogDebug("Got [%s] = [%d] ", fldName, MPerZero)
 			break
-		case "status_service":
-			Mstatussvc, _ = buf.BGetString(u.EX_CC_VALUE, occ)
-			ac.TpLogDebug("Got [%s] = [%s] ", fldName, Mstatussvc)
+		case "status_svc":
+			MStatussvc, _ = buf.BGetString(u.EX_CC_VALUE, occ)
+			ac.TpLogDebug("Got [%s] = [%s] ", fldName, MStatussvc)
 			break
 		case "max_connections":
-			MmaxConnections, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
-			ac.TpLogDebug("Got [%s] = [%d] ", fldName, MmaxConnections)
+			MMaxConnections, _ = buf.BGetInt64(u.EX_CC_VALUE, occ)
+			ac.TpLogDebug("Got [%s] = [%d] ", fldName, MMaxConnections)
 			break
 		case "req_reply":
 			tmp, _ := buf.BGetInt(u.EX_CC_VALUE, occ)
 			if 1 == tmp {
-				MreqReply = true
+				MReqReply = true
 			} else {
-				MreqReply = false
+				MReqReply = false
 			}
 
-			ac.TpLogDebug("Got [%s] = [%b] ", fldName, MreqReply)
+			ac.TpLogDebug("Got [%s] = [%t] ", fldName, MReqReply)
 			break
 		case "req_reply_timeout":
-			MreqReplyTimeout, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
-			ac.TpLogDebug("Got [%s] = [%d] ", fldName, MreqReplyTimeout)
+			MReqReplyTimeout, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
+			ac.TpLogDebug("Got [%s] = [%d] ", fldName, MReqReplyTimeout)
 			break
-
+		case "corr_svc":
+			//Corelator service for sync tpcall over mulitple persistent connectinos
+			MCorrSvc, _ = buf.BGetString(u.EX_CC_VALUE, occ)
+			ac.TpLogDebug("Got [%s] = [%s] ", fldName, MReqReplyTimeout)
+			break
 		default:
 
 			break
@@ -225,7 +231,13 @@ func Init(ac *atmi.ATMICtx) int {
 	}
 
 	MinXPool.nrWorkers = MworkersIn
-	MoutXPool.nrWorkers = MworkersOut
+	MoutXPool.nrWorkers = MWorkersOut
+
+	MAddr = MIp + ":" + string(MPort)
+
+	if MReqReply && "" == MCorrSvc {
+		ac.TpLogError("req_reply mode requires that corr_svc is set!")
+	}
 
 	if err := initPool(ac, &MinXPool); err != nil {
 		ac.TpLogError("Failed to init `in' XATMI pool %s", err)
@@ -238,10 +250,13 @@ func Init(ac *atmi.ATMICtx) int {
 	}
 
 	//Advertize TESTSVC
-	if err := ac.TpAdvertise(Mgateway, Mgateway, TCPGATE); err != nil {
-		ac.TpLogError("Advertise failed %s", err)
-		return FAIL
-	}
+	/*
+		- will advertise only when we have a connection
+		if err := ac.TpAdvertise(Mgateway, Mgateway, TCPGATE); err != nil {
+			ac.TpLogError("Advertise failed %s", err)
+			return FAIL
+		}
+	*/
 
 	return SUCCEED
 }

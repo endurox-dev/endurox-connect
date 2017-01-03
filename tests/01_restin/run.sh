@@ -50,7 +50,62 @@ function go_out {
     exit $1
 }
 
-time curl -s -H "Content-Type: text/plain" -X POST -d "Hello from curl" http://localhost:8080/text/ok
+###############################################################################
+echo "Text buffer, async, echo"
+###############################################################################
+for i in {1..1000}
+do
+        # Having a -i means to print the headers
+        RSP=`(curl -s -H "Content-Type: text/plain" -X POST\
+		-d "Hello from curl" http://localhost:8080/text/ok/async/echo 2>&1 )`
+
+        RSP_EXPECTED="Hello from curl"
+        echo "Response: [$RSP]"
+
+        if [[ "X$RSP" != "X$RSP_EXPECTED" ]]; then
+                echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+                go_out 17
+        fi
+done
+
+###############################################################################
+echo "Text buffer, async, no echo"
+###############################################################################
+for i in {1..1000}
+do
+        # Having a -i means to print the headers
+        RSP=`(curl -s -H "Content-Type: text/plain" -X POST\
+		-d "Hello from curl" http://localhost:8080/text/ok/async 2>&1 )`
+
+        RSP_EXPECTED="0: SUCCEED"
+        echo "Response: [$RSP]"
+
+        if [[ "X$RSP" != "X$RSP_EXPECTED" ]]; then
+                echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+                go_out 16
+        fi
+done
+
+
+###############################################################################
+echo "Text buffer, call fail"
+###############################################################################
+for i in {1..1000}
+do
+        # Having a -i means to print the headers
+        RSP=`(curl -s -H "Content-Type: text/plain" -X POST\
+		-d "Hello from curl" http://localhost:8080/text/fail 2>&1 )`
+
+        RSP_EXPECTED="11: 11:TPESVCFAIL (last error 11: Service returned 1)"
+        echo "Response: [$RSP]"
+
+        if [[ "X$RSP" != "X$RSP_EXPECTED" ]]; then
+                echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+                go_out 16
+        fi
+done
+
+
 ###############################################################################
 echo "Text buffer, call ok"
 ###############################################################################

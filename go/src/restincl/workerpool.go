@@ -300,7 +300,7 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 		//Send plain text error if have one.
 		//rsp_type = "text/json"
 		//Send plaint json
-		if svc.Asynccall || atmi.TPMINVAL != err.Code() {
+		if (svc.Asynccall && !svc.Asyncecho) || atmi.TPMINVAL != err.Code() {
 			strrsp := fmt.Sprintf(svc.Errfmt_text, err.Code(), err.Message())
 			ac.TpLogDebug("TEXT Response generated (2): [%s]", strrsp)
 			rsp = []byte(strrsp)

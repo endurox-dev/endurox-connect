@@ -31,6 +31,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"net"
 	"os"
@@ -50,7 +51,11 @@ type DataBlock struct {
 
 //Enduro/X connection
 type ExCon struct {
-	con      net.Conn
+	con net.Conn
+
+	reader *bufio.Reader
+	writer *bufio.Writer
+
 	ctx      *atmi.ATMICtx //ATMI Context
 	id       int64         //Connection ID (clear), index by this
 	id_comp  int64         //Compiled id
@@ -96,8 +101,7 @@ func SendOut(data *DataBlock) {
 func ReadConData(con *ExCon, ch chan []byte, eCh chan error) {
 	for {
 		// try to read the data
-		data := make([]byte, 512)
-		_, err := con.con.Read(data)
+		data, err := GetMessage(con)
 		if err != nil {
 			// send an error if it's encountered
 			eCh <- err
@@ -173,4 +177,7 @@ func GoDial(con *ExCon) {
 		return
 	}
 
+	//Have buffered read/write API to socket
+	con.writer = bufio.NewWriter(con.con)
+	con.reader = bufio.NewReader(con.con)
 }

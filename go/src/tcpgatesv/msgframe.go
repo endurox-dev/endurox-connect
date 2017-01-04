@@ -32,6 +32,9 @@ package main
 
 import (
 	"errors"
+	"io"
+	"strconv"
+	"unicode/utf8"
 
 	atmi "github.com/endurox-dev/endurox-go"
 )
@@ -47,9 +50,8 @@ const (
 	FRAME_ASCII              = 'a' //Ascii, does not include len it self
 	FRAME_ASCII_ILEN         = 'A' //Ascii, does not include len it self
 	FRAME_NO                 = 'n' //No frame
-	FRAME_DELIM_START        = 'd' //Delimiter, start
-	FRAME_DELIM_STOP         = 'D' //Delimiter, stop
-	FRAME_DELIM_BOTH         = 'E' //Delimiter, both
+	FRAME_DELIM_STOP         = 'd' //Delimiter, stop
+	FRAME_DELIM_BOTH         = 'D' //Delimiter, stop & start
 )
 
 //This sets number of bytes to read from message, if not running in delimiter
@@ -108,10 +110,6 @@ func ConfigureNumberOfBytes(ac *atmi.ATMICtx) error {
 		MFramingLen = 0
 		ac.TpLogInfo("No framing used")
 		break
-	case FRAME_DELIM_START:
-		MFramingLen = 0
-		ac.TpLogInfo("Starting delimiter: %x", MDelimStart)
-		break
 	case FRAME_DELIM_STOP:
 		MFramingLen = 0
 		ac.TpLogInfo("Stopping delimiter: %x", MDelimStop)
@@ -126,10 +124,182 @@ func ConfigureNumberOfBytes(ac *atmi.ATMICtx) error {
 	return nil
 }
 
-//Function - read the number of bytes...
+//Read the message from connection
+//@param con 	Connection handler
+//@return <Binary message read>, <Error or nil>
+func GetMessage(con *ExCon) ([]byte, error) {
+	ac := con.ctx
+	if MFramingLen > 0 {
 
-//Function - read until the delimiter (stx only used for verification...)
+		header := make([]byte, MFramingLen)
+		var mlen int64 = 0
+		var mlenStr = ""
 
-//Write off the message with len
+		ac.TpLogError("Reading %d number of bytes as header", MFramingLen)
 
-//Write off message with delimiter encapuslation
+		//Read number of bytes, or up till the symbol
+		n, err := io.ReadFull(con.reader, header)
+
+		if nil != err {
+			ac.TpLogError("Failed to read header of %d bytes: %s",
+				MFramingLen, err)
+			return err
+		}
+
+		if n != MFramingLen {
+
+			emsg := fmt.SPrintf("Invlid header len read, expected: %d got %d",
+				MFramingLen, n)
+			ac.TpLogError("%s", emsg)
+			return nil, errors.New(emsg)
+		}
+
+		ac.TpLogDump(atmi.LOG_DEBUG, "Got message prefix", header, len(header))
+
+		//Decode the length now...
+		if MFramingCode != FRAME_ASCII && MFramingCode != FRAME_ASCII_ILEN {
+
+			for i := 0; i < MFramingLen; i++ {
+
+				switch MFramingCode {
+				case FRAME_BIG_ENDIAN:
+				case FRAME_BIG_ENDIAN_ILEN:
+					mlen <<= 8        //Move the current byte to front
+					mlen |= header[i] //Add current byte
+					break
+				case FRAME_LITTLE_ENDIAN:
+				case FRAME_LITTLE_ENDIAN_ILEN:
+					mlen <<= 8                        //Move the current byte to end
+					mlen |= header[(MFramingLen-1)-i] //Add current byte, but take from older
+					break
+				}
+			}
+		} else {
+			mlenStr = utf8.DecodeRune(header)
+		}
+
+		if MFramingCode == FRAME_ASCII || MFramingCode == FRAME_ASCII_ILEN {
+			ac.TpLogInfo("Got string prefix len: [%s]", mlenStr)
+			mlen = strconv.Atoi(mlenStr)
+		}
+
+		if MFamingInclPfxLen {
+			mlen -= MFramingLen
+		}
+
+		ac.TpLogInfo("Got header, indicating message len to read: %d", mlen)
+
+		if max_msg_len > 0 && mlen > max_msg_len {
+			ac.TpLogError("Error ! Message len received: %d,"+
+				" max message size configured: %d", mlen, max_msg_len)
+			return nil, errors.new(fmt.SPrintf("Error ! Message len received: %d,"+
+				" max message size configured: %d", mlen, max_msg_len))
+		}
+
+		//..And read the number of bytes...
+		data := make([]byte, mlen)
+		n, err := io.ReadFull(con.reader, data)
+
+		if err != nil {
+			ac.TpLogError("Failed to read %d bytes: %s", mlen, err)
+			return nil, err
+		}
+
+		if n != mlen {
+			emsg := fmt.SPrintf("Invalid bytes read, expected: %d got %d",
+				mlen, n)
+
+			ac.TpLogError("%s", emsg)
+			return nil, errors.new(err)
+		}
+
+		ac.TpLogDump(atmi.LOG_DEBUG, "Message read", data, len(data))
+
+		return data, nil
+	} else {
+		ac.TpLogInfo("About to read message until delimiter %x", MDelimStop)
+
+		//If we use delimiter, then read pu till that
+		data, err := ReadBytes(MDelimStop)
+
+		if err != nil {
+
+			ac.TpLogError("Failed to read message with %x seperator: %s",
+				MDelimStop, err)
+			return nil, err
+		}
+
+		ac.TpLogDump(atmi.LOG_DEBUG, "Got the message with end seperator",
+			data, len(data))
+
+		if MFramingCode == FRAME_DELIM_BOTH {
+			//Check the start of the message to match the delimiter
+			if data[0] != MDelimStart {
+				emsg := fmt.SPrintf("Expected message start byte %x but got %x",
+					MDelimStart, data[0])
+				ac.TpLogError("%s", emsg)
+				return nil, errors.New(emsg)
+			}
+
+			//Strip off the first byte.
+			data = data[1:]
+
+			return data, nil
+		}
+	}
+
+	//Get the
+
+	return nil, nilf
+}
+
+//Put message on socket
+func PutMessage(con *ExCon, data []byte) ([]byte, error) {
+
+	ac := con.ctx
+
+	ac.TpLogInfo("Building ougoing message: len %d", mlen)
+
+	ac.TpLogDump(atmi.LOG_DEBUG, "Preparing message for sending", data, len(data))
+
+	if MFramingLen > 0 {
+		var mlen int64 = len(data)
+		header := make([]byte, MFramingLen)
+
+		if MFamingInclPfxLen {
+			mlen += MFramingLen
+		}
+
+		//Generate the header
+		if MFramingCode != FRAME_ASCII && MFramingCode != FRAME_ASCII_ILEN {
+
+			for i := 0; i < MFramingLen; i++ {
+
+				switch MFramingCode {
+				case FRAME_BIG_ENDIAN:
+				case FRAME_BIG_ENDIAN_ILEN:
+					//So the least significant byte goes to end the array
+					header[(MFramingLen-1)-i] = byte(mlen & 0xff)
+					break
+				case FRAME_LITTLE_ENDIAN:
+				case FRAME_LITTLE_ENDIAN_ILEN:
+					//So the least significant byte goes in front of the array
+					header[i] = byte(mlen & 0xff)
+					break
+				}
+
+				mlen >>= 8
+			}
+
+			//TODO: Print len
+
+		} else {
+			mlenStr := fmt.Sprintf("%*d", MFramingLen, mlen)
+			header = []byte(mlenStr)
+
+			//TODO: Print len
+		}
+	} else {
+		//Put (STX)ETX
+	}
+}

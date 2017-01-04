@@ -29,6 +29,7 @@ var MFraming string = "llll"
 var MFramingCode rune = FRAME_LITTLE_ENDIAN
 var MFramingLen int = len(MFraming)
 var MFamingInclPfxLen bool = false //Does len format include prefix length it self?
+var MFramingMsgLen int = 0         //Max message len (checked if >0)
 
 //In case if framing is "d"
 var MDelimStart byte = 0x02  //can be optional
@@ -159,6 +160,10 @@ func Init(ac *atmi.ATMICtx) int {
 		case "framing":
 			MFraming, _ = buf.BGetString(u.EX_CC_VALUE, occ)
 			ac.TpLogDebug("Got [%s] = [%s] ", fldName, MFraming)
+			break
+		case "max_msg_len":
+			MFramingMsgLen, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
+			ac.TpLogDebug("Got [%s] = [%d] ", fldName, MFramingMsgLen)
 			break
 		case "delim_start":
 			MDelimStart, _ = buf.BGetByte(u.EX_CC_VALUE, occ)

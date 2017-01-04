@@ -29,3 +29,80 @@
 ** -----------------------------------------------------------------------------
  */
 package main
+
+import (
+	"errors"
+
+	atmi "github.com/endurox-dev/endurox-go"
+)
+
+/*
+ * Mode constant table
+ */
+const (
+	FRAME_LITTLE_ENDIAN = 'l' //Little Endian
+	FRAME_BIG_ENDIAN    = 'L' //Big endian
+	FRAME_ASCII         = 'A' //Ascii
+	FRAME_BCD           = 'B' //Binary code decimal
+	FRAME_NO            = 'n' //No frame
+	FRAME_DELIM_START   = 'd' //Delimiter, start
+	FRAME_DELIM_STOP    = 'D' //Delimiter, stop
+	FRAME_DELIM_BOTH    = 'E' //Delimiter, both
+)
+
+//This sets number of bytes to read from message, if not running in delimiter
+//mode
+func ConfigureNumberOfBytes(ac *atmi.ATMICtx) error {
+	var c rune
+	var n int
+	first := false
+
+	ac.TpLogInfo("Framing mode from config [%s]", MFraming)
+
+	for _, r := range MFraming {
+		if first {
+			c = r
+		} else if c != r {
+			return errors.New("Different symbols in message framing: [" +
+				string(c) + "] and [" + string(r) + "]")
+		}
+		n++
+	}
+
+	MFramingCode = c
+	MFramingLen = n
+
+	switch MFramingCode {
+	case FRAME_LITTLE_ENDIAN:
+		ac.TpLogInfo("Little endian mode, %d bytes", MFramingLen)
+		break
+	case FRAME_BIG_ENDIAN:
+		ac.TpLogInfo("Big endian mode, %d bytes", MFramingLen)
+		break
+	case FRAME_ASCII:
+		ac.TpLogInfo("Ascii len pfx mode, %d bytes", MFramingLen)
+		break
+	case FRAME_BCD:
+		ac.TpLogInfo("BCD len pfx mode, %d bytes", MFramingLen)
+		break
+	case FRAME_NO:
+		MFramingLen = 0
+		ac.TpLogInfo("No framing used")
+		break
+	case FRAME_DELIM_START:
+		MFramingLen = 0
+		ac.TpLogInfo("Starting delimiter: %x", MDelimStart)
+		break
+	case FRAME_DELIM_STOP:
+		MFramingLen = 0
+		ac.TpLogInfo("Stopping delimiter: %x", MDelimStop)
+		break
+	case FRAME_DELIM_BOTH:
+		MFramingLen = 0
+		ac.TpLogInfo("Start delimiter %x, Stop delimiter: %x",
+			MDelimStart, MDelimStop)
+		break
+	}
+
+	return nil
+}

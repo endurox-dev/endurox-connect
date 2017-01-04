@@ -26,6 +26,8 @@ var MworkersIn int = 5
 //TCP Gateway
 var MGateway string = "tcpgate"
 var MFraming string = "llll"
+var MFramingCode rune = FRAME_LITTLE_ENDIAN
+var MFramingLen int = len(MFraming)
 
 //In case if framing is "d"
 var MDelimStart byte = 0x02  //can be optional

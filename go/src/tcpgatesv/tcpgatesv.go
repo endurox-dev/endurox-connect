@@ -28,6 +28,7 @@ var MGateway string = "tcpgate"
 var MFraming string = "llll"
 var MFramingCode rune = FRAME_LITTLE_ENDIAN
 var MFramingLen int = len(MFraming)
+var MFamingInclPfxLen bool = false //Does len format include prefix length it self?
 
 //In case if framing is "d"
 var MDelimStart byte = 0x02  //can be optional

@@ -40,18 +40,22 @@ import (
  * Mode constant table
  */
 const (
-	FRAME_LITTLE_ENDIAN = 'l' //Little Endian
-	FRAME_BIG_ENDIAN    = 'L' //Big endian
-	FRAME_ASCII         = 'A' //Ascii
-	FRAME_BCD           = 'B' //Binary code decimal
-	FRAME_NO            = 'n' //No frame
-	FRAME_DELIM_START   = 'd' //Delimiter, start
-	FRAME_DELIM_STOP    = 'D' //Delimiter, stop
-	FRAME_DELIM_BOTH    = 'E' //Delimiter, both
+	FRAME_LITTLE_ENDIAN      = 'l' //Little Endian, does not include len bytes it self
+	FRAME_LITTLE_ENDIAN_ILEN = 'L' //Big Endian, include len bytes
+	FRAME_BIG_ENDIAN         = 'b' //Big endian, does not includ bytes len it self
+	FRAME_BIG_ENDIAN_ILEN    = 'B' //Big endian, include len it self
+	FRAME_ASCII              = 'a' //Ascii, does not include len it self
+	FRAME_ASCII_ILEN         = 'A' //Ascii, does not include len it self
+	FRAME_NO                 = 'n' //No frame
+	FRAME_DELIM_START        = 'd' //Delimiter, start
+	FRAME_DELIM_STOP         = 'D' //Delimiter, stop
+	FRAME_DELIM_BOTH         = 'E' //Delimiter, both
 )
 
 //This sets number of bytes to read from message, if not running in delimiter
 //mode
+//@param ac	ATMI Context into which we run
+//@return Error or nil
 func ConfigureNumberOfBytes(ac *atmi.ATMICtx) error {
 	var c rune
 	var n int
@@ -74,16 +78,31 @@ func ConfigureNumberOfBytes(ac *atmi.ATMICtx) error {
 
 	switch MFramingCode {
 	case FRAME_LITTLE_ENDIAN:
-		ac.TpLogInfo("Little endian mode, %d bytes", MFramingLen)
+		ac.TpLogInfo("Little endian mode, %d bytes, "+
+			"does not include prefix len", MFramingLen)
+		break
+	case FRAME_LITTLE_ENDIAN_ILEN:
+		ac.TpLogInfo("Little endian mode, %d bytes, "+
+			"does include prefix len", MFramingLen)
+		MFamingInclPfxLen = true
 		break
 	case FRAME_BIG_ENDIAN:
-		ac.TpLogInfo("Big endian mode, %d bytes", MFramingLen)
+		ac.TpLogInfo("Big endian mode, %d bytes, "+
+			"does not include prefix len", MFramingLen)
+		break
+	case FRAME_BIG_ENDIAN_ILEN:
+		ac.TpLogInfo("Big endian mode, %d bytes, "+
+			"does include prefix len", MFramingLen)
+		MFamingInclPfxLen = true
 		break
 	case FRAME_ASCII:
-		ac.TpLogInfo("Ascii len pfx mode, %d bytes", MFramingLen)
+		ac.TpLogInfo("Ascii len pfx mode, %d bytes, "+
+			"does not include prefix len", MFramingLen)
 		break
-	case FRAME_BCD:
-		ac.TpLogInfo("BCD len pfx mode, %d bytes", MFramingLen)
+	case FRAME_ASCII_ILEN:
+		ac.TpLogInfo("Ascii len pfx mode, %d bytes, "+
+			"does include prefix len", MFramingLen)
+		MFamingInclPfxLen = true
 		break
 	case FRAME_NO:
 		MFramingLen = 0
@@ -106,3 +125,11 @@ func ConfigureNumberOfBytes(ac *atmi.ATMICtx) error {
 
 	return nil
 }
+
+//Function - read the number of bytes...
+
+//Function - read until the delimiter (stx only used for verification...)
+
+//Write off the message with len
+
+//Write off message with delimiter encapuslation

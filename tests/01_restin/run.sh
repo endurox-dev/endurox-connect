@@ -33,6 +33,8 @@ cd conf
 
 . settest1
 
+cd ..
+
 xadmin start -y
 
 # Let restin to start
@@ -50,8 +52,80 @@ function go_out {
     exit $1
 }
 
-# Test the buffer:
-# curl -s -H "Content-Type: text/plain" -X POST --data-binary "@binary.test" http://localhost:8080/binary/ok 
+###############################################################################
+echo "Binary buffer, async, echo"
+###############################################################################
+for i in {1..1000}
+do
+	rm tmp.out 2>/dev/null
+	# Having a -i means to print the headers
+	RSP=`(curl -s -H "Content-Type: text/plain" -X POST\
+	--data-binary "@../binary.test.request" http://localhost:8080/binary/ok/async/echo  > tmp.out )`
+
+	DIFF=`diff tmp.out ../binary.test.request`
+	echo "Response: [$DIFF]"
+
+	if [[ "X$DIFF" != "X" ]]; then
+		echo "The response [tmp.out] does not match binary.test.request!"
+		go_out 21
+	fi
+done
+###############################################################################
+echo "Binary buffer, async"
+###############################################################################
+for i in {1..1000}
+do
+	rm tmp.out 2>/dev/null
+        # Having a -i means to print the headers
+        RSP=`(curl -s -H "Content-Type: text/plain" -X POST\
+        --data-binary "@../binary.test.request" http://localhost:8080/binary/ok/async )`
+
+        RSP_EXPECTED="0: SUCCEED"
+	echo "Response: [$RSP]"
+
+	if [[ "X$RSP" != "X$RSP_EXPECTED" ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 20
+	fi
+done
+
+###############################################################################
+echo "Binary buffer, fail"
+###############################################################################
+for i in {1..1000}
+do
+	rm tmp.out 2>/dev/null
+        # Having a -i means to print the headers
+        RSP=`(curl -s -H "Content-Type: text/plain" -X POST\
+        --data-binary "@../binary.test.request" http://localhost:8080/binary/fail )`
+
+        RSP_EXPECTED="11: 11:TPESVCFAIL (last error 11: Service returned 1)"
+	echo "Response: [$RSP]"
+
+	if [[ "X$RSP" != "X$RSP_EXPECTED" ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 19
+	fi
+done
+
+###############################################################################
+echo "Binary buffer, ok"
+###############################################################################
+for i in {1..1000}
+do
+	rm tmp.out 2>/dev/null
+	# Having a -i means to print the headers
+	RSP=`(curl -s -H "Content-Type: text/plain" -X POST\
+	--data-binary "@../binary.test.request" http://localhost:8080/binary/ok  > tmp.out )`
+
+	DIFF=`diff tmp.out ../binary.test.response`
+	echo "Response: [$DIFF]"
+
+	if [[ "X$DIFF" != "X" ]]; then
+		echo "The response [tmp.out] does not match binary.test.response!"
+		go_out 18
+	fi
+done
 
 ###############################################################################
 echo "Text buffer, async, echo"
@@ -76,17 +150,17 @@ echo "Text buffer, async, no echo"
 ###############################################################################
 for i in {1..1000}
 do
-        # Having a -i means to print the headers
-        RSP=`(curl -s -H "Content-Type: text/plain" -X POST\
+	# Having a -i means to print the headers
+	RSP=`(curl -s -H "Content-Type: text/plain" -X POST\
 		-d "Hello from curl" http://localhost:8080/text/ok/async 2>&1 )`
 
-        RSP_EXPECTED="0: SUCCEED"
-        echo "Response: [$RSP]"
+	RSP_EXPECTED="0: SUCCEED"
+	echo "Response: [$RSP]"
 
-        if [[ "X$RSP" != "X$RSP_EXPECTED" ]]; then
-                echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
-                go_out 16
-        fi
+	if [[ "X$RSP" != "X$RSP_EXPECTED" ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 16
+	fi
 done
 
 
@@ -99,13 +173,13 @@ do
         RSP=`(curl -s -H "Content-Type: text/plain" -X POST\
 		-d "Hello from curl" http://localhost:8080/text/fail 2>&1 )`
 
-        RSP_EXPECTED="11: 11:TPESVCFAIL (last error 11: Service returned 1)"
-        echo "Response: [$RSP]"
+	RSP_EXPECTED="11: 11:TPESVCFAIL (last error 11: Service returned 1)"
+	echo "Response: [$RSP]"
 
-        if [[ "X$RSP" != "X$RSP_EXPECTED" ]]; then
-                echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
-                go_out 16
-        fi
+	if [[ "X$RSP" != "X$RSP_EXPECTED" ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 16
+	fi
 done
 
 
@@ -114,17 +188,17 @@ echo "Text buffer, call ok"
 ###############################################################################
 for i in {1..1000}
 do
-        # Having a -i means to print the headers
-        RSP=`(curl -s -H "Content-Type: text/plain" -X POST\
+	# Having a -i means to print the headers
+	RSP=`(curl -s -H "Content-Type: text/plain" -X POST\
 		-d "Hello from curl" http://localhost:8080/text/ok 2>&1 )`
 
-        RSP_EXPECTED="Hello from EnduroX"
-        echo "Response: [$RSP]"
+	RSP_EXPECTED="Hello from EnduroX"
+	echo "Response: [$RSP]"
 
-        if [[ "X$RSP" != "X$RSP_EXPECTED" ]]; then
-                echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
-                go_out 15
-        fi
+	if [[ "X$RSP" != "X$RSP_EXPECTED" ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 15
+	fi
 done
 
 ###############################################################################
@@ -172,10 +246,10 @@ http://localhost:8080/jsonbuf/fail 2>&1 )`
 }"
         echo "Response: [$RSP]"
 
-        if [[ "X$RSP" != "X$RSP_EXPECTED" ]]; then
-                echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
-                go_out 13
-        fi
+	if [[ "X$RSP" != "X$RSP_EXPECTED" ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 13
+	fi
 done
 
 ###############################################################################
@@ -232,12 +306,12 @@ http://localhost:8080/jsonbuf/ok 2>&1 )`
 ,\"error_code\":0\
 ,\"error_message\":\"SUCCEED\"\
 }"
-        echo "Response: [$RSP]"
+	echo "Response: [$RSP]"
 
-        if [[ "X$RSP" != "X$RSP_EXPECTED" ]]; then
-                echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
-                go_out 11
-        fi
+	if [[ "X$RSP" != "X$RSP_EXPECTED" ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 11
+	fi
 done
 
 ###############################################################################
@@ -258,13 +332,13 @@ do
 http://localhost:8080/httpe/tout/mapped 2>&1 )`
 
 
-        RSP_EXPECTED="404"
-        echo "Response: [$RSP]"
+	RSP_EXPECTED="404"
+	echo "Response: [$RSP]"
 
-        if [[ "X$RSP" != *"$RSP_EXPECTED"* ]]; then
-                echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
-                go_out 10
-        fi
+	if [[ "X$RSP" != *"$RSP_EXPECTED"* ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 10
+	fi
 done
 
 
@@ -286,14 +360,14 @@ do
 http://localhost:8080/httpe/tout 2>&1 )`
 
 
-        RSP_EXPECTED="504"
+	RSP_EXPECTED="504"
 
-        echo "Response: [$RSP]"
+	echo "Response: [$RSP]"
 
-        if [[ "X$RSP" != *"$RSP_EXPECTED"* ]]; then
-                echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
-                go_out 9
-        fi
+	if [[ "X$RSP" != *"$RSP_EXPECTED"* ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 9
+	fi
 done
 
 ###############################################################################
@@ -314,14 +388,14 @@ do
 http://localhost:8080/httpe/fail 2>&1`
 
 
-        RSP_EXPECTED="500"
+	RSP_EXPECTED="500"
 
-        echo "Response: [$RSP]"
+	echo "Response: [$RSP]"
 
-        if [[ "X$RSP" != *"$RSP_EXPECTED"* ]]; then
-                echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
-                go_out 8
-        fi
+	if [[ "X$RSP" != *"$RSP_EXPECTED"* ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 8
+	fi
 done
 
 
@@ -342,14 +416,14 @@ do
 http://localhost:8080/httpe/ok 2>&1`
 
 
-        RSP_EXPECTED="200"
+	RSP_EXPECTED="200"
 
-        echo "Response: [$RSP]"
+	echo "Response: [$RSP]"
 
-        if [[ "X$RSP" != *"$RSP_EXPECTED"* ]]; then
-                echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
-                go_out 7
-        fi
+	if [[ "X$RSP" != *"$RSP_EXPECTED"* ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 7
+	fi
 done
 
 ###############################################################################
@@ -387,12 +461,12 @@ http://localhost:8080/juerrors`
 ,\"T_CARRAY_2_FLD\":\"SGVsbG8=\"\
 }"
 
-        echo "Response: [$RSP]"
+	echo "Response: [$RSP]"
 
-        if [[ "X$RSP" != "X$RSP_EXPECTED" ]]; then
-                echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
-                go_out 6
-        fi
+	if [[ "X$RSP" != "X$RSP_EXPECTED" ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 6
+	fi
 done
 ###############################################################################
 echo "First test, call some service with json stuff"
@@ -428,12 +502,12 @@ http://localhost:8080/svc1`
 \"error_code1\":0,\
 \"error_message1\":\"SUCCEED\"}"
 
-        echo "Response: [$RSP]"
+	echo "Response: [$RSP]"
 
-        if [ "X$RSP" != "X$RSP_EXPECTED" ]; then
-                echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
-                go_out 5
-        fi
+	if [ "X$RSP" != "X$RSP_EXPECTED" ]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 5
+	fi
 done
 ###############################################################################
 echo "Echo test"
@@ -462,12 +536,12 @@ http://localhost:8080/echo`
 \"error_code\":0,\
 \"error_message\":\"SUCCEED\"}"
 
-        echo "Response: [$RSP]"
+	echo "Response: [$RSP]"
 
-        if [ "X$RSP" != "X$RSP_EXPECTED" ]; then
-                echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
-                go_out 4
-        fi
+	if [ "X$RSP" != "X$RSP_EXPECTED" ]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 4
+	fi
 done
 
 ###############################################################################
@@ -497,12 +571,12 @@ http://localhost:8080/svc1/async`
 \"error_code\":0,\
 \"error_message\":\"SUCCEED\"}"
 
-        echo "Response: [$RSP]"
+	echo "Response: [$RSP]"
 
-        if [ "X$RSP" != "X$RSP_EXPECTED" ]; then
-                echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
-                go_out 3
-        fi
+	if [ "X$RSP" != "X$RSP_EXPECTED" ]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 3
+	fi
 done
 
 ###############################################################################
@@ -511,18 +585,18 @@ echo "Timeout test"
 for i in {1..1}
 do
 
-        RSP=`curl -H "Content-Type: application/json" -X POST -d "{\"T_CHAR_FLD\":\"A\"}" \
+	RSP=`curl -H "Content-Type: application/json" -X POST -d "{\"T_CHAR_FLD\":\"A\"}" \
 http://localhost:8080/longop/tout`
 
-        #RSP_EXPECTED="{\"T_CHAR_FLD\":\"A\",\"error_code\":13,\"error_message\":\"13:TPETIME (last error 13: ndrx_mq_receive failed: Connection timed out)\"}"
-        RSP_EXPECTED="TPETIME"
+	#RSP_EXPECTED="{\"T_CHAR_FLD\":\"A\",\"error_code\":13,\"error_message\":\"13:TPETIME (last error 13: ndrx_mq_receive failed: Connection timed out)\"}"
+	RSP_EXPECTED="TPETIME"
 
-        echo "Response: [$RSP]"
+	echo "Response: [$RSP]"
 
-        if [[ "X$RSP" != *"$RSP_EXPECTE"* ]]; then
-                echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
-                go_out 2
-        fi
+	if [[ "X$RSP" != *"$RSP_EXPECTE"* ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 2
+	fi
 done
 
 ###############################################################################
@@ -530,18 +604,17 @@ echo "Notime"
 ###############################################################################
 for i in {1..1}
 do
-
-        RSP=`curl -H "Content-Type: application/json" -X POST -d "{\"T_CHAR_FLD\":\"A\"}" \
+	RSP=`curl -H "Content-Type: application/json" -X POST -d "{\"T_CHAR_FLD\":\"A\"}" \
 http://localhost:8080/longop/ok`
 
-        RSP_EXPECTED="{\"T_CHAR_FLD\":\"A\",\"T_CHAR_2_FLD\":\"A\",\"error_code\":0,\"error_message\":\"SUCCEED\"}"
+	RSP_EXPECTED="{\"T_CHAR_FLD\":\"A\",\"T_CHAR_2_FLD\":\"A\",\"error_code\":0,\"error_message\":\"SUCCEED\"}"
 
-        echo "Response: [$RSP]"
+	echo "Response: [$RSP]"
 
-        if [ "X$RSP" != "X$RSP_EXPECTED" ]; then
-                echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
-                go_out 1
-        fi
+	if [ "X$RSP" != "X$RSP_EXPECTED" ]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 1
+	fi
 done
 
 

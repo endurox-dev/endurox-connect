@@ -69,10 +69,13 @@ type DataBlock struct {
 	addToConWaiter  bool
 	addToCorrWaiter bool
 	//sender_chan //optional if we want recieve reply back
-	atmi_chan        chan DataBlock
+	atmi_chan        chan []byte
 	atmi_out_conn_id int64  //Connection id if specified (0) - then random.
 	corr             string //Correlator string (opt)
 	net_conn_id      int64  //Network connection id (when sending in)
+
+	tstamp_sent int64 //Timestamp messag sent
+
 }
 
 //Enduro/X connection
@@ -103,6 +106,11 @@ var MConWaiterMutex = &sync.Mutex{}
 //List of reply waiters on given correlation id
 var MCorrWaiter map[string]*DataBlock
 var MCorrWaiterMutex = &sync.Mutex{}
+
+//TODO: Remove from both lists
+func RemoveFromCallLists(call *DataBlock) {
+
+}
 
 //This assumes that MConnections is locked
 //@return <id> <tstamp> <compiled id> new connection id >0 or FAIL (-1)
@@ -159,6 +167,7 @@ func HandleConnection(con *ExCon) {
 		select {
 		case dataIncoming := <-dataIn:
 
+			inCorr := "" //Use for sending to incoming service (if not found in tables)
 			//We should call the server or check that reply is needed
 			//for some call in progress.
 			//If this is connect per call, then we should keep the track
@@ -173,11 +182,40 @@ func HandleConnection(con *ExCon) {
 				MConWaiterMutex.Unlock()
 				//This will tell should we terminate or not...
 				NetDispatchConAnswer(call, dataIncoming, &ok)
+
+				continue //<<< Continue!
+			} else {
+				MConWaiterMutex.Unlock()
 			}
 
 			if MCorrSvc != "" {
-				//corr, err:=NetGetCorID(call, dataIncoming)
+				var err error
+				inCorr, err = NetGetCorID(call, dataIncoming)
+
+				if nil == err {
+					ac.TpLogWarn("Error calling correlator service: %s", err)
+				} else if corr != "" {
+					ac.TpLogWarn("Got correlator for incoming "+
+						"message: [%s] - looking up for reply waiter", err)
+
+					MCorrWaiterMutex.Lock()
+					corwait := MCorrWaiter[inCorr]
+
+					if nil != corwait {
+						MConWaiterMutex.Unlock()
+						NetDispatchCorAnswer(corwait)
+						continue //<<< Continue!
+					} else {
+						MConWaiterMutex.Unlock()
+					}
+				}
 			}
+
+			//OK we have not found any corelation or this is incoming
+			//Message, so submit to ATMI
+			ac.TpLogInfo("Incoming mesage: corr: [%s]", inCorr)
+			go NetDispatchCall(con, data, inCorr)
+
 			break
 		case err := <-dataInErr:
 			ac.TpLogError("Connection failed: %s - terminating", err)

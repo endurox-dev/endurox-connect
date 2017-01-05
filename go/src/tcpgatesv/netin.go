@@ -30,24 +30,49 @@
  */
 package main
 
-import (
-	atmi "github.com/endurox-dev/endurox-go"
-)
-
 //We have recieved new call from Network
-//Dispatch it.
-func NetDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf *atmi.TypedUBF) {
+//So shall wait for new ATMI context & send the message in
+//This should be run on go routine.
+//@param data 	Data received from Network
+//@param bool	set to false if do not need to continue (i.e. close conn)
+func NetDispatchCall(con *ExCon, data []byte, corr string) {
+	//TODO: Setup UBF buffer, load the fields
+
+	buf, err := ac.NewUBF(len(data) + 1024)
+	if nil != err {
+		ac.TpLogError("Failed to allocate buffer: [%s] - dropping incoming message",
+			err.Error())
+		return
+	}
+
+	/*
+		TODO: Load the fields
+		buf.BChg(u.EX_CC_CMD, 0, "g")
+		buf.BChg(u.EX_CC_LOOKUPSECTION, 0, fmt.Sprintf("%s/%s", PROGSECTION, os.Getenv("NDRX_CCTAG")))
+	*/
 
 }
 
 //Dispatch connection answer
+//@param call 	Call data block (what caller thread actually made)
+//@param data	Data block received from network
+//@param bool	ptr for finish off parameter
 func NetDispatchConAnswer(call *DataBlock, data []byte, doContinue *bool) {
+	call.atmi_chan <- data
+	*doContinue = false //Do not continue - close thread
 
+	//Remove from corelator lists
+	RemoveFromCallLists(call)
 }
 
-//Dispatch correlator answer
-func NetDispatchCorAnswer() {
-
+//Dispatch connection answer
+//@param call 	Call data block (what caller thread actually made)
+//@param data	Data block received from network
+//@param bool	ptr for finish off parameter
+func NetDispatchCorAnswer(call *DataBlock, data []byte, doContinue *bool) {
+	call.atmi_chan <- data //Send the data to caller
+	//Remove from corelator lists
+	RemoveFromCallLists(call)
 }
 
 //Get correlator id

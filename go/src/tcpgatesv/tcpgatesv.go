@@ -52,6 +52,8 @@ var MReqReply bool = false
 //Timeout for req-reply model
 var MReqReplyTimeout = 60
 
+var MReqReplyScanTimeMsec = 1000 //Miliseconds to scan the tables for timeouts
+
 //Correlator service for incoming messages
 //This is used case if driver operates in sync mode over the persistently conneced lines
 var MCorrSvc = ""
@@ -226,6 +228,15 @@ func Init(ac *atmi.ATMICtx) int {
 		case "req_reply_timeout":
 			MReqReplyTimeout, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
 			ac.TpLogDebug("Got [%s] = [%d] ", fldName, MReqReplyTimeout)
+			break
+
+		case "req_reply_timeout":
+			MReqReplyTimeout, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
+			ac.TpLogDebug("Got [%s] = [%d] ", fldName, MReqReplyTimeout)
+			break
+		case "req_reply_scan_time":
+			ReqReplyScanTimeMsec, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
+			ac.TpLogDebug("Got [%s] = [%d] ", fldName, ReqReplyScanTimeMsec)
 			break
 		case "corr_svc":
 			//Corelator service for sync tpcall over mulitple persistent connectinos

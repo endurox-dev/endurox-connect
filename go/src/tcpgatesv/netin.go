@@ -1,7 +1,7 @@
 /*
-** Enduro/X -> World (OUT) Request handling...
+** Network -> Enduro/X
 **
-** @file outreq.go
+** @file atmiout.go
 ** -----------------------------------------------------------------------------
 ** Enduro/X Middleware Platform for Distributed Transaction Processing
 ** Copyright (C) 2015, ATR Baltic, SIA. All Rights Reserved.
@@ -34,24 +34,24 @@ import (
 	atmi "github.com/endurox-dev/endurox-go"
 )
 
-//Dispatcht the XATMI call (in own go routine)
-func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf *atmi.TypedUBF) {
+//We have recieved new call from Network
+//Dispatch it.
+func NetDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf *atmi.TypedUBF) {
 
-	ret := SUCCEED
-	ac := pool.ctxs[nr]
+}
 
-	defer func() {
-		if SUCCEED == ret {
-			ac.TpReturn(atmi.SUCCEED, 0, buf, 0)
-		} else {
-			ac.TpReturn(atmi.TPFAIL, 0, buf, 0)
-		}
-	}()
+//Dispatch connection answer
+func NetDispatchConAnswer(call *DataBlock, data []byte, doContinue *bool) {
 
-	ac.TpSrvSetCtxData(ctxData, 0)
+}
 
-	//OK so our context have a call, now do something with it
+//Dispatch correlator answer
+func NetDispatchCorAnswer() {
 
-	//Put back the channel
-	pool.freechan <- nr
+}
+
+//Get correlator id
+func NetGetCorID(data []byte) (string, error) {
+
+	return "", nil
 }

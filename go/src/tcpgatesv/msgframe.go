@@ -32,9 +32,9 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"strconv"
-	"unicode/utf8"
 
 	atmi "github.com/endurox-dev/endurox-go"
 )
@@ -143,12 +143,12 @@ func GetMessage(con *ExCon) ([]byte, error) {
 		if nil != err {
 			ac.TpLogError("Failed to read header of %d bytes: %s",
 				MFramingLen, err)
-			return err
+			return nil, err
 		}
 
 		if n != MFramingLen {
 
-			emsg := fmt.SPrintf("Invlid header len read, expected: %d got %d",
+			emsg := fmt.Sprintf("Invlid header len read, expected: %d got %d",
 				MFramingLen, n)
 			ac.TpLogError("%s", emsg)
 			return nil, errors.New(emsg)
@@ -164,53 +164,63 @@ func GetMessage(con *ExCon) ([]byte, error) {
 				switch MFramingCode {
 				case FRAME_BIG_ENDIAN:
 				case FRAME_BIG_ENDIAN_ILEN:
-					mlen <<= 8        //Move the current byte to front
-					mlen |= header[i] //Add current byte
+					mlen <<= 8               //Move the current byte to front
+					mlen |= int64(header[i]) //Add current byte
 					break
 				case FRAME_LITTLE_ENDIAN:
 				case FRAME_LITTLE_ENDIAN_ILEN:
-					mlen <<= 8                        //Move the current byte to end
-					mlen |= header[(MFramingLen-1)-i] //Add current byte, but take from older
+					mlen <<= 8                                  //Move the current byte to end
+					mlen |= int64(header[int(MFramingLen-1)-i]) //Add current byte, but take from older
 					break
 				}
 			}
 		} else {
-			mlenStr = utf8.DecodeRune(header)
+			mlenStr = string(header)
 		}
 
 		if MFramingCode == FRAME_ASCII || MFramingCode == FRAME_ASCII_ILEN {
 			ac.TpLogInfo("Got string prefix len: [%s]", mlenStr)
-			mlen = strconv.Atoi(mlenStr)
+			itmp, e1 := strconv.Atoi(mlenStr)
+
+			if nil != e1 {
+				ac.TpLogError("Invalid message length received: "+
+					"[%s] - cannot parse as decimal: %s",
+					mlenStr, e1)
+				return nil, e1
+			}
+
+			mlen = int64(itmp)
+
 		}
 
 		if MFamingInclPfxLen {
-			mlen -= MFramingLen
+			mlen -= int64(MFramingLen)
 		}
 
 		ac.TpLogInfo("Got header, indicating message len to read: %d", mlen)
 
-		if max_msg_len > 0 && mlen > max_msg_len {
+		if MFramingMaxMsgLen > 0 && mlen > int64(MFramingMaxMsgLen) {
 			ac.TpLogError("Error ! Message len received: %d,"+
-				" max message size configured: %d", mlen, max_msg_len)
-			return nil, errors.new(fmt.SPrintf("Error ! Message len received: %d,"+
-				" max message size configured: %d", mlen, max_msg_len))
+				" max message size configured: %d", mlen, MFramingMaxMsgLen)
+			return nil, errors.New(fmt.Sprintf("Error ! Message len received: %d,"+
+				" max message size configured: %d", mlen, MFramingMaxMsgLen))
 		}
 
 		//..And read the number of bytes...
 		data := make([]byte, mlen)
-		n, err := io.ReadFull(con.reader, data)
+		n, err = io.ReadFull(con.reader, data)
 
 		if err != nil {
 			ac.TpLogError("Failed to read %d bytes: %s", mlen, err)
 			return nil, err
 		}
 
-		if n != mlen {
-			emsg := fmt.SPrintf("Invalid bytes read, expected: %d got %d",
+		if int64(n) != mlen {
+			emsg := fmt.Sprintf("Invalid bytes read, expected: %d got %d",
 				mlen, n)
 
 			ac.TpLogError("%s", emsg)
-			return nil, errors.new(err)
+			return nil, errors.New(emsg)
 		}
 
 		ac.TpLogDump(atmi.LOG_DEBUG, "Message read", data, len(data))
@@ -220,7 +230,7 @@ func GetMessage(con *ExCon) ([]byte, error) {
 		ac.TpLogInfo("About to read message until delimiter %x", MDelimStop)
 
 		//If we use delimiter, then read pu till that
-		data, err := ReadBytes(MDelimStop)
+		data, err := con.reader.ReadBytes(MDelimStop)
 
 		if err != nil {
 
@@ -235,7 +245,7 @@ func GetMessage(con *ExCon) ([]byte, error) {
 		if MFramingCode == FRAME_DELIM_BOTH {
 			//Check the start of the message to match the delimiter
 			if data[0] != MDelimStart {
-				emsg := fmt.SPrintf("Expected message start byte %x but got %x",
+				emsg := fmt.Sprintf("Expected message start byte %x but got %x",
 					MDelimStart, data[0])
 				ac.TpLogError("%s", emsg)
 				return nil, errors.New(emsg)
@@ -248,26 +258,25 @@ func GetMessage(con *ExCon) ([]byte, error) {
 		}
 	}
 
-	//Get the
-
-	return nil, nilf
+	//We should not get here anyway
+	return nil, errors.New("Unexpeced EOF")
 }
 
 //Put message on socket
-func PutMessage(con *ExCon, data []byte) ([]byte, error) {
+func PutMessage(con *ExCon, data []byte) error {
 
 	ac := con.ctx
 
-	ac.TpLogInfo("Building ougoing message: len %d", mlen)
+	ac.TpLogInfo("Building ougoing message: len %d", MFramingLen)
 
 	ac.TpLogDump(atmi.LOG_DEBUG, "Preparing message for sending", data, len(data))
 
 	if MFramingLen > 0 {
-		var mlen int64 = len(data)
+		var mlen int64 = int64(len(data))
 		header := make([]byte, MFramingLen)
 
 		if MFamingInclPfxLen {
-			mlen += MFramingLen
+			mlen += int64(MFramingLen)
 		}
 
 		//Generate the header
@@ -291,15 +300,49 @@ func PutMessage(con *ExCon, data []byte) ([]byte, error) {
 				mlen >>= 8
 			}
 
-			//TODO: Print len
-
 		} else {
 			mlenStr := fmt.Sprintf("%*d", MFramingLen, mlen)
 			header = []byte(mlenStr)
-
-			//TODO: Print len
 		}
+
+		// Print len
+		ac.TpLogDump(atmi.LOG_INFO, "Built message header",
+			header, len(header))
+
+		//About to send message.
+		dataToSend := append(header[:], data[:]...)
+
+		ac.TpLogDump(atmi.LOG_DEBUG, "Sending message, w len pfx",
+			dataToSend, len(dataToSend))
+
+		nw, err := con.writer.Write(dataToSend)
+
+		if nil != err {
+			ac.TpLogError("Failed to write data to socket: %s", err)
+		}
+
+		ac.TpLogInfo("Written %d bytes to socket", nw)
+
 	} else {
+
+		var dataToSend []byte
 		//Put (STX)ETX
+		if MFramingCode == FRAME_DELIM_BOTH {
+			dataToSend = append(([]byte{MDelimStart})[:], data[:]...)
+			dataToSend = append(data[:], ([]byte{MDelimStop})[:]...)
+		} else {
+			dataToSend = append(data[:], ([]byte{MDelimStop})[:]...)
+		}
+		ac.TpLogDump(atmi.LOG_DEBUG, "Sending message (etx/stx)", dataToSend, len(dataToSend))
+
+		nw, err := con.writer.Write(dataToSend)
+
+		if nil != err {
+			ac.TpLogError("Failed to write data to socket: %s", err)
+		}
+
+		ac.TpLogInfo("Written %d bytes to socket", nw)
 	}
+
+	return nil
 }

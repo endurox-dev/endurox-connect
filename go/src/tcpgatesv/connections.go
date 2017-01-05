@@ -41,12 +41,38 @@ import (
 	atmi "github.com/endurox-dev/endurox-go"
 )
 
+//About incoming & outgoing messages:
+
+//If we run new connection per request + close, then we need:
+//1. Open new connection
+//2. Send the call
+//3. Register in Per connection id waiting list of the replies channels
+//4. Once we got the incoming message, we check the list 3, if message connection is registered
+//5. We send the reply to the specified channel and connection gets closed
+//6. If timeout occurrs we shall send to thread back info that this is timeout
+//   so that it can clean up the resources.
+//6.1. On tout we shall close connection too.
+
+//If we run in request & reply mode, but we have few permanent connections
+//then
+//1. Once doing call, we need corelator string
+//2. We add corelator with back channel to goroutine waiting for reply
+//3. If timeout occurs, then special scanner thread should send back notification of tout
+//4. If we get back response, we shall call MCorrSvc service with message dump, the service
+//5. shall provide us with "EX_TCPCORR"
+//6. If EX_TCPCORR is found in hash list then do the reply back to specified channel
+//7. If EX_TCPCORR is not provided back, then send message to MIncomingSvc
+
 //This is data block for sending messages int/out
 type DataBlock struct {
-	data []byte
+	data            []byte
+	addToConWaiter  bool
+	addToCorrWaiter bool
 	//sender_chan //optional if we want recieve reply back
-	sender_chan chan DataBlock
-	conn_id     int //Connection id if specified (0) - then random.
+	atmi_chan        chan DataBlock
+	atmi_out_conn_id int64  //Connection id if specified (0) - then random.
+	corr             string //Correlator string (opt)
+	net_conn_id      int64  //Network connection id (when sending in)
 }
 
 //Enduro/X connection
@@ -70,6 +96,14 @@ type ExCon struct {
 var MConnections map[int64]*ExCon
 var MConnMutex = &sync.Mutex{}
 
+//List of reply waiters on particular
+var MConWaiter map[int64]*DataBlock
+var MConWaiterMutex = &sync.Mutex{}
+
+//List of reply waiters on given correlation id
+var MCorrWaiter map[string]*DataBlock
+var MCorrWaiterMutex = &sync.Mutex{}
+
 //This assumes that MConnections is locked
 //@return <id> <tstamp> <compiled id> new connection id >0 or FAIL (-1)
 func GetNewConnectionId() (int64, int64, int64) {
@@ -92,11 +126,6 @@ func GetNewConnectionId() (int64, int64, int64) {
 	return FAIL, FAIL, FAIL
 }
 
-//Get the outgoing channel
-func SendOut(data *DataBlock) {
-
-}
-
 // Start a goroutine to read from our net connection
 func ReadConData(con *ExCon, ch chan []byte, eCh chan error) {
 	for {
@@ -117,6 +146,8 @@ func HandleConnection(con *ExCon) {
 
 	var dataIn chan []byte
 	var dataInErr chan error
+	ok := true
+	ac := con.ctx
 	/* Need a:
 	 * - byte array channel
 	 * - error channel for socket
@@ -124,18 +155,55 @@ func HandleConnection(con *ExCon) {
 
 	go ReadConData(con, dataIn, dataInErr)
 
-	for {
+	for ok {
 		select {
 		case dataIncoming := <-dataIn:
+
+			//We should call the server or check that reply is needed
+			//for some call in progress.
+			//If this is connect per call, then we should keep the track
+			//of the calls that wait for specific connetions to be replied
+
+			//1. Check that we do have some reply waiters on connection
+			MConWaiterMutex.Lock()
+
+			call := MConWaiter[con.id_comp]
+			if nil != call {
+				//Send to connection
+				MConWaiterMutex.Unlock()
+				//This will tell should we terminate or not...
+				NetDispatchConAnswer(call, dataIncoming, &ok)
+			}
+
+			if MCorrSvc != "" {
+				//corr, err:=NetGetCorID(call, dataIncoming)
+			}
 			break
 		case err := <-dataInErr:
+			ac.TpLogError("Connection failed: %s - terminating", err)
+			ok = false
 			break
 		case shutdown := <-con.shutdown:
+			if shutdown {
+				ac.TpLogWarn("Shutdown notification received - terminating")
+				ok = false
+			}
 			break
 		case dataOutgoing := <-con.outgoing:
+			//Send data away
+			if err := PutMessage(con, dataOutgoing.data); nil != err {
+				ac.TpLogError("Failed to send message to network"+
+					": %s - terminating", err)
+				ok = false
+			}
+
+			//TODO: If we expect to get reply back, and reply to caller
+			//then we shall register the call in some list
+
 			break
 		}
 	}
+
 }
 
 //Handle the connection - connect to server
@@ -144,6 +212,8 @@ func GoDial(con *ExCon) {
 	var err error
 	var errA atmi.ATMIError
 	con.ctx, errA = atmi.NewATMICtx()
+
+	ac := con.ctx
 
 	//Free up the slot once we are done
 	defer func() {
@@ -180,4 +250,17 @@ func GoDial(con *ExCon) {
 	//Have buffered read/write API to socket
 	con.writer = bufio.NewWriter(con.con)
 	con.reader = bufio.NewReader(con.con)
+
+	HandleConnection(con)
+
+	//Close connection
+	ac.TpLogWarn("Connection id=%d, "+
+		"tstamp=%d, id_comp=%d closing...",
+		con.id, con.id_stamp, con.id_comp)
+
+	err = con.con.Close()
+
+	if nil != err {
+		ac.TpLogError("Failed to close connection: %s", err)
+	}
 }

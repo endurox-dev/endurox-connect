@@ -74,7 +74,8 @@ type DataBlock struct {
 	corr             string //Correlator string (opt)
 	net_conn_id      int64  //Network connection id (when sending in)
 
-	tstamp_sent int64 //Timestamp messag sent
+	tstamp_sent   int64 //Timestamp messag sent, TODO: We need cleanup monitor...
+	send_and_shut bool  //Send and shutdown
 
 }
 
@@ -214,6 +215,14 @@ func HandleConnection(con *ExCon) {
 			//OK we have not found any corelation or this is incoming
 			//Message, so submit to ATMI
 			ac.TpLogInfo("Incoming mesage: corr: [%s]", inCorr)
+
+			//If we work in sync mode, we shall wait for reply or
+			//timeout...
+			//Send the channel of reply data
+			//In select on timeout channel
+			//Do the action which comes first...
+			//Or thread will wait until TPCALL terminates, and then do
+			//reply if socket will be still open...
 			go NetDispatchCall(con, data, inCorr)
 
 			break
@@ -235,8 +244,19 @@ func HandleConnection(con *ExCon) {
 				ok = false
 			}
 
+			if dataOutgoing.send_and_shut {
+				ac.TpLogInfo("CONN: %d - send_and_shut recieved - terminating",
+					con.id_comp)
+				ok = false
+			}
+
 			//TODO: If we expect to get reply back, and reply to caller
 			//then we shall register the call in some list
+			if MReqReply {
+				ac.TpLogInfo("CONN: %d - Adding request to outgoing lists",
+					con.id_comp)
+				MConWaiter[con.id_comp] = dataOutgoing
+			}
 
 			break
 		}

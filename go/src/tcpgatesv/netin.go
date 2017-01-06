@@ -30,6 +30,12 @@
  */
 package main
 
+import (
+	u "ubftab"
+
+	"github.com/endurox-dev/endurox-go/tests/06_ubf_marshal/src/atmi"
+)
+
 //We have recieved new call from Network
 //So shall wait for new ATMI context & send the message in
 //This should be run on go routine.
@@ -45,12 +51,57 @@ func NetDispatchCall(con *ExCon, data []byte, corr string) {
 		return
 	}
 
-	/*
-		TODO: Load the fields
-		buf.BChg(u.EX_CC_CMD, 0, "g")
-		buf.BChg(u.EX_CC_LOOKUPSECTION, 0, fmt.Sprintf("%s/%s", PROGSECTION, os.Getenv("NDRX_CCTAG")))
-	*/
+	if err = buf.BChg(u.EX_NETGATEWAY, 0, MGateway); err != nil {
+		ac.TpLogError("Failed to set EX_NETGATEWAY %d: %s", err.Code(), err.Message())
+		return
+	}
 
+	if err = buf.BChg(u.EX_NETCONNID, 0, con.id_comp); err != nil {
+		ac.TpLogError("Failed to set EX_NETCONNID %d: %s", err.Code(), err.Message())
+		return
+	}
+
+	if err = buf.Bchg(u.EX_NETDATA, 0, data); err != nil {
+		ac.TpLogError("Failed to set EX_NETDATA %d: %s", err.Code(), err.Message())
+		return
+	}
+
+	if "" != corr {
+		if buf.BChg(u.EX_NETCORR, 0, corr); err != nil {
+			ac.TpLogError("Failed to set EX_NETCORR %d: %s", err.Code(), err.Message())
+			return
+		}
+	}
+
+	//OK we are here, lets call the service
+	//If we work on non req_reply mode, then just async call
+
+	buf.TpLogPrintUBF(atmi.LOG_DEBUG, "Incoming message")
+
+	if !MReqReply {
+		ac.TpLogInfo("Calling in async mode");
+		_, err:=ac.TpACall(MIncomingSvc, buf, atmi.TPNOREPLY)
+	} else {
+		ac.TpLogInfo("Req-reply mode enabled and this is incoming call, "
+			"do call the service in sync mode");
+
+		_, err:=ac.TpCall(MIncomingSvc, buf, 0)
+
+		if err!=nil {
+			ac.TpLogError("Failed to call %s service: %d: %s",
+				MIncomingSvc, err.Code(), err.Message())
+			//TODO: Reply with failure
+		} else {
+			//TODO: Read the data block and reply back
+			var b DataBlock
+			b.data = buf.BGetByteArr(u.EX_NETDATA, 0)
+			b.send_and_shut = true
+			//Maybe send to channel for reply
+			//And then shutdown
+			//We need a send + shutdown channel...
+			con.outgoing <-b
+		}
+	}
 }
 
 //Dispatch connection answer

@@ -39,8 +39,16 @@ Driver opens number of connections. When doing outgoing message delivery the use
 id (by connection id) compiled or not compiled. If channel not specified, then random or round robin
 channel will be used.
 
+== Design ides
+
+For round-robin mode available connection sharing channel can be used. Any open connection will submit
+it's ID in channel it's handler. In case of async outgoing the connection thread will put it self back
+in channel when message is sent to network. In case of sync mode, the thread can put it self in channel
+list once it is made free. The marking connection as "idle" could be done by some kind of common
+function.
+
 == Connections: Active & passive
-TCPGATESV in mainting list of open connections wither dialed in our made the remote connection.
+TCPGATESV in maintaining list of open connections wither dialed in our made the remote connection.
 Enduro/X driver in active mode is attempting to keep the number of configuration
 connections open if active. During the passive mode it limits the number of open
 connections set by configuration flag.
@@ -56,17 +64,19 @@ There are two major group of connection modes: persistent and non persistent. th
 persistent are ones when the connection is permanently open. And non  persistent is
 when connection is open only during the request/reply pair.
 
-=== Persistent (Active & passive), async one or more outgoing channels
+== Persistent (Active & passive), async one or more outgoing channels
 *configuration*: the async mode with persistent channel can be configured with following flags:
 
-'req_reply' = false
+*req_reply* = false
 
-==== EX -> NET With out correlation
+=== EX -> NET With out correlation
 
 In case if Enduro/X is calling the network with out correlation, then *TCPGATE*
 service is called with *tpcall()*. The buffer contains following data:
 
 Service *TCPGATE* receives in tpcall() mode following data:
+
+Request buffer:
 
 - Mandatory: *EX_NETDATA* - data to send
 
@@ -75,12 +85,26 @@ connection id, the oldest 40 bits identifies the exact timestamp for connection.
 is is 0, then the connection is taken from non-compiled connection list. If the oldest 40 bits
 are non zero, then connection is taken from compiled list. If connection is not found, then service
 will return application failure (with 'TPFAIL'). The UBF field *EX_NERROR_CODE* will 
-be set to "1" indicating that there is no such connection, *EX_NERROR_MSG* will contain
+be set to "9" indicating that there is no such connection, *EX_NERROR_MSG* will contain
 exact message of the problem.
+
+In case of error:
+
+- Mandatory: *EX_NERROR_MSG* - "Connection not found"
+
+- Mandatory: *EX_NERROR_CODE* - 9
+
 
 image:pers_async_ex_to_net_wo_corr.png[caption="Figure 1: ", title="Persistent connection, asynchronous, no correlation, Enduro/X sends to Network", alt="Persistent connection, asynchronous, no correlation, Enduro/X sends to Network"]
 
-==== NET -> EX With out correlation
+
+Configuration:
+
+- *req_reply* = false;
+
+- *incoming_svc* = Set to Service.
+
+=== NET -> EX With out correlation
 
 In case if network is sending us a message, and we run in non 
 correlated mode (*corr_svc* not set in ini). Then incoming message is filled 
@@ -91,29 +115,222 @@ to the target ATMI server. The server receives following data:
 
 - Mandatory: *EX_NETCONNID* - Compiled connection id
 
+Configuration: 
 
-image:pers_async_net_to_ex_wo_corr.png[caption="Figure 1: ", title="Persistent connection, asynchronous, no correlation, Network sends to Enduro/X", alt="Persistent connection, asynchronous, no correlation, Network sends to Enduro/X"]
+- *req_reply* = false;
 
-==== EX -> NET With correlation
+- *incoming_svc* = Set to Service.
+
+
+image:pers_async_net_to_ex_wo_corr.png[caption="Figure 2: ", title="Persistent connection, asynchronous, no correlation, Network sends to Enduro/X", alt="Persistent connection, asynchronous, no correlation, Network sends to Enduro/X"]
+
+=== EX -> NET With correlation + NET -> EX With correlation
 
 In case if Enduro/X is willing to send the message to Network with correlation, then
 the UBF buffer must contain field *EX_NETCORR*. If the field is present the once the message
 is submitted to network, the correlator will be registered in to hash list as waiting for answers.
+When answer from network is received (or any other call), then message must be sent
+to correlation service. Which will parse the message and will provide back the correlation number.
+*NOTE*: The correlation service (*corr_svc* must be set in ini). The service have right to change
+the UBF buffer *EX_NETDATA* value. So that for example the correlation service
+have parsed the message and destination service do not have to parse it again. In case
+if correlation is found in registered list of waiters, then response message is sent to
+caller go routine (via channel). If the correlator number is not present in answer or
+the the waiter is not found in the correlator hash list (for example caller timed out),
+The message with all its content with *EX_NETDATA* (can be updated) and *EX_NETCONNID* and
+*EX_NETCORR* (optional) will be sent to incoming service in async mode (*tpacall()* with 'TPNOREPLY')
+to *incoming_svc* service configured in ini file.
 
 
-==== NET -> EX With correlation
-..
-=== Persistent, sync one or more outgoing channels
-..
-==== EX -> NET (correlated by connection id)
-..
-==== NET -> EX (correlated by connection id)
+Enduro/X-to-Net buffer:
 
-=== Non persistent (one connection per request/reply)
-..
-==== EX -> NET (correlated by connection id), only active mode
-..
-==== NET -> EX (correlated by connection id), only passive mode
+- Mandatory: *EX_NETDATA* - data to send to network;
+
+- Optional: *EX_NETCONNID* - Simple or compiled connection id of connection to send away data.
+
+- Optional: *EX_NETCORR* - If provided by *incoming_svc* service;
+
+Net-to-Enduro/X:
+
+
+*tpreturn()* in case if found in correlation hash list or *tpacall()* if correlation is
+not found in hash list:
+
+- Mandatory: *EX_NETDATA* - data to send to network. Can be change by *incoming_svc*;
+
+- Optional: *EX_NETCONNID* - Simple or compiled connection id;
+
+- Optional: *EX_NETCORR* - If provided by *incoming_svc* service;
+
+
+Configuration: 
+
+- *req_reply* = 0
+
+- *incoming_svc* = Set to Service.
+
+- *corr_svc* = Set to Service.
+
+- *req_reply_timeout* = Set to time-out number. Default 60 seconds.
+
+- *req_reply_scan_time* = This is time in milliseconds defining the period in 
+which special thread in scanning the any open requests not receiving the responses.
+
+
+image:pers_async_net_to_ex_w_corr.png[caption="Figure 3: ", title="Persistent connection, asynchronous, correlation, Enduro/X-to-Net and Net-to-Enduro/X", alt="Persistent connection, synchronous, correlation, Enduro/X-to-Net and Net-to-Enduro/X"]
+
+
+== Persistent, sync one or more outgoing channels
+This is synchronous mode, meaning that one request/replay pair is transferred over the
+channel only one at time.
+
+=== EX -> NET (correlated by connection id)
+In this case Enduro/X synchronously invokes the *TCPGATE* service, but routine is waiting
+for answer from the channel. The correlator in this case is connection id. So once some socket
+receives the message, the list of waiters on connection ID are searched, if some entry is
+found, then answer is made (data sent to waiter channel). Then connection is removed
+from waiters list. In case if for incoming connection we cannot find connection id waiter,
+then if defined, we send the message to *incoming_svc* if set
+
+Buffer out (to Net):
+
+- Mandatory: *EX_NETDATA* - data to send to network
+
+- Optional: *EX_NETCONNID* - Simple or compiled connection id;
+
+
+Reply buffer (or tpcall if connid waiter not found): 
+
+- Mandatory: *EX_NETDATA* - data to send to network
+
+- Mandatory: *EX_NETCONNID* - Compiled connection id;
+
+
+Buffer in response in case of timeout:
+
+- Mandatory: *EX_NERROR_MSG* - "Connection timeout"
+
+- Mandatory: *EX_NERROR_CODE* - 8
+
+
+Configuration: 
+
+- *incoming_svc* = Optional, If set incoming messages will be sent sent in async (tpacall) 
+mode to this service. Service can later figure out what to do with this message.
+
+- *req_reply* = 1 (mode 1 - persistent mode request-reply, EX->NET)
+
+- *req_reply_timeout* = Set to time-out number. Default 60 seconds.
+
+- *req_reply_scan_time* = This is time in milliseconds defining the period in 
+which special thread in scanning the any open requests not receiving the responses.
+
+image:pers_sync_ex_to_net_connid.png[caption="Figure 4: ", title="Persistent connection, synchronous, correlation by connection id, Enduro/X-to-Net", alt="Persistent connection, synchronous, correlation by connection id, Enduro/X-to-Net"]
+
+
+=== NET -> EX (correlated by connection id)
+In case of Network sending requests to XATMI in sync mode. We receive request, we
+shall do the tpcall() synchronous. Wait for answer and send reply back to network.
+In case of timeout, we do not send anything. The incoming call will get the free XATMI
+context object (possibly wait for it). Timeout is controller by global Enduro/X configuration
+flag *NDRX_TOUT*.
+
+
+Net->Ex request buffer:
+
+- Mandatory: *EX_NETDATA* - Data received from network
+
+- Mandatory: *EX_NETCONNID* - Compiled connection id;
+
+
+XATMI Response buffer:
+- Mandatory: *EX_NETDATA* - data to send to network
+
+
+Configuration: 
+
+- *incoming_svc* = Mandatory, incoming requests will be targeted to this service.
+
+- *req_reply* = 2 (mode 2 - persistent mode request-reply, NET->EX)
+
+
+image:pers_sync_net_to_ex.png[caption="Figure 5: ", title="Persistent connection, synchronous, Network calls Enduro/X", alt="Persistent connection, synchronous, Network calls Enduro/X"]
+
+
+== Non persistent, sync (one connection per request/reply)
+
+In case of non persistent processing, new connection is open on every request.
+
+=== EX -> NET (correlated by connection id), only active mode
+In this case tcp driver must be in active mode. I will open new connection for
+every request. Once reply or timeout is received the connection is closed. The pool
+of connections is not needed, but driver is keeping the track of max open connections,
+if connections are over-reached, then reject message will be passed back to XATMI caller.
+
+
+Ex->Net request buffer:
+
+- Mandatory: *EX_NETDATA* - Data received from network
+
+
+XATMI Response buffer:
+
+- Mandatory: *EX_NETDATA* - Data received from network
+
+or 
+
+XATMI Response buffer:
+
+- Mandatory: *EX_NERROR_MSG* - "Connection timeout"
+
+- Mandatory: *EX_NERROR_CODE* - 8
+
+or
+
+
+- Mandatory: *EX_NERROR_MSG* - "Not connection (failed to connect)"
+
+- Mandatory: *EX_NERROR_CODE* - 9
+
+
+Configuration: 
+
+- *type* = A (active)
+
+- *req_reply* = 3 (mode 3 - non persistent mode, request-reply, EX->NET)
+
+
+image:nonpers_sync_ex_to_net.png[caption="Figure 6: ", title="Non-persistent connection, synchronous, Enduro/X calls Network", alt="Non-persistent connection, synchronous, Enduro/X calls Network"]
+
+=== NET -> EX (correlated by connection id), only passive mode
+
+In this case TCP Driver is running in passive mode. And is waiting for incoming
+connections. When new connection is established, then new go routine is spawned.
+Then the call is made to XATMI service. The time-out is controlled by XATMI service
+invocation.
+
+Ex->Net request buffer:
+
+- Mandatory: *EX_NETDATA* - Data received from network
+
+- Optional: *EX_NETCONNID* - Connection id really here not needed to be passed.
+But can be added for informational reasons/debugging.
+
+
+XATMI Response buffer:
+
+- Mandatory: *EX_NETDATA* - Data received from XATMI sub-system (service reply)
+
+
+Configuration: 
+
+- *type* = P (passive)
+
+- *req_reply* = 4 (mode 4 - non persistent mode, request-reply, NET->EX)
+
+- *incoming_svc* = Mandatory, incoming requests will be targeted to this service.
+
+image:nonpers_sync_net_to_ex.png[caption="Figure 7: ", title="Non-persistent connection, synchronous, Network calls Enduro/X", alt="Non-persistent connection, synchronous, Network calls Enduro/X"]
 
 == Connection state tracking
 
@@ -128,7 +345,7 @@ following data is present in status request messages:
 In case of server starting up and we are running in active mode (*type*='A') we shall
 send for all *max_connection* the status that connection is closed.
 
-The connection statuses are reported only only in persistent connection mode (*req_reply*='0').
+The connection statuses are reported only in persistent connection mode (*req_reply*='0').
 
 == Reply waiting timeout
 
@@ -145,7 +362,9 @@ will return error information in *EX_NERROR_MSG* and *EX_NERROR_CODE* fields:
 
 *0* - Succeed, no error
 
-*1* - Connection not found
+*8* - Time-out (answer not received in time)
+
+*9* - Connection not found
 
 
 == Conclusions

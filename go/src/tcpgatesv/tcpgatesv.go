@@ -235,8 +235,8 @@ func Init(ac *atmi.ATMICtx) int {
 			ac.TpLogDebug("Got [%s] = [%d] ", fldName, MReqReplyTimeout)
 			break
 		case "req_reply_scan_time":
-			ReqReplyScanTimeMsec, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
-			ac.TpLogDebug("Got [%s] = [%d] ", fldName, ReqReplyScanTimeMsec)
+			MReqReplyScanTimeMsec, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
+			ac.TpLogDebug("Got [%s] = [%d] ", fldName, MReqReplyScanTimeMsec)
 			break
 		case "corr_svc":
 			//Corelator service for sync tpcall over mulitple persistent connectinos

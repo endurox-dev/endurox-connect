@@ -53,7 +53,7 @@ all: $(DOCS)
 # and later shall be copied to "out"/images
 #
 %.png: %.dia
-	dia --size=600x --filter=png -e $@ -t png $<
+	dia --size=800x --filter=png -e $@ -t png $<
 
 #
 # Build the document

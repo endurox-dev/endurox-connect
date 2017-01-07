@@ -370,9 +370,6 @@ will return error information in *EX_NERROR_MSG* and *EX_NERROR_CODE* fields:
 == Conclusions
 
 For more details read on: http://www.endurox.org/dokuwiki
-The base Enduro/X documentation is valid, as Enduro/X ASG is wrapping in the C
-libraries.
-
 
 :numbered!:
 

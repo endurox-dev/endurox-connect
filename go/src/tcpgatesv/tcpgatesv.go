@@ -24,7 +24,7 @@ var MWorkersOut int = 5
 var MworkersIn int = 5
 
 //TCP Gateway
-var MGateway string = "tcpgate"
+var MGateway string = "TCPGATE"
 var MFraming string = "llll"
 var MFramingCode rune = FRAME_LITTLE_ENDIAN
 var MFramingLen int = len(MFraming)

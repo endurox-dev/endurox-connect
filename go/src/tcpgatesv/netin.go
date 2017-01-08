@@ -79,15 +79,15 @@ func NetDispatchCall(con *ExCon, data []byte, corr string) {
 	buf.TpLogPrintUBF(atmi.LOG_DEBUG, "Incoming message")
 
 	if !MReqReply {
-		ac.TpLogInfo("Calling in async mode");
-		_, err:=ac.TpACall(MIncomingSvc, buf, atmi.TPNOREPLY)
+		ac.TpLogInfo("Calling in async mode")
+		_, err := ac.TpACall(MIncomingSvc, buf, atmi.TPNOREPLY)
 	} else {
-		ac.TpLogInfo("Req-reply mode enabled and this is incoming call, "
-			"do call the service in sync mode");
+		ac.TpLogInfo("Req-reply mode enabled and this is incoming call, " +
+			"do call the service in sync mode")
 
-		_, err:=ac.TpCall(MIncomingSvc, buf, 0)
+		_, err := ac.TpCall(MIncomingSvc, buf, 0)
 
-		if err!=nil {
+		if err != nil {
 			ac.TpLogError("Failed to call %s service: %d: %s",
 				MIncomingSvc, err.Code(), err.Message())
 			//TODO: Reply with failure
@@ -99,7 +99,7 @@ func NetDispatchCall(con *ExCon, data []byte, corr string) {
 			//Maybe send to channel for reply
 			//And then shutdown
 			//We need a send + shutdown channel...
-			con.outgoing <-b
+			con.outgoing <- b
 		}
 	}
 }

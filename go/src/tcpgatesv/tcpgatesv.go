@@ -13,8 +13,24 @@ const (
 	FAIL        = atmi.FAIL
 	PROGSECTION = "@tcpgate"
 
+	//Connection type
 	CON_TYPE_PASSIVE = "P"
 	CON_TYPE_ACTIVE  = "A"
+
+	//Req-reply mode:
+	RR_PERS_ASYNC_INCL_CORR = 0 //Persistent, async mode including correlation
+	RR_PERS_CONN_EX2NET     = 1 //Persistent, sync by connection, EX sends to Net
+	RR_PERS_CONN_NET2EX     = 2 //Persistent, sync by connection, Net sends to Ex
+	RR_NONPERS_EX2NET       = 3 //Non-persistent, sync each request - new connection, Enduro sends to Net
+	RR_NONPERS_NET2EX       = 4 //Non-persistent, sync each request - new connection, Net sends to Enduro
+
+	//Connection flags
+	FLAG_CON_DISCON      = "D"
+	FLAG_CON_ESTABLISHED = "C"
+
+	RUN_CONTINUE      = 0
+	RUN_SHUTDOWN_OK   = 1
+	RUN_SHUTDOWN_FAIL = 2
 )
 
 //XATMI sessions for outgoing (Enduro/X sends to Network)
@@ -47,7 +63,7 @@ var MMaxConnections int64 = 5
 //Request reply model, alos for in-out, sync mode
 //Open connection for incoming wait for reply,
 //and Close the connection .
-var MReqReply bool = false
+var MReqReply int = RR_PERS_ASYNC_INCL_CORR
 
 //Timeout for req-reply model
 var MReqReplyTimeout = 60
@@ -57,6 +73,8 @@ var MReqReplyScanTimeMsec = 1000 //Miliseconds to scan the tables for timeouts
 //Correlator service for incoming messages
 //This is used case if driver operates in sync mode over the persistently conneced lines
 var MCorrSvc = ""
+
+var MShutdown int = RUN_CONTINUE
 
 //TCPGATE service
 //@param ac ATMI Context
@@ -216,14 +234,8 @@ func Init(ac *atmi.ATMICtx) int {
 			ac.TpLogDebug("Got [%s] = [%d] ", fldName, MMaxConnections)
 			break
 		case "req_reply":
-			tmp, _ := buf.BGetInt(u.EX_CC_VALUE, occ)
-			if 1 == tmp {
-				MReqReply = true
-			} else {
-				MReqReply = false
-			}
-
-			ac.TpLogDebug("Got [%s] = [%t] ", fldName, MReqReply)
+			MReqReply, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
+			ac.TpLogDebug("Got [%s] = [%d] ", fldName, MReqReply)
 			break
 		case "req_reply_timeout":
 			MReqReplyTimeout, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
@@ -268,14 +280,11 @@ func Init(ac *atmi.ATMICtx) int {
 		return FAIL
 	}
 
-	//Advertize TESTSVC
-	/*
-		- will advertise only when we have a connection
-		if err := ac.TpAdvertise(Mgateway, Mgateway, TCPGATE); err != nil {
-			ac.TpLogError("Advertise failed %s", err)
-			return FAIL
-		}
-	*/
+	//Advertize Gateway service
+	if err := ac.TpAdvertise(Mgateway, Mgateway, TCPGATE); err != nil {
+		ac.TpLogError("Advertise failed %s", err)
+		return FAIL
+	}
 
 	return SUCCEED
 }

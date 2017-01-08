@@ -322,3 +322,82 @@ func GoDial(con *ExCon) {
 		ac.TpLogError("Failed to close connection: %s", err)
 	}
 }
+
+//Call the status service if defined
+func NotifyStatus(ac *atmi.ATMICtx, id int, flags string) {
+
+	if MStatussvc == "" {
+		return
+	}
+
+	buf, err := ac.NewUBF(1024)
+	if nil != err {
+		ac.TpLogError("Failed to allocate buffer: [%s] - dropping incoming message",
+			err.Error())
+		return
+	}
+
+	if err = buf.BChg(u.EX_NETCONNID, 0, id); err != nil {
+		ac.TpLogError("Failed to set EX_NETCONNID %d: %s", err.Code(), err.Message())
+		return
+	}
+
+	if err = buf.Bchg(u.EX_NETFLAGS, 0, flags); err != nil {
+		ac.TpLogError("Failed to set EX_NETFLAGS %d: %s", err.Code(), err.Message())
+		return
+	}
+
+	buf.TpLogPrintUBF(atmi.LOG_DEBUG, "Sending notification")
+
+	//Call the service for status notification
+	if _, err = ac.TpCall(MStatussvc, buf, atmi.TPNOREPLY); nil != err {
+		ac.TpLogError("Failed to call [%s]: %s", MStatussvc, err.Error())
+		return
+	}
+
+}
+
+//Return number of open connections
+func GetOpenConnectionCount() int {
+
+	MConnMutex.Lock()
+
+	ret := len(MConnections)
+
+	MConnMutex.Unlock()
+
+	return ret
+}
+
+//Thread which startups & monitors the connections
+//TODO: Think about shutdown...
+func ActiveConnectionKeeper() {
+	//Get some context first..
+	ac, err := atmi.NewATMICtx()
+
+	if nil != err {
+		fmt.Printf("Failed to get atmi context %d: %s - requesting shutdown...",
+			err.Code(), err.Message())
+		MShutdown = RUN_SHUTDOWN_FAIL
+		return
+	}
+
+	ac.TpLogInfo("ActiveConnectionKeeper - started, notify that connections are down")
+
+	//Send status that connections are closed (all of max)
+
+	for i := 0; i < MMaxConnections; i++ {
+		ac.TpLogInfo("Notify connection %d down", i)
+		NotifyStatus(ac, i, FLAG_CON_DISCON)
+	}
+
+	//TODO: In the loop, monitor for connections, try open them one by one
+
+	for MShutdown == RUN_CONTINUE {
+
+		for i := GetOpenConnectionCount(); i < MMaxConnections; i++ {
+			var con ExCon
+			go GoDial(&con)
+		}
+	}
+}

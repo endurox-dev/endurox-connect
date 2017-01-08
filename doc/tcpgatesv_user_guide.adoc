@@ -347,10 +347,6 @@ send for all *max_connection* the status that connection is closed.
 
 The connection statuses are reported only in persistent connection mode (*req_reply*='0').
 
-== Reply waiting timeout
-
-The flag .... will set the number of seconds how long we wait for reply.
-
 == Zero length keep-a-live messages
 If parameter *zero_keepalive* is set to number greater than 0, then that is the number
 of seconds for which to each open connection connection zero length message is sent.

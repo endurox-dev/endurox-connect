@@ -37,10 +37,13 @@ import (
 //Check the outgoint connections
 func CheckDial(ac *atmi.ATMICtx) {
 
-	var openConns int64 = MMaxConnections - int64(len(MConnections))
+	//var openConns int64 = MMaxConnections - int64(len(MConnections))
 	var i int64
+
+	ac.TpLogInfo("CheckDial: Active connection, checking outgoing connections...")
+
 	MConnMutex.Lock()
-	for i = 0; i < openConns; i++ {
+	for i = GetOpenConnectionCount(); i < MMaxConnections; i++ {
 
 		//Spawn new connection threads
 		var con ExCon
@@ -61,7 +64,6 @@ func CheckDial(ac *atmi.ATMICtx) {
 	}
 
 	MConnMutex.Unlock()
-
 }
 
 //Periodic callback function
@@ -71,8 +73,7 @@ func Periodic(ac *atmi.ATMICtx) int {
 
 	//if we are active, check that we have enought connections
 	if MType == CON_TYPE_ACTIVE {
-		ac.TpLogInfo("Active connection, checking outgoing connections...")
-
+		CheckDial(ac)
 	}
 
 	return SUCCEED

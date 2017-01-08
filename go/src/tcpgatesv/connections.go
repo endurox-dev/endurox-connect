@@ -108,6 +108,11 @@ var MConWaiterMutex = &sync.Mutex{}
 var MCorrWaiter map[string]*DataBlock
 var MCorrWaiterMutex = &sync.Mutex{}
 
+//Have a channel of connections that are ready to accept the message
+//(outgoing)
+
+var Mfreeconns chan *ExCon
+
 //TODO: Remove from both lists
 func RemoveFromCallLists(call *DataBlock) {
 
@@ -309,7 +314,13 @@ func GoDial(con *ExCon) {
 	con.writer = bufio.NewWriter(con.con)
 	con.reader = bufio.NewReader(con.con)
 
+	//Connection open...
+	NotifyStatus(con.ctx, con.id, FLAG_CON_ESTABLISHED)
+
 	HandleConnection(con)
+
+	//Connection closed...
+	NotifyStatus(con.ctx, con.id, FLAG_CON_DISCON)
 
 	//Close connection
 	ac.TpLogWarn("Connection id=%d, "+
@@ -369,35 +380,24 @@ func GetOpenConnectionCount() int {
 	return ret
 }
 
-//Thread which startups & monitors the connections
-//TODO: Think about shutdown...
-func ActiveConnectionKeeper() {
-	//Get some context first..
-	ac, err := atmi.NewATMICtx()
-
-	if nil != err {
-		fmt.Printf("Failed to get atmi context %d: %s - requesting shutdown...",
-			err.Code(), err.Message())
-		MShutdown = RUN_SHUTDOWN_FAIL
-		return
-	}
-
-	ac.TpLogInfo("ActiveConnectionKeeper - started, notify that connections are down")
-
-	//Send status that connections are closed (all of max)
-
-	for i := 0; i < MMaxConnections; i++ {
-		ac.TpLogInfo("Notify connection %d down", i)
-		NotifyStatus(ac, i, FLAG_CON_DISCON)
-	}
-
-	//TODO: In the loop, monitor for connections, try open them one by one
+//Open the socket and wait for incoming connections
+//On every new connection check the limits of total number
+//of active conns.
+func PassiveConnectionListener() {
 
 	for MShutdown == RUN_CONTINUE {
-
-		for i := GetOpenConnectionCount(); i < MMaxConnections; i++ {
-			var con ExCon
-			go GoDial(&con)
+		ln, err := net.Listen("tcp", ":8080")
+		if err != nil {
+			// handle error
+			log
+		}
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				// handle error
+			}
+			go handleConnection(conn)
 		}
 	}
+
 }

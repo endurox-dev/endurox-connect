@@ -31,10 +31,18 @@ xadmin provision -d \
 
 cd conf
 
+# Remove certificate files
+rm localhost* 2>/dev/null
+
+# Generate new ceritificate
+./gencert.sh localhost 
+
 . settest1
 
+# So we are in runtime directory
 cd ..
-
+# Be on safe side...
+unset NDRX_CCTAG 
 xadmin start -y
 
 # Let restin to start
@@ -53,6 +61,69 @@ function go_out {
 }
 
 ###############################################################################
+echo "TLS Test"
+###############################################################################
+
+# Stop the non-ssl client
+xadmin sc -t RESTIN
+export NDRX_CCTAG="TLS"
+
+restincl > ./log/restin-tls.log 2>&1 & 
+RPID=$!
+
+# Let it start
+sleep 1
+
+for i in {1..1000}
+do
+
+        RSP=`curl --insecure -H "Content-Type: application/json" -X POST -d \
+"{\"T_CHAR_FLD\":\"A\",\
+\"T_SHORT_FLD\":123,\
+\"T_LONG_FLD\":444444444,\
+\"T_FLOAT_FLD\":1.33,\
+\"T_DOUBLE_FLD\":4444.3333,\
+\"T_STRING_FLD\":\"HELLO\",\
+\"T_CARRAY_FLD\":\"SGVsbG8=\"}" \
+https://localhost:8080/svc1`
+
+
+        RSP_EXPECTED="{\"T_SHORT_FLD\":123,\
+\"T_SHORT_2_FLD\":123,\
+\"T_LONG_FLD\":444444444,\
+\"T_LONG_2_FLD\":444444444,\
+\"T_CHAR_FLD\":\"A\",\
+\"T_CHAR_2_FLD\":\"A\",\
+\"T_FLOAT_FLD\":1.330000,\
+\"T_FLOAT_2_FLD\":1.330000,\
+\"T_DOUBLE_FLD\":4444.333300,\
+\"T_DOUBLE_2_FLD\":4444.333300,\
+\"T_STRING_FLD\":\"HELLO\",\
+\"T_STRING_2_FLD\":\"HELLO\",\
+\"T_CARRAY_FLD\":\"SGVsbG8=\",\
+\"T_CARRAY_2_FLD\":\"SGVsbG8=\",\
+\"error_code1\":0,\
+\"error_message1\":\"SUCCEED\"}"
+
+	echo "Response: [$RSP]"
+
+	if [ "X$RSP" != "X$RSP_EXPECTED" ]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 22
+	fi
+done
+
+unset NDRX_CCTAG
+kill -2 $RPID
+sleep 1
+
+# Start the non ssl version
+xadmin bc -t RESTIN
+
+# Let it open connection..
+sleep 2
+
+###############################################################################
 echo "Binary buffer, async, echo"
 ###############################################################################
 for i in {1..1000}
@@ -60,7 +131,7 @@ do
 	rm tmp.out 2>/dev/null
 	# Having a -i means to print the headers
 	RSP=`(curl -s -H "Content-Type: text/plain" -X POST\
-	--data-binary "@../binary.test.request" http://localhost:8080/binary/ok/async/echo  > tmp.out )`
+	--data-binary "@../binary.test.request" http://localhost:8080/binary/ok/async/echo > tmp.out 2>&1)`
 
 	DIFF=`diff tmp.out ../binary.test.request`
 	echo "Response: [$DIFF]"

@@ -1,0 +1,97 @@
+RESTINCL(8)
+===========
+:doctype: manpage
+
+
+NAME
+----
+restincl - EnduroX HTTP REST incoming call handler (HTTP Server, XATMI Client)
+
+
+SYNOPSIS
+--------
+*restincl*
+
+
+DESCRIPTION
+-----------
+This is XATMI client which accepts HTTP/HTTPS REST requests, calls the XATMI server
+specified in configuration. The binary works with go routines (very cheap threads).
+But the number of concurrent invocations to XATMI sub-system is limited by *workers*
+initialization configuration flag. In case if all workers are busy, the incoming thread
+will wait for the XATMI worker to become free.
+
+The configuration is defined in mixed for with INI and JSON formats. The
+configuration file contains keys which value can be set as multi-line JSON.
+Configuration file contains *defaults* key which defines the default parameters for
+the route. Then when new route is added, firstly it is initialized from defaults
+and then additionally it is overridden by route it self.
+
+Incoming HTTP REST server (XATMI client), supports multiple buffer formats and
+different error handling schemes. Buffer formats can be:
+
+. *json2ubf* - JSON Converted to UBF XATMI buffer type;
+
+. *json* - JSON text directly set in UBF JSON buffer type;
+
+. *text* - XATMI Typed String buffer format. Incoming text is copied to String buffer;
+
+. *raw* - XATMI Carray buffer format; The incoming data is copied to Carray buffer type;
+
+
+The error handling can be done in following ways:
+
+. *http* - mapped HTTP error codes are being used for indicating XATMI failure codes;
+
+. *json* - XATMI error codes are projected to JSON text root level two fields:
+code and message;
+
+. *text* - The error code is printed in output response buffer text by using format
+specified in config;
+
+. *json2ubf* - The error code is set in Enduro/X standard buffer fields and later
+Converted to JSON buffer.
+
+
+The operation modes of the REST interface can by:
+
+. Synchronous - with http call XATMI services are invoked in Synchronous mode, waiting
+for the sub-system answer or timeout that provides the corresponding response error
+code.
+
+Interface 
+
+CONFIGURATION
+-------------
+*port* = 'PORT_NUMBER'::
+Port number to listen on which http server will listen on.
+
+*ip* = 'IP_ADDRESS'::
+Ip address on which http server is listening for incoming connections.
+
+
+EXIT STATUS
+-----------
+*0*::
+Success
+
+*1*::
+Failure
+
+BUGS
+----
+Report bugs to madars.vitolins@gmail.com
+
+SEE ALSO
+--------
+*xadmin(8)*
+
+AUTHOR
+------
+EnduroX is created by Madars Vitolins.
+
+
+COPYING
+-------
+(C) Madars Vitolins
+

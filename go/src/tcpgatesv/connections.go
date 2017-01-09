@@ -69,14 +69,14 @@ type DataBlock struct {
 	addToConWaiter  bool
 	addToCorrWaiter bool
 	//sender_chan //optional if we want recieve reply back
-	atmi_chan        chan []byte
+	/* atmi_chan        chan []byte */
+	atmi_chan        chan *atmi.TypedUBF
 	atmi_out_conn_id int64  //Connection id if specified (0) - then random.
 	corr             string //Correlator string (opt)
 	net_conn_id      int64  //Network connection id (when sending in)
 
 	tstamp_sent   int64 //Timestamp messag sent, TODO: We need cleanup monitor...
 	send_and_shut bool  //Send and shutdown
-
 }
 
 //Enduro/X connection
@@ -100,7 +100,7 @@ type ExCon struct {
 var MConnections map[int64]*ExCon
 var MConnMutex = &sync.Mutex{}
 
-//List of reply waiters on particular
+//List of reply waiters on particular (compiled id)
 var MConWaiter map[int64]*DataBlock
 var MConWaiterMutex = &sync.Mutex{}
 
@@ -112,6 +112,112 @@ var MCorrWaiterMutex = &sync.Mutex{}
 //(outgoing)
 
 var Mfreeconns chan *ExCon
+var MfreeconsLock sync.Mutex
+var MPassiveLisener *net.IPConn
+
+//Get open connection
+//@param ac	ATMI Context
+//@return Connection object acquired or nil (if no connection found)
+func GetOpenConnection(ac *atmi.ATMICtx) *ExCon {
+	ok := false
+	MfreeconsLock.Lock()
+
+	for !ok {
+		con := <-Mfreeconns
+
+		//Check that it is in connection hash list of opens
+		//Maybe some old stuff in channel left
+		MConnMutex.Lock()
+		if nil != MConnections[con.id_comp] {
+			ok = true
+		} else {
+			ac.TpLogInfo("Got expired connection: %d, try next",
+				con.id_comp)
+		}
+
+	}
+
+	MfreeconsLock.Unlock()
+
+	return con
+}
+
+//Search for connection object by connection id
+//@param connid	Compiled or simple connection id
+func GetConnectionByID(ac *atmi.ATMICtx, connid int64) *ExCon {
+
+	//If it is compiled we will lookup by hash.
+
+	tstamp := connid >> 24
+	id := connid & 0xffffff
+
+	ac.TpLogInfo("Compiled id: %d, tstamp: %d, simple id: %d",
+		connid, tstamp, id)
+
+	if tstamp > 0 {
+		ac.TpLogInfo("Looks like compiled connection id - lookup by hash")
+
+		MConnMutex.Lock()
+		ret := MConnections[connid]
+		MConnMutex.Unlock()
+
+		if ret == nil {
+			ac.TpLogError("Connection by id %d not found", connid)
+		}
+
+		return ret
+	} else {
+		ac.TpLogInfo("Search by simple connection id")
+
+		var ret *ExCon
+		//TODO: Might want another index by simple id
+		MConnMutex.Lock()
+		for k, v := range MConnections {
+			ac.TpLogDebug("got %d vs needle %d", v.id, connid)
+
+			if v.id == connid {
+				ret = v
+				break
+			}
+		}
+
+		MConnMutex.Unlock()
+
+		if ret == nil {
+			ac.TpLogError("Connection by id %d not found", connid)
+		}
+
+		return ret
+	}
+
+	//If it is simple, then we will iterate over the connections
+	//Should never happen
+	return nil
+
+}
+
+//Close all connections that are currently open
+func CloseAllConnections(ac *atmi.ATMICtx) {
+	ac.TpLogInfo("Closing all open connections...")
+
+	MConnMutex.Lock()
+	for k, v := range MConnections {
+
+		ac.TpLogInfo("Closing %d", k)
+
+		//Send infos that connection is closed.
+		NotifyStatus(ac, id, FLAG_CON_DISCON)
+
+		if err := v.con.Close(); err != nil {
+			ac.TpLogError("Failed to close connection id %d: %s",
+				k, err.Error())
+		} else {
+			ac.TpLogInfo("Connection closed ok")
+		}
+
+	}
+	MConnMutex.Unlock()
+}
 
 //TODO: Remove from both lists
 func RemoveFromCallLists(call *DataBlock) {
@@ -162,6 +268,7 @@ func HandleConnection(con *ExCon) {
 	var dataInErr chan error
 	ok := true
 	ac := con.ctx
+	last_out := true
 	/* Need a:
 	 * - byte array channel
 	 * - error channel for socket
@@ -170,6 +277,16 @@ func HandleConnection(con *ExCon) {
 	go ReadConData(con, dataIn, dataInErr)
 
 	for ok {
+
+		//Connection ready, submit to list of available conns
+		//(if last msg wast not) ougoing
+
+		if last_out {
+			Mfreeconns <- con
+			last_out = false
+		}
+
+		//Add the connection to
 		select {
 		case dataIncoming := <-dataIn:
 
@@ -242,6 +359,10 @@ func HandleConnection(con *ExCon) {
 			}
 			break
 		case dataOutgoing := <-con.outgoing:
+
+			//Put the conneciton back to RR channel
+			last_out = true
+
 			//Send data away
 			if err := PutMessage(con, dataOutgoing.data); nil != err {
 				ac.TpLogError("Failed to send message to network"+
@@ -385,19 +506,58 @@ func GetOpenConnectionCount() int {
 //of active conns.
 func PassiveConnectionListener() {
 
+	/* We need a atmi context here */
+	ac, errA := atmi.NewATMICtx()
+	var err error
+
+	if nil != err {
+		ac.TpLogError("Failed to create ATMI Context: %d:%s",
+			errA.Code(), errA.Message())
+		MShutdown = RUN_SHUTDOWN_FAIL
+		return
+	}
+	ac.TpLogInfo("About to listen on: %s", MAddr)
+	MPassiveLisener, err = net.Listen("tcp", MAddr)
+
+	if err != nil {
+		ac.TpLogError("Failed to listen on [%s]:%s", MAddr, err.Error())
+		MShutdown = RUN_SHUTDOWN_FAIL
+		return
+	}
+
 	for MShutdown == RUN_CONTINUE {
-		ln, err := net.Listen("tcp", ":8080")
-		if err != nil {
-			// handle error
-			log
-		}
+
 		for {
-			conn, err := ln.Accept()
+			var con ExCon
+			con.con, err = MPassiveLisener.Accept()
 			if err != nil {
-				// handle error
+				ac.TpLogError("Failed to accept connection: %s",
+					err.Error())
+				ln.Close()
+				MShutdown = RUN_SHUTDOWN_FAIL
+				return
 			}
+
+			//Add get connection number & add to hashes.
+
+			//1. Prepare connection block
+			con.id, con.id_stamp, con.id_comp = GetNewConnectionId()
+
+			if con.id == FAIL {
+				ac.TpLogError("Failed to get connection id - max reached?")
+				MShutdown = true
+				break
+			}
+
+			//2. Add to hash
+			MConnections[con.id] = &con
+
 			go handleConnection(conn)
 		}
 	}
 
+	ac.TpLogWarn("Terminating listener thread...")
+
+	//Termiante connection if shutdown requested
+	MPassiveLisener.Close()
 }

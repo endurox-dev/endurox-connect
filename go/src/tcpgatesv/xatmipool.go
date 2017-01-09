@@ -30,16 +30,24 @@
  */
 package main
 
-import atmi "github.com/endurox-dev/endurox-go"
+import (
+	"sync"
+
+	atmi "github.com/endurox-dev/endurox-go"
+)
 
 type XATMIPool struct {
-	freechan  chan int        //List of free channels submitted by wokers
-	ctxs      []*atmi.ATMICtx //List of contexts
-	nrWorkers int             //Number of contexts
+	freechansync *Mutex          //We need to lock the freechan
+	freechan     chan int        //List of free channels submitted by wokers
+	ctxs         []*atmi.ATMICtx //List of contexts
+	nrWorkers    int             //Number of contexts
+
 }
 
 var MinXPool XATMIPool  //In XATMI pool
 var MoutXPool XATMIPool //Out XATMI pool
+
+var MXDispatcher = &sync.Mutex{}
 
 //Initialize out pool
 //@param ac 	ATMI contexts
@@ -48,6 +56,8 @@ var MoutXPool XATMIPool //Out XATMI pool
 func initPool(ac *atmi.ATMICtx, pool *XATMIPool) error {
 
 	pool.freechan = make(chan int, pool.nrWorkers)
+
+	pool.freechansync = &sync.Mutex{}
 
 	for i := 0; i < pool.nrWorkers; i++ {
 
@@ -82,6 +92,13 @@ func deInitPoll(ac *atmi.ATMICtx, pool *XATMIPool) {
 
 //Return the free X context
 func getFreeXChan(ac *atmi.ATMICtx, pool *XATMIPool) int {
+	//Should we use locking here?
+
+	pool.freechansync.Lock()
+
 	nr := <-pool.freechan
+
+	pool.freechansync.Unlock()
+
 	return nr
 }

@@ -173,7 +173,7 @@ Configuration:
 
 - *req_reply_timeout* = Set to time-out number. Default 60 seconds.
 
-- *req_reply_scan_time* = This is time in milliseconds defining the period in 
+- *scan_time* = This is time in milliseconds defining the period in 
 which special thread in scanning the any open requests not receiving the responses.
 
 
@@ -222,7 +222,7 @@ mode to this service. Service can later figure out what to do with this message.
 
 - *req_reply_timeout* = Set to time-out number. Default 60 seconds.
 
-- *req_reply_scan_time* = This is time in milliseconds defining the period in 
+- *scan_time* = This is time in milliseconds defining the period in 
 which special thread in scanning the any open requests not receiving the responses.
 
 image:pers_sync_ex_to_net_connid.png[caption="Figure 4: ", title="Persistent connection, synchronous, correlation by connection id, Enduro/X-to-Net", alt="Persistent connection, synchronous, correlation by connection id, Enduro/X-to-Net"]

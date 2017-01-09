@@ -71,10 +71,16 @@ func CheckDial(ac *atmi.ATMICtx) {
 //We will spawn connections here..
 func Periodic(ac *atmi.ATMICtx) int {
 
+	ret := atmi.SUCCEED
 	//if we are active, check that we have enought connections
 	if MType == CON_TYPE_ACTIVE {
 		CheckDial(ac)
 	}
 
-	return SUCCEED
+	if MShutdown == RUN_SHUTDOWN_FAIL {
+		ac.TpLogWarn("Fail state shutdown requested! - Aborting...")
+		ret = atmi.FAIL
+	}
+
+	return ret
 }

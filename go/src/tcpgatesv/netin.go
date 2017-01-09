@@ -32,8 +32,7 @@ package main
 
 import (
 	u "ubftab"
-
-	"github.com/endurox-dev/endurox-go/tests/06_ubf_marshal/src/atmi"
+    atmi "github.com/endurox-dev/endurox-go"
 )
 
 //We have recieved new call from Network

@@ -248,19 +248,14 @@ func Init(ac *atmi.ATMICtx) int {
 			MReqReplyTimeout, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
 			ac.TpLogDebug("Got [%s] = [%d] ", fldName, MReqReplyTimeout)
 			break
-		case "req_reply_scan_time":
-			MReqReplyScanTimeMsec, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
+		case "scan_time":
+			MScanTime, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
 			ac.TpLogDebug("Got [%s] = [%d] ", fldName, MReqReplyScanTimeMsec)
 			break
 		case "corr_svc":
 			//Corelator service for sync tpcall over mulitple persistent connectinos
 			MCorrSvc, _ = buf.BGetString(u.EX_CC_VALUE, occ)
 			ac.TpLogDebug("Got [%s] = [%s] ", fldName, MReqReplyTimeout)
-			break
-		case "active_con_scan":
-			//Corelator service for sync tpcall over mulitple persistent connectinos
-			MActiveConScan, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
-			ac.TpLogDebug("Got [%s] = [%s] ", fldName, MActiveConScan)
 			break
 		default:
 
@@ -287,6 +282,44 @@ func Init(ac *atmi.ATMICtx) int {
 		return FAIL
 	}
 
+	ac.TpLogInfo("Period housekeeping: scan_time - %d", MReqReplyScanTimeMsec)
+
+	// Verify all work scenarios.
+	if MReqReply == RR_PERS_ASYNC_INCL_CORR {
+		ac.TpLogInfo("Persistent connections: Working on fully async " +
+			"mode with or without corelators")
+
+		if MIncomingSvc == "" {
+			ac.TpLogError("Missing mandatory config key: incoming_svc!")
+			return FAIL
+		}
+
+		ac.TpLogInfo("Incoming service: [%s]", MIncomingSvc)
+		ac.TpLogInfo("Correlation service: [%s]", MCorrSvc)
+		ac.TpLogInfo("Network timeout: %d", MReqReplyTimeout)
+
+	} else if MReqReply == RR_PERS_CONN_EX2NET {
+		ac.TpLogInfo("Persistent connections: Synchronous, Enduro/X requests to Network")
+		ac.TpLogInfo("Network timeout: %d", MReqReplyTimeout)
+	} else if MReqReply == RR_PERS_CONN_NET2EX {
+		ac.TpLogInfo("Persistent connections: Synchronous, Network requests Enduro/X")
+		ac.TpLogInfo("Network timeout: %d", MReqReplyTimeout)
+	} else if MReqReply == RR_NONPERS_EX2NET {
+		ac.TpLogInfo("Non-persistent connections: Synchronous, Enduro/X requests Network")
+		if MType != CON_TYPE_ACTIVE {
+			ac.TpLogInfo("Connection type (type) must be Active [%s], but got: %s!",
+				CON_TYPE_ACTIVE, MType)
+			return FAIL
+		}
+	} else if MReqReply == RR_NONPERS_NET2EX {
+		ac.TpLogInfo("Non-persistent connections: Synchronous, Network requests Enduro/X")
+		if MType != CON_TYPE_PASSIVE {
+			ac.TpLogInfo("Connection type (type) must be Passive [%s], but got: %s!",
+				CON_TYPE_PASSIVE, MType)
+			return FAIL
+		}
+	}
+
 	//Advertize Gateway service
 	if err := ac.TpAdvertise(Mgateway, Mgateway, TCPGATE); err != nil {
 		ac.TpLogError("Advertise failed %s", err)
@@ -301,17 +334,10 @@ func Init(ac *atmi.ATMICtx) int {
 		}
 	}
 
-	if err := TpExtAddPeriodCB(MActiveConScan, Periodic); err != nil {
+	if err := TpExtAddPeriodCB(MScanTime, Periodic); err != nil {
 		ac.TpLogError("Advertise failed %d: %s", err.Code(), err.Message())
 		return FAIL
 	}
-
-	/*
-		if MType == CON_TYPE_ACTIVE {
-			//Run the connection keeper
-			go ActiveConnectionKeeper()
-		}
-	*/
 
 	return SUCCEED
 }
@@ -320,6 +346,23 @@ func Init(ac *atmi.ATMICtx) int {
 //@param ac ATMI Context
 func Uninit(ac *atmi.ATMICtx) {
 	ac.TpLogWarn("Server is shutting down...")
+
+	if nil != MPassiveLisener {
+		ac.TpLogWarn("Closing connection listener")
+		MPassiveLisener.Close()
+	}
+
+	//Close any open connection
+	CloseAllConnections(ac)
+
+	//We will close all atmi contexts, but we will not reply to them,
+	//Better they think that it is time-out condition
+
+	deInitPoll(ac, &MinXPool)
+	deInitPoll(ac, &MoutXPool)
+
+	ac.TpLogInfo("Shutdown complete")
+
 }
 
 //Executable main entry point

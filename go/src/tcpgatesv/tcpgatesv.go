@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 	u "ubftab"
 
 	atmi "github.com/endurox-dev/endurox-go"
@@ -223,7 +224,7 @@ func Init(ac *atmi.ATMICtx) int {
 			MIncomingSvc, _ = buf.BGetString(u.EX_CC_VALUE, occ)
 			ac.TpLogDebug("Got [%s] = [%s] ", fldName, MIncomingSvc)
 			break
-		case "per_zero":
+		case "periodic_zero_msg":
 			MPerZero, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
 			ac.TpLogDebug("Got [%s] = [%d] ", fldName, MPerZero)
 			break
@@ -261,7 +262,7 @@ func Init(ac *atmi.ATMICtx) int {
 	MinXPool.nrWorkers = MworkersIn
 	MoutXPool.nrWorkers = MWorkersOut
 
-	MAddr = MIp + ":" + string(MPort)
+	MAddr = MIp + ":" + strconv.Itoa(MPort)
 
 	if err := initPool(ac, &MinXPool); err != nil {
 		ac.TpLogError("Failed to init `in' XATMI pool %s", err)
@@ -302,6 +303,12 @@ func Init(ac *atmi.ATMICtx) int {
 				CON_TYPE_ACTIVE, MType)
 			return FAIL
 		}
+
+		if MPerZero > 0 {
+			ac.TpLogError("Periodic zero (periodic_zero_msg) parameter"+
+				" cannot be used with req_reply type %d", MReqReply)
+			return FAIL
+		}
 	} else if MReqReply == RR_NONPERS_NET2EX {
 		ac.TpLogInfo("Non-persistent connections: Synchronous, Network requests Enduro/X")
 		if MType != CON_TYPE_PASSIVE {
@@ -309,7 +316,15 @@ func Init(ac *atmi.ATMICtx) int {
 				CON_TYPE_PASSIVE, MType)
 			return FAIL
 		}
+
+		if MPerZero > 0 {
+			ac.TpLogError("Periodic zero (periodic_zero_msg) parameter"+
+				" cannot be used with req_reply type %d", MReqReply)
+			return FAIL
+		}
 	}
+
+	MZeroStopwatch.Reset()
 
 	//Advertize Gateway service
 	if err := ac.TpAdvertise(MGateway, MGateway, TCPGATE); err != nil {
@@ -329,6 +344,12 @@ func Init(ac *atmi.ATMICtx) int {
 	if err := ac.TpExtAddPeriodCB(MScanTime, Periodic); err != nil {
 		ac.TpLogError("Advertise failed %d: %s", err.Code(), err.Message())
 		return FAIL
+	}
+
+	//Run the listener
+	if MType == CON_TYPE_PASSIVE {
+		ac.TpLogInfo("Starting connection listener...")
+		go PassiveConnectionListener()
 	}
 
 	return SUCCEED

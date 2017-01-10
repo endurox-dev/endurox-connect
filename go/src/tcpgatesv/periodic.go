@@ -36,7 +36,8 @@ import (
 	atmi "github.com/endurox-dev/endurox-go"
 )
 
-//TODO: Send period zero:
+//Zero sending periodic stopwatch
+var MZeroStopwatch exutil.StopWatch
 
 //Send zero length messages over the channels
 func RunZeroOverOpenCons(ac *atmi.ATMICtx) {
@@ -162,6 +163,13 @@ func CheckTimeouts(ac *atmi.ATMICtx) atmi.ATMIError {
 	}
 	MCorrWaiterMutex.Unlock()
 
+	if MPerZero > 0 && MZeroStopwatch.GetDetlaSec() > int64(MPerZero) {
+		ac.TpLogDebug("Time for periodic zero message over " +
+			"the active connections")
+		RunZeroOverOpenCons(ac)
+
+	}
+
 	return nil
 
 }
@@ -190,6 +198,7 @@ func Periodic(ac *atmi.ATMICtx) int {
 	//Close the connection if req/reply..
 
 	if MShutdown == RUN_SHUTDOWN_FAIL {
+		//Hmm does not cause shutdown!!!
 		ac.TpLogWarn("Fail state shutdown requested! - Aborting...")
 		ret = atmi.FAIL
 	}

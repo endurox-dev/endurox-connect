@@ -108,15 +108,12 @@ type ServiceMap struct {
 	Errors string `json:"errors"`
 	//Above converted to consntant
 	Errors_int       int
-	Trantout         int64  `json:"trantout"` //If set, then using global transactions
 	Notime           bool   `json:"notime"`
 	Errfmt_text      string `json:"errfmt_text"`
 	Errfmt_json_msg  string `json:"errfmt_json_msg"`
 	Errfmt_json_code string `json:"errfmt_json_code"`
 	//If set, then generate code/message for success too
 	Errfmt_json_onsucc bool        `json:"errfmt_json_onsucc"`
-	Errmap_http        string      `json:"errmap_http"`
-	Errmap_http_hash   map[int]int //Lookup map for tp->http codes
 	Asynccall          bool        `json:"async"` //use tpacall()
 	Asyncecho	   bool		`json:"asyncecho"`//echo message in async mode
 	Conv               string      `json:"conv"`  //Conv mode

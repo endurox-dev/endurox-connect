@@ -67,20 +67,140 @@ The typical *restincl* configuration looks like:
 
 --------------------------------------------------------------------------------
 
+[RESTIN]
+port=8080
+ip=0.0.0.0
+#
+# Defaults: conv=json2ubf
+# async - call service in async way, if submitted ok, just reply back with ok
+#
+# Hmm we could use same format for definding defaults...
+defaults={"errors":"http"
+        ,"reqlogsvc": "GETFILE"
+        ,"noreqfilersp": true
+        }
+      
+# Service 1 
+/svc1={"svc":"DATASV1", "notime":false, "conv":"json2ubf", "errors":"json", "async":false
+        ,"errfmt_json_code":"\"error_code1\":%d"
+        ,"errfmt_json_msg":"\"error_message1\":\"%s\""}
+        
+# Echo service:
+/echo={"notime":false, "conv":"json2ubf", "errors":"json", "async":false, "echo":true}
+
 --------------------------------------------------------------------------------
 
 
 HTTPS mode is also supported. In this case configuration file contains ssl certificate
 file and key file. The format of these files are in x509 format.
 
+It is possible to configure per request logging files. Then the parameter *reqlogsvc*
+must be set which indicates the service name which to invocate to acquire the
+request logging file name.
+
+In case if multiple REST-IN handlers are needed with different binding IP/PORTS/HTTPS
+settings. it is possible to use *NDRX_CCTAG* setting (environment or in client
+process monitor configuration).
+
+The JSON2UBF invocation of the service would look like:
+
+--------------------------------------------------------------------------------
+
+...
+
+--------------------------------------------------------------------------------
+
+And the response message would look like:
+
+--------------------------------------------------------------------------------
+
+...
+
+--------------------------------------------------------------------------------
+
+
+
 
 CONFIGURATION
 -------------
 *port* = 'PORT_NUMBER'::
-Port number to listen on which http server will listen on.
+Port number to listen on which http server will listen on. Mandatory option.
 
 *ip* = 'IP_ADDRESS'::
-Ip address on which http server is listening for incoming connections.
+Ip address on which http server is listening for incoming connections. Default
+*0.0.0.0*.
+
+*workers* = 'NUMBER_OF_XATMI_SESSIONS'::
+Number XATMI sessions. These sessions are use for serving the incoming calls - 
+i.e. doing the calls to XATMI sub-system. If the number is less than incoming calls,
+the calls will be suspended while there will be no XATMI session free. Once it is
+made free, then call will be served (i.e. called corresponding XATMI counterpart).
+The default value for parameter is *10*.
+
+*gencore* = 'GENERATE_CORE_FILE'::
+If set to *1*, then in case of segmentation fault, the core dump will be generated
+instead of Golang default signal handler which just prints some info in stderr.
+The default value is *0* which means use default Golang panic handling mechanisms. 
+
+*tls_enable* = 'ENABLE_HTTPS'::
+With this setting set to *1*, HTTPS will be enabled. Default value is *0*. To complete
+the HTTPS activation, configuration flags *tls_cert_file* and *tls_key_file* must
+be set too. Otherwise program will run in HTTP mode.
+
+*defaults* = 'SERVICE_CONFIGURATION_JSON*::
+This is JSON string (can be multiline), setting the defaults for the services. It
+is basically a service descriptor which is used as base configuration for services.
+Once the service is being setup, firstly it uses this *defaults* config block and
+then overrides it by additional flags in service definition block. The details
+within the JSON are described in bellow section "SERVICE CONFIGURATION.
+
+*/some/service/url* = 'SERVICE_CONFIGURATION_JSON*::
+This is the same configuration as for *default*, but describes the service route.
+The REST-IN process might have as many as needed the service mapping routes.
+
+SERVICE CONFIGURATION
+---------------------
+*svc* = 'MAPPED_XATMI_SERVICE_NAME'::
+.
+
+*errors* = 'ERROR_HANDLING'::
+.
+
+*notime* = 'NO_TIMEOUT'::
+.
+
+*errfmt_text* = 'TEXT_BUFFER_ERROR_FORMAT_STRING'::
+.
+
+*errfmt_json_msg* = 'JSON_BUFFER_ERROR_FORMAT_STRING_MESSAGE'::
+.
+
+*errfmt_json_code* = 'JSON_BUFFER_ERROR_FORMAT_STRING_CODE'::
+.
+
+*errfmt_json_onsucc* = 'ADD_JSON_ERROR_FIELDS_ON_SUCCEESS'::
+.
+
+*async* = 'DO_ASYNC_SERVICE_INVOCATION*::
+.
+
+*asyncecho* = 'ECHO_BACK_BUFFER_DURING_ASYNC_INVOCATION'::
+.
+
+*conv* = 'BUFFER_CONVERTION_TYPE'::
+.
+
+*reqlogsvc* = 'REQUEST_LOGGING_SERVICE'::
+.
+
+*errors_fmt_http_map* = 'HTTP_ERROR_CODES_MAPPING'::
+.
+
+*noreqfilersp* = 'DO_NOT_SEND_REQUEST_FILENAME_BACK_TO_CALLER'::
+.
+
+*echo* = 'ECHO_MODE'::
+.
 
 
 EXIT STATUS
@@ -101,7 +221,7 @@ SEE ALSO
 
 AUTHOR
 ------
-EnduroX is created by Madars Vitolins.
+Enduro/X is created by Madars Vitolins.
 
 
 COPYING

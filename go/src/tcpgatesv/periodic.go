@@ -36,6 +36,24 @@ import (
 
 //TODO: Send period zero:
 
+//Send zero length messages over the channels
+func RunZeroOverOpenCons(ac *atmi.ATMICtx) {
+
+	var zero_buf []byte
+	//Lock all connections
+	MConnMutex.Lock()
+
+	for _, v := range MConnections {
+
+		//Send the data block.
+		v.outgoing <- zero_buf
+
+	}
+
+	MConnMutex.Unlock()
+
+}
+
 //Check the outgoint connections
 func CheckDial(ac *atmi.ATMICtx) {
 

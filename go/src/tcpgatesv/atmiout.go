@@ -38,6 +38,9 @@ import (
 
 //Generate error that connection is not found
 //@param buf	UBF buffer
+//@param id_comp	Compiled/composite connection id (can be simple too)
+//@param code		Error code
+//@param messages	Customer error message
 func GenError(ac *atmi.ATMICtx, buf *atmi.TypedUBF, id_comp int64, code int, message string) {
 
 	ac.Binit(buf, buf.BSizeof())
@@ -48,6 +51,32 @@ func GenError(ac *atmi.ATMICtx, buf *atmi.TypedUBF, id_comp int64, code int, mes
 
 	buf.BChg(u.EX_NERROR_CODE, 0, code)
 	buf.BChg(u.EX_NERROR_MSG, 0, message)
+}
+
+//Generate error that connection is not found
+//@param buf	UBF buffer
+//@param id_comp	Compiled/composite connection id (can be simple too)
+//@param code		Error code
+//@param messages	Customer error message
+//@return <UBF buffer if allocated>,  ATMI Error code ir failure
+func GenErrorUBF(ac *atmi.ATMICtx, id_comp int64, code int, message string) (*atmi.TypedUBF, atmi.ATMIError) {
+
+	buf, errA := ac.NewUBF(1024)
+
+	if nil != errA {
+		ac.TpLogError("Failed to allocate UBF buffer: %s", errA.Message())
+		return nil, errA
+	}
+
+	if id_comp > 0 {
+		buf.BChg(u.EX_NETCONNID, 0, id_comp)
+	}
+
+	buf.BChg(u.EX_NERROR_CODE, 0, code)
+	buf.BChg(u.EX_NERROR_MSG, 0, message)
+
+	return buf, nil
+
 }
 
 //Dispatcht the XATMI call (in own go routine)
@@ -167,6 +196,24 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 		//should know already that conn must be closed by req_reply
 
 		var con ExCon
+		var block DataBlock
+
+		block.data, errA = buf.BGetByteArr(u.EX_NETDATA, 0)
+
+		if nil != errA {
+			ac.TpLogError("Missing EX_NETDATA: %s!", errA.Message())
+			//Reply with failure
+
+			GenErrorNoConnection(ac, buf, atmi.NEMANDATORY,
+				"Mandatory field EX_NETDATA missing!")
+			ret = FAIL
+			return
+
+		}
+
+		block.corr = corr
+		block.atmi_out_conn_id = connid
+		block.tstamp_sent = t.Unix()
 
 		//1. Prepare connection block
 		MConnMutex.Lock()
@@ -184,12 +231,14 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 		MConnMutex.Unlock()
 
 		//3. and spawn the routine...
-        //TODO: We need to pass in here channel to which reply if
-        //Connection did not succeed.
-		go GoDial(&con)
+		//TODO: We need to pass in here channel to which reply if
+		//Connection did not succeed.
+		go GoDial(&con, &block)
 
 		//4. Now try to send stuff out?
+		buf := <-block.atmi_chan
 
+		ac.TpLogInfo("Got reply back")
 	}
 
 	//Put back the channel

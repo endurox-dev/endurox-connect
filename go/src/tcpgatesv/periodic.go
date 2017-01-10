@@ -60,7 +60,7 @@ func CheckDial(ac *atmi.ATMICtx) {
 		MConnections[con.id] = &con
 
 		//3. and spawn the routine...
-		go GoDial(&con)
+		go GoDial(&con, nil)
 	}
 
 	MConnMutex.Unlock()
@@ -76,6 +76,10 @@ func Periodic(ac *atmi.ATMICtx) int {
 	if MType == CON_TYPE_ACTIVE {
 		CheckDial(ac)
 	}
+
+	//TODO: Check for any outstanding network calls...
+	//Send the timeout message of tout got.
+	//Close the connection if req/reply..
 
 	if MShutdown == RUN_SHUTDOWN_FAIL {
 		ac.TpLogWarn("Fail state shutdown requested! - Aborting...")

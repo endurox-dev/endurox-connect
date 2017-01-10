@@ -299,12 +299,12 @@ func HandleConnection(con *ExCon) {
 			//1. Check that we do have some reply waiters on connection
 			MConWaiterMutex.Lock()
 
-			call := MConWaiter[con.id_comp]
+			block := MConWaiter[con.id_comp]
 			if nil != call {
 				//Send to connection
 				MConWaiterMutex.Unlock()
 				//This will tell should we terminate or not...
-				NetDispatchConAnswer(call, dataIncoming, &ok)
+				NetDispatchConAnswer(block, dataIncoming, &ok)
 
 				continue //<<< Continue!
 			} else {
@@ -322,11 +322,11 @@ func HandleConnection(con *ExCon) {
 						"message: [%s] - looking up for reply waiter", err)
 
 					MCorrWaiterMutex.Lock()
-					corwait := MCorrWaiter[inCorr]
+					block := MCorrWaiter[inCorr]
 
 					if nil != corwait {
 						MConWaiterMutex.Unlock()
-						NetDispatchCorAnswer(corwait)
+						NetDispatchCorAnswer(block)
 						continue //<<< Continue!
 					} else {
 						MConWaiterMutex.Unlock()
@@ -345,7 +345,7 @@ func HandleConnection(con *ExCon) {
 			//Do the action which comes first...
 			//Or thread will wait until TPCALL terminates, and then do
 			//reply if socket will be still open...
-			go NetDispatchCall(con, data, inCorr)
+			go NetDispatchCall(ac, con, inCorr, data)
 
 			break
 		case err := <-dataInErr:
@@ -392,7 +392,7 @@ func HandleConnection(con *ExCon) {
 
 //Handle the connection - connect to server
 //Once finished, we should remove our selves from hash list
-func GoDial(con *ExCon) {
+func GoDial(con *ExCon, block *DataBlock) {
 	var err error
 	var errA atmi.ATMIError
 	con.ctx, errA = atmi.NewATMICtx()
@@ -428,6 +428,14 @@ func GoDial(con *ExCon) {
 	if err != nil {
 		// handle error
 		con.ctx.TpLogError("Failed to connect to [%s]:%s", MAddr, err)
+
+		//Generate erro buffer
+		if block != nil {
+			if rply_buf, _ := GenErrorUBF(ac, 0, atmi.NENONCONN,
+				fmt.Sprintf("Failed to connect to [%s]:%s", MAddr, err)); nil != rply_buf {
+				block.atmi_chan <- rply_buf
+			}
+		}
 		return
 	}
 

@@ -31,6 +31,7 @@
 package main
 
 import (
+	"exutil"
 	u "ubftab"
 
 	atmi "github.com/endurox-dev/endurox-go"
@@ -147,7 +148,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 
 			block.corr = corr
 			block.atmi_out_conn_id = connid
-			block.tstamp_sent = GetEpochMillis()
+			block.tstamp_sent = exutil.GetEpochMillis()
 
 			//Register in tables (if needed by config)
 			haveMCorrWaiter := false
@@ -177,7 +178,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 			}
 
 			ac.TpLogWarn("About to send data...")
-			con.outgoing <- block
+			con.outgoing <- &block
 
 			//If we are in correl or sync mode we need to wait data
 			//block back...
@@ -243,7 +244,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 
 		block.corr = corr
 		block.atmi_out_conn_id = connid
-		block.tstamp_sent = GetEpochMillis()
+		block.tstamp_sent = exutil.GetEpochMillis()
 
 		//1. Prepare connection block
 		MConnMutex.Lock()

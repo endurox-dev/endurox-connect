@@ -31,6 +31,8 @@
 package main
 
 import (
+	"exutil"
+
 	atmi "github.com/endurox-dev/endurox-go"
 )
 
@@ -39,15 +41,16 @@ import (
 //Send zero length messages over the channels
 func RunZeroOverOpenCons(ac *atmi.ATMICtx) {
 
-	var zero_buf []byte
 	//Lock all connections
 	MConnMutex.Lock()
 
 	for _, v := range MConnections {
 
+		var block DataBlock
+		p_block := &block
+		ac.TpLogInfo("Seding zero lenght message to conn_id: %d", v.id_comp)
 		//Send the data block.
-		v.outgoing <- zero_buf
-
+		v.outgoing <- p_block
 	}
 
 	MConnMutex.Unlock()
@@ -93,8 +96,8 @@ func IsBlockTimeout(ac *atmi.ATMICtx, v *DataBlock) bool {
 	ac.TpLogDebug("Testing tout: tstamp_sent=%d, "+
 		"MReqReplyTimeout=%d, sum=%d, current=%d",
 		v.tstamp_sent, MReqReplyTimeout,
-		v.tstamp_sent+MReqReplyTimeout, GetEpochMillis())
-	if v.tstamp_sent+MReqReplyTimeout > GetEpochMillis() {
+		v.tstamp_sent+MReqReplyTimeout, exutil.GetEpochMillis())
+	if v.tstamp_sent+MReqReplyTimeout > exutil.GetEpochMillis() {
 		ac.TpLogWarn("Call timed out!")
 		return false
 	}

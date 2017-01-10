@@ -94,8 +94,8 @@ type ExCon struct {
 	id_stamp int64         //Part of timestamp (first 32 bits of id)
 	contype  int           //Connection type
 
-	outgoing chan DataBlock //This is for outgoing
-	shutdown chan bool      //This is if we get shutdown messages
+	outgoing chan *DataBlock //This is for outgoing
+	shutdown chan bool       //This is if we get shutdown messages
 }
 
 //We need a hash list of open connection (no matter incoming our outgoing...)
@@ -119,6 +119,7 @@ var Mfreeconns chan *ExCon
 var MfreeconsLock sync.Mutex
 var MPassiveLisener net.Listener
 
+/*
 //Get UTC milliseconds since epoch
 //@return epoch milliseconds
 func GetEpochMillis() int64 {
@@ -128,6 +129,7 @@ func GetEpochMillis() int64 {
 
 	return millis
 }
+*/
 
 //Get open connection
 //@param ac	ATMI Context
@@ -220,7 +222,7 @@ func GetConnectionByID(ac *atmi.ATMICtx, connid int64) *ExCon {
 
 	//If it is simple, then we will iterate over the connections
 	//Should never happen
-	return nil
+	//return nil
 
 }
 

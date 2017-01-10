@@ -145,7 +145,7 @@ func NetDispatchCall(ac *atmi.ATMICtx, con *ExCon,
 					len(b.data))
 				//Maybe send to channel for reply
 				//And then shutdown (if needed, will by done by con it self)
-				con.outgoing <- b
+				con.outgoing <- &b
 			}
 		}
 	}

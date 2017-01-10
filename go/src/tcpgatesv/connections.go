@@ -38,6 +38,8 @@ import (
 	"sync"
 	"time"
 
+	u "ubftab"
+
 	atmi "github.com/endurox-dev/endurox-go"
 )
 
@@ -101,10 +103,12 @@ var MConnections map[int64]*ExCon
 var MConnMutex = &sync.Mutex{}
 
 //List of reply waiters on particular (compiled id)
+//It is up to callers to remove them selves from this list.
 var MConWaiter map[int64]*DataBlock
 var MConWaiterMutex = &sync.Mutex{}
 
 //List of reply waiters on given correlation id
+//It is up to callers to remove them selves from this list.
 var MCorrWaiter map[string]*DataBlock
 var MCorrWaiterMutex = &sync.Mutex{}
 
@@ -113,17 +117,28 @@ var MCorrWaiterMutex = &sync.Mutex{}
 
 var Mfreeconns chan *ExCon
 var MfreeconsLock sync.Mutex
-var MPassiveLisener *net.IPConn
+var MPassiveLisener net.Listener
+
+//Get UTC milliseconds since epoch
+//@return epoch milliseconds
+func GetEpochMillis() int64 {
+	now := time.Now()
+	nanos := now.UnixNano()
+	millis := nanos / 1000000
+
+	return millis
+}
 
 //Get open connection
 //@param ac	ATMI Context
 //@return Connection object acquired or nil (if no connection found)
 func GetOpenConnection(ac *atmi.ATMICtx) *ExCon {
 	ok := false
+	var con *ExCon
 	MfreeconsLock.Lock()
 
 	for !ok {
-		con := <-Mfreeconns
+		con = <-Mfreeconns
 
 		//Check that it is in connection hash list of opens
 		//Maybe some old stuff in channel left
@@ -165,6 +180,13 @@ func GetConnectionByID(ac *atmi.ATMICtx, connid int64) *ExCon {
 			ac.TpLogError("Connection by id %d not found", connid)
 		}
 
+		//Wait for some connection (so that we free up channel
+		//if all the time work by conn ids)
+		ac.TpLogInfo("Get one free connection for channel cleanup (1)...")
+		tmp := <-Mfreeconns
+
+		ac.TpLogInfo("Rotated compiled connection id: %d", tmp.id_comp)
+
 		return ret
 	} else {
 		ac.TpLogInfo("Search by simple connection id")
@@ -172,7 +194,7 @@ func GetConnectionByID(ac *atmi.ATMICtx, connid int64) *ExCon {
 		var ret *ExCon
 		//TODO: Might want another index by simple id
 		MConnMutex.Lock()
-		for k, v := range MConnections {
+		for _, v := range MConnections {
 			ac.TpLogDebug("got %d vs needle %d", v.id, connid)
 
 			if v.id == connid {
@@ -186,6 +208,12 @@ func GetConnectionByID(ac *atmi.ATMICtx, connid int64) *ExCon {
 		if ret == nil {
 			ac.TpLogError("Connection by id %d not found", connid)
 		}
+
+		//Wait for some connection (so that we free up channel
+		//if all the time work by conn ids)
+		ac.TpLogInfo("Get one free connection for channel cleanup (2)...")
+		tmp := <-Mfreeconns
+		ac.TpLogInfo("Rotated compiled connection id: %d", tmp.id_comp)
 
 		return ret
 	}
@@ -203,10 +231,10 @@ func CloseAllConnections(ac *atmi.ATMICtx) {
 	MConnMutex.Lock()
 	for k, v := range MConnections {
 
-		ac.TpLogInfo("Closing %d", k)
+		ac.TpLogInfo("Closing %d (%d)", k, v.id)
 
 		//Send infos that connection is closed.
-		NotifyStatus(ac, id, FLAG_CON_DISCON)
+		NotifyStatus(ac, v.id, FLAG_CON_DISCON)
 
 		if err := v.con.Close(); err != nil {
 			ac.TpLogError("Failed to close connection id %d: %s",
@@ -217,11 +245,6 @@ func CloseAllConnections(ac *atmi.ATMICtx) {
 
 	}
 	MConnMutex.Unlock()
-}
-
-//TODO: Remove from both lists
-func RemoveFromCallLists(call *DataBlock) {
-
 }
 
 //This assumes that MConnections is locked
@@ -278,11 +301,15 @@ func HandleConnection(con *ExCon) {
 
 	for ok {
 
+		var preAllocUBF *atmi.TypedUBF = nil
+
 		//Connection ready, submit to list of available conns
 		//(if last msg wast not) ougoing
-
-		if last_out {
+		if last_out && MReqReply == RR_PERS_ASYNC_INCL_CORR ||
+			MReqReply == RR_PERS_CONN_EX2NET ||
+			MReqReply == RR_PERS_CONN_NET2EX {
 			Mfreeconns <- con
+			ac.TpLogInfo("Putting connection back in RR list")
 			last_out = false
 		}
 
@@ -300,11 +327,11 @@ func HandleConnection(con *ExCon) {
 			MConWaiterMutex.Lock()
 
 			block := MConWaiter[con.id_comp]
-			if nil != call {
+			if nil != block {
 				//Send to connection
 				MConWaiterMutex.Unlock()
 				//This will tell should we terminate or not...
-				NetDispatchConAnswer(block, dataIncoming, &ok)
+				NetDispatchConAnswer(ac, con, block, dataIncoming, &ok)
 
 				continue //<<< Continue!
 			} else {
@@ -312,21 +339,40 @@ func HandleConnection(con *ExCon) {
 			}
 
 			if MCorrSvc != "" {
-				var err error
-				inCorr, err = NetGetCorID(call, dataIncoming)
 
-				if nil == err {
-					ac.TpLogWarn("Error calling correlator service: %s", err)
+				buf, errA := AllocReplyDataBuffer(ac, con, "", dataIncoming, false)
+				if nil != errA {
+					ac.TpLogError("Failed to allocate buffer %d: %s",
+						errA.Code(), errA.Message())
+					//will terminat connection
+					ok = false
+					break
+				}
+
+				corr := ""
+				preAllocUBF = buf
+				corr, errA = NetGetCorID(ac, buf)
+
+				if nil == errA {
+					ac.TpLogWarn("Error calling correlator service: %s",
+						errA.Message())
 				} else if corr != "" {
+
 					ac.TpLogWarn("Got correlator for incoming "+
-						"message: [%s] - looking up for reply waiter", err)
+						"message: [%s] - looking up for reply waiter", corr)
+
+					//So this is answer, add some answer fields
+					buf.BChg(u.EX_NERROR_CODE, 0, 0)
+					buf.BChg(u.EX_NERROR_MSG, 0, "SUCCEED")
 
 					MCorrWaiterMutex.Lock()
 					block := MCorrWaiter[inCorr]
 
-					if nil != corwait {
+					if nil != block {
 						MConWaiterMutex.Unlock()
-						NetDispatchCorAnswer(block)
+						ac.TpLogInfo("Reply waiter found!")
+						NetDispatchCorAnswer(ac, con, block,
+							buf, &ok)
 						continue //<<< Continue!
 					} else {
 						MConWaiterMutex.Unlock()
@@ -345,7 +391,7 @@ func HandleConnection(con *ExCon) {
 			//Do the action which comes first...
 			//Or thread will wait until TPCALL terminates, and then do
 			//reply if socket will be still open...
-			go NetDispatchCall(ac, con, inCorr, data)
+			go NetDispatchCall(ac, con, preAllocUBF, inCorr, dataIncoming)
 
 			break
 		case err := <-dataInErr:
@@ -369,19 +415,12 @@ func HandleConnection(con *ExCon) {
 					": %s - terminating", err)
 				ok = false
 			}
+			//If the is non-persistent Net->EX, then shutdown the conn
 
-			if dataOutgoing.send_and_shut {
+			if MReqReply == RR_NONPERS_NET2EX {
 				ac.TpLogInfo("CONN: %d - send_and_shut recieved - terminating",
 					con.id_comp)
 				ok = false
-			}
-
-			//TODO: If we expect to get reply back, and reply to caller
-			//then we shall register the call in some list
-			if MReqReply {
-				ac.TpLogInfo("CONN: %d - Adding request to outgoing lists",
-					con.id_comp)
-				MConWaiter[con.id_comp] = dataOutgoing
 			}
 
 			break
@@ -431,7 +470,7 @@ func GoDial(con *ExCon, block *DataBlock) {
 
 		//Generate erro buffer
 		if block != nil {
-			if rply_buf, _ := GenErrorUBF(ac, 0, atmi.NENONCONN,
+			if rply_buf, _ := GenErrorUBF(ac, 0, atmi.NENOCONN,
 				fmt.Sprintf("Failed to connect to [%s]:%s", MAddr, err)); nil != rply_buf {
 				block.atmi_chan <- rply_buf
 			}
@@ -464,7 +503,7 @@ func GoDial(con *ExCon, block *DataBlock) {
 }
 
 //Call the status service if defined
-func NotifyStatus(ac *atmi.ATMICtx, id int, flags string) {
+func NotifyStatus(ac *atmi.ATMICtx, id int64, flags string) {
 
 	if MStatussvc == "" {
 		return
@@ -482,7 +521,7 @@ func NotifyStatus(ac *atmi.ATMICtx, id int, flags string) {
 		return
 	}
 
-	if err = buf.Bchg(u.EX_NETFLAGS, 0, flags); err != nil {
+	if err = buf.BChg(u.EX_NETFLAGS, 0, flags); err != nil {
 		ac.TpLogError("Failed to set EX_NETFLAGS %d: %s", err.Code(), err.Message())
 		return
 	}
@@ -498,7 +537,7 @@ func NotifyStatus(ac *atmi.ATMICtx, id int, flags string) {
 }
 
 //Return number of open connections
-func GetOpenConnectionCount() int {
+func GetOpenConnectionCount() int64 {
 
 	MConnMutex.Lock()
 
@@ -506,7 +545,7 @@ func GetOpenConnectionCount() int {
 
 	MConnMutex.Unlock()
 
-	return ret
+	return int64(ret)
 }
 
 //Open the socket and wait for incoming connections
@@ -541,7 +580,7 @@ func PassiveConnectionListener() {
 			if err != nil {
 				ac.TpLogError("Failed to accept connection: %s",
 					err.Error())
-				ln.Close()
+				MPassiveLisener.Close()
 				MShutdown = RUN_SHUTDOWN_FAIL
 				return
 			}
@@ -553,14 +592,14 @@ func PassiveConnectionListener() {
 
 			if con.id == FAIL {
 				ac.TpLogError("Failed to get connection id - max reached?")
-				MShutdown = true
+				MShutdown = RUN_SHUTDOWN_FAIL
 				break
 			}
 
 			//2. Add to hash
 			MConnections[con.id] = &con
 
-			go handleConnection(conn)
+			go HandleConnection(&con)
 		}
 	}
 

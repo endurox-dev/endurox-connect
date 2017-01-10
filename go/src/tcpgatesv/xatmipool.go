@@ -37,7 +37,7 @@ import (
 )
 
 type XATMIPool struct {
-	freechansync *Mutex          //We need to lock the freechan
+	freechansync *sync.Mutex     //We need to lock the freechan
 	freechan     chan int        //List of free channels submitted by wokers
 	ctxs         []*atmi.ATMICtx //List of contexts
 	nrWorkers    int             //Number of contexts

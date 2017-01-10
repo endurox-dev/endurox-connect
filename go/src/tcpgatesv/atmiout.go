@@ -43,7 +43,9 @@ import (
 //@param messages	Customer error message
 func GenError(ac *atmi.ATMICtx, buf *atmi.TypedUBF, id_comp int64, code int, message string) {
 
-	ac.Binit(buf, buf.BSizeof())
+	sz, _ := buf.BSizeof()
+	ac.TpLogDebug("Allocating: %d", sz)
+	ac.BInit(buf, sz)
 
 	if id_comp > 0 {
 		buf.BChg(u.EX_NETCONNID, 0, id_comp)
@@ -106,8 +108,8 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 
 	//OK so our context have a call, now do something with it
 
-	connid, err := buf.BGetInt64(u.EX_NETCONNID, 0)
-	corr, err := buf.BGetInt64(u.EX_NETCORR, 0)
+	connid, _ = buf.BGetInt64(u.EX_NETCONNID, 0)
+	corr, _ = buf.BGetString(u.EX_NETCORR, 0)
 
 	if RR_PERS_ASYNC_INCL_CORR == MReqReply || RR_PERS_CONN_EX2NET == MReqReply {
 		if GetOpenConnectionCount() > 0 {
@@ -123,7 +125,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 				ac.TpLogError("Missing EX_NETDATA: %s!", errA.Message())
 				//Reply with failure
 
-				GenErrorNoConnection(ac, buf, atmi.NEMANDATORY,
+				GenError(ac, buf, atmi.NEMANDATORY, 0,
 					"Mandatory field EX_NETDATA missing!")
 				ret = FAIL
 				return
@@ -133,11 +135,11 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 			if connid == 0 {
 				con = GetOpenConnection(ac)
 			} else {
-				con = GetConnectionByID(connid)
+				con = GetConnectionByID(ac, connid)
 			}
 
 			if nil == con {
-				GenErrorNoConnection(ac, buf, atmi.NENOCONN,
+				GenError(ac, buf, 0, atmi.NENOCONN,
 					"No open connections available")
 				ret = FAIL
 				return
@@ -145,23 +147,33 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 
 			block.corr = corr
 			block.atmi_out_conn_id = connid
-			block.tstamp_sent = t.Unix()
+			block.tstamp_sent = GetEpochMillis()
 
 			//Register in tables (if needed by config)
-			if corr != "" {
-				ac.TpLogInfo("Adding request to corr table, by "+
-					"correlator: [%s]", corr)
-				MCorrWaiterMutex.Lock()
-				MCorrWaiter[corr] = block
-				MCorrWaiterMutex.Unlock()
+			haveMCorrWaiter := false
+			if MReqReply == RR_PERS_ASYNC_INCL_CORR {
+				//Only in asyn mode
+				//In process can be only in one waiting list
+				if corr != "" {
+					ac.TpLogInfo("Adding request to corr table, by "+
+						"correlator: [%s]", corr)
+					MCorrWaiterMutex.Lock()
+					MCorrWaiter[corr] = &block
+					MCorrWaiterMutex.Unlock()
+					haveMCorrWaiter = true
+				}
 			}
 
 			//If we work on sync way, only one data exchange over
 			//The single channel, then lets add to id waiter list
+			haveMConWaiter := false
 			if MReqReply == RR_PERS_CONN_EX2NET {
+				ac.TpLogInfo("Adding request to conn table, by "+
+					"comp_id: [%d]", con.id_comp)
 				MConWaiterMutex.Lock()
-				MConWaiter[con.id_comp] = block
+				MConWaiter[con.id_comp] = &block
 				MConWaiterMutex.Unlock()
+				haveMConWaiter = true
 			}
 
 			ac.TpLogWarn("About to send data...")
@@ -175,13 +187,30 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 					"req_reply %d", corr, MReqReply)
 				//Override the reply buffer
 				//No more checks... as tout should be already generated.
-				buf := <-block.atmi_chan
+				buf = <-block.atmi_chan
 
+				//Remove waiter from lists...
 				ac.TpLogInfo("Got reply back")
+
+				if haveMCorrWaiter {
+					ac.TpLogInfo("Removing request from corr table, by "+
+						"correlator: [%s]", corr)
+					MCorrWaiterMutex.Lock()
+					MCorrWaiter[corr] = nil
+					MCorrWaiterMutex.Unlock()
+				}
+
+				if haveMConWaiter {
+					ac.TpLogInfo("Request from conn table, by "+
+						"comp_id: [%d]", con.id_comp)
+					MConWaiterMutex.Lock()
+					MConWaiter[con.id_comp] = nil
+					MConWaiterMutex.Unlock()
+				}
 			}
 		} else {
 			//Reply - no connection
-			GenErrorNoConnection(ac, buf, atmi.NENOCONN,
+			GenError(ac, buf, 0, atmi.NENOCONN,
 				"No open connections available")
 			ret = FAIL
 			return
@@ -197,6 +226,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 
 		var con ExCon
 		var block DataBlock
+		var errA atmi.ATMIError
 
 		block.data, errA = buf.BGetByteArr(u.EX_NETDATA, 0)
 
@@ -204,7 +234,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 			ac.TpLogError("Missing EX_NETDATA: %s!", errA.Message())
 			//Reply with failure
 
-			GenErrorNoConnection(ac, buf, atmi.NEMANDATORY,
+			GenError(ac, buf, 0, atmi.NEMANDATORY,
 				"Mandatory field EX_NETDATA missing!")
 			ret = FAIL
 			return
@@ -213,7 +243,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 
 		block.corr = corr
 		block.atmi_out_conn_id = connid
-		block.tstamp_sent = t.Unix()
+		block.tstamp_sent = GetEpochMillis()
 
 		//1. Prepare connection block
 		MConnMutex.Lock()
@@ -236,7 +266,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 		go GoDial(&con, &block)
 
 		//4. Now try to send stuff out?
-		buf := <-block.atmi_chan
+		buf = <-block.atmi_chan
 
 		ac.TpLogInfo("Got reply back")
 	}
@@ -244,3 +274,5 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 	//Put back the channel
 	pool.freechan <- nr
 }
+
+//TODO: Allow to broadcast message over all open connections

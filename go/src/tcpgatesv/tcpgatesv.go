@@ -66,9 +66,9 @@ var MMaxConnections int64 = 5
 var MReqReply int = RR_PERS_ASYNC_INCL_CORR
 
 //Timeout for req-reply model
-var MReqReplyTimeout = 60
+var MReqReplyTimeout int64 = 60
 
-var MReqReplyScanTimeMsec = 1000 //Miliseconds to scan the tables for timeouts
+var MScanTime = 1 //Seconds for housekeeping
 
 //Correlator service for incoming messages
 //This is used case if driver operates in sync mode over the persistently conneced lines
@@ -240,17 +240,12 @@ func Init(ac *atmi.ATMICtx) int {
 			ac.TpLogDebug("Got [%s] = [%d] ", fldName, MReqReply)
 			break
 		case "req_reply_timeout":
-			MReqReplyTimeout, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
-			ac.TpLogDebug("Got [%s] = [%d] ", fldName, MReqReplyTimeout)
-			break
-
-		case "req_reply_timeout":
-			MReqReplyTimeout, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
+			MReqReplyTimeout, _ = buf.BGetInt64(u.EX_CC_VALUE, occ)
 			ac.TpLogDebug("Got [%s] = [%d] ", fldName, MReqReplyTimeout)
 			break
 		case "scan_time":
 			MScanTime, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
-			ac.TpLogDebug("Got [%s] = [%d] ", fldName, MReqReplyScanTimeMsec)
+			ac.TpLogDebug("Got [%s] = [%d] ", fldName, MScanTime)
 			break
 		case "corr_svc":
 			//Corelator service for sync tpcall over mulitple persistent connectinos
@@ -268,10 +263,6 @@ func Init(ac *atmi.ATMICtx) int {
 
 	MAddr = MIp + ":" + string(MPort)
 
-	if MReqReply && "" == MCorrSvc {
-		ac.TpLogError("req_reply mode requires that corr_svc is set!")
-	}
-
 	if err := initPool(ac, &MinXPool); err != nil {
 		ac.TpLogError("Failed to init `in' XATMI pool %s", err)
 		return FAIL
@@ -282,7 +273,7 @@ func Init(ac *atmi.ATMICtx) int {
 		return FAIL
 	}
 
-	ac.TpLogInfo("Period housekeeping: scan_time - %d", MReqReplyScanTimeMsec)
+	ac.TpLogInfo("Period housekeeping: scan_time - %d", MScanTime)
 
 	// Verify all work scenarios.
 	if MReqReply == RR_PERS_ASYNC_INCL_CORR {
@@ -321,20 +312,21 @@ func Init(ac *atmi.ATMICtx) int {
 	}
 
 	//Advertize Gateway service
-	if err := ac.TpAdvertise(Mgateway, Mgateway, TCPGATE); err != nil {
+	if err := ac.TpAdvertise(MGateway, MGateway, TCPGATE); err != nil {
 		ac.TpLogError("Advertise failed %s", err)
 		return FAIL
 	}
 
 	//Send infos that connections are closed
 	if MStatussvc != "" {
-		for i := 0; i < MMaxConnections; i++ {
+		var i int64
+		for i = 0; i < MMaxConnections; i++ {
 			ac.TpLogInfo("Notify connection %d down", i)
 			NotifyStatus(ac, i, FLAG_CON_DISCON)
 		}
 	}
 
-	if err := TpExtAddPeriodCB(MScanTime, Periodic); err != nil {
+	if err := ac.TpExtAddPeriodCB(MScanTime, Periodic); err != nil {
 		ac.TpLogError("Advertise failed %d: %s", err.Code(), err.Message())
 		return FAIL
 	}

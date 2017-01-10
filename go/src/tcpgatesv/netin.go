@@ -47,7 +47,7 @@ import (
 //@return UBF buffer if no error, ATMI Error if problem occurred.
 func AllocReplyDataBuffer(ac *atmi.ATMICtx, con *ExCon, corr string, data []byte, isRsp bool) (*atmi.TypedUBF, atmi.ATMIError) {
 
-	buf, err := ac.NewUBF(len(data) + 1024)
+	buf, err := ac.NewUBF(int64(len(data) + 1024))
 	if nil != err {
 		ac.TpLogError("Failed to allocate buffer: [%s] - dropping incoming message",
 			err.Error())
@@ -64,7 +64,7 @@ func AllocReplyDataBuffer(ac *atmi.ATMICtx, con *ExCon, corr string, data []byte
 		return nil, err
 	}
 
-	if err = buf.Bchg(u.EX_NETDATA, 0, data); err != nil {
+	if err = buf.BChg(u.EX_NETDATA, 0, data); err != nil {
 		ac.TpLogError("Failed to set EX_NETDATA %d: %s", err.Code(), err.Message())
 		return nil, err
 	}
@@ -89,15 +89,20 @@ func AllocReplyDataBuffer(ac *atmi.ATMICtx, con *ExCon, corr string, data []byte
 //This should be run on go routine.
 //@param data 	Data received from Network
 //@param bool	set to false if do not need to continue (i.e. close conn)
-func NetDispatchCall(ac *atmi.ATMICtx, con *ExCon, corr string, data []byte) {
+func NetDispatchCall(ac *atmi.ATMICtx, con *ExCon,
+	preAllocUBF *atmi.TypedUBF, corr string, data []byte) {
 
+	buf := preAllocUBF
+	var errA atmi.ATMIError
 	//Setup UBF buffer, load the fields
-	buf, err := AllocReplyDataBuffer(ac, con, corr, data, false)
+	if nil == buf {
+		buf, errA = AllocReplyDataBuffer(ac, con, corr, data, false)
 
-	if err != nil {
-		ac.TpLogError("failed to create the net->ex UBF buffer: %s",
-			err.Message())
-		return
+		if errA != nil {
+			ac.TpLogError("failed to create the net->ex UBF buffer: %s",
+				errA.Message())
+			return
+		}
 	}
 
 	//OK we are here, lets call the service
@@ -105,28 +110,43 @@ func NetDispatchCall(ac *atmi.ATMICtx, con *ExCon, corr string, data []byte) {
 
 	buf.TpLogPrintUBF(atmi.LOG_DEBUG, "Incoming message")
 
-	if !MReqReply {
+	//Full async mode
+	if RR_PERS_ASYNC_INCL_CORR == MReqReply {
 		ac.TpLogInfo("Calling in async mode")
-		_, err := ac.TpACall(MIncomingSvc, buf, atmi.TPNOREPLY)
+		_, errA := ac.TpACall(MIncomingSvc, buf, atmi.TPNOREPLY)
+
+		if nil != errA {
+			ac.TpLogError("Failed to acall [%s]: %s",
+				MIncomingSvc, errA.Message())
+		}
 	} else {
 		ac.TpLogInfo("Req-reply mode enabled and this is incoming call, " +
 			"do call the service in sync mode")
 
-		_, err := ac.TpCall(MIncomingSvc, buf, 0)
+		_, errA := ac.TpCall(MIncomingSvc, buf, 0)
 
-		if err != nil {
+		if errA != nil {
 			ac.TpLogError("Failed to call %s service: %d: %s",
-				MIncomingSvc, err.Code(), err.Message())
+				MIncomingSvc, errA.Code(), errA.Message())
 			//Nothing to reply back
 		} else {
 			//Read the data block and reply back
 			var b DataBlock
-			b.data = buf.BGetByteArr(u.EX_NETDATA, 0)
-			b.send_and_shut = true
-			//Maybe send to channel for reply
-			//And then shutdown
-			//We need a send + shutdown channel...
-			con.outgoing <- b
+			b.data, errA = buf.BGetByteArr(u.EX_NETDATA, 0)
+			if nil != errA {
+				ac.TpLogError("Protocol error: failed to get "+
+					"EX_NETDATA: %s", errA)
+				//Shutdonw the sync incoming connection only
+				//If needed (i.e. if it one connection per request)
+				con.shutdown <- true
+
+			} else {
+				ac.TpLogInfo("Got message from EX, sending to net len: %d",
+					len(b.data))
+				//Maybe send to channel for reply
+				//And then shutdown (if needed, will by done by con it self)
+				con.outgoing <- b
+			}
 		}
 	}
 }
@@ -148,14 +168,14 @@ func NetDispatchConAnswer(ac *atmi.ATMICtx, con *ExCon, block *DataBlock, data [
 	}
 
 	//Network answer on connection
-	block <- buf
+	block.atmi_chan <- buf
 
 	//We should shutdown the connection if this is request/reply mode
 	//with out persistent connections
 	if MReqReply == RR_NONPERS_EX2NET {
 
-		ac.TpLogWarn("Non peristent connection mode, got answer from network"+
-			" - requesting connection shutdown", a)
+		ac.TpLogWarn("Non peristent connection mode, got answer from network" +
+			" - requesting connection shutdown")
 		*doContinue = false
 	}
 }
@@ -164,14 +184,28 @@ func NetDispatchConAnswer(ac *atmi.ATMICtx, con *ExCon, block *DataBlock, data [
 //@param call 	Call data block (what caller thread actually made)
 //@param data	Data block received from network
 //@param bool	ptr for finish off parameter
-func NetDispatchCorAnswer(ac *atmi.ATMICtx, con *ExCon, call *DataBlock, data []byte, doContinue *bool) {
-	call.atmi_chan <- data //Send the data to caller
-	//Remove from corelator lists
-	RemoveFromCallLists(call)
+func NetDispatchCorAnswer(ac *atmi.ATMICtx, con *ExCon, block *DataBlock,
+	buf *atmi.TypedUBF, doContinue *bool) {
+	ac.TpLogInfo("Doing reply to correlated ex->net call")
+	block.atmi_chan <- buf //Send the data to caller
 }
 
-//Get correlator id
-func NetGetCorID(ac *atmi.ATMICtx, data []byte) (string, error) {
+//Get correlator id from incoming message. The correlator is set in UBF buffer
+//@param ac	ATMI Context
+//@param buf	ATMI buffer
+//@return 	ATMI error if fail, or nil if all ok
+func NetGetCorID(ac *atmi.ATMICtx, buf *atmi.TypedUBF) (string, atmi.ATMIError) {
 
-	return "", nil
+	_, err := ac.TpCall(MCorrSvc, buf, 0)
+
+	if nil != err {
+		ac.TpLogError("Failed to call [%s] service: %s",
+			MCorrSvc, err.Message())
+		return "", err
+	}
+
+	ret, _ := buf.BGetString(u.EX_NETCORR, 0)
+	ac.TpLogInfo("Got correlation from service: [%s]", ret)
+
+	return ret, nil
 }

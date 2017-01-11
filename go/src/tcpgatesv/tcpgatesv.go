@@ -99,7 +99,11 @@ func TCPGATE(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 
 		ac.TpLogCloseReqFile()
 		if SUCCEED == ret {
-			ac.TpContinue()
+			/* ac.TpContinue() - No need for this
+			 * Or it have nothing todo.
+			 * as operation  must be last.
+			 */
+			 ac.TpContinue()
 		} else {
 			ac.TpReturn(atmi.TPFAIL, 0, &svc.Data, 0)
 		}
@@ -127,6 +131,7 @@ func TCPGATE(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 		ret = FAIL
 		return
 	}
+
 	nr := getFreeXChan(ac, &MoutXPool)
 	go XATMIDispatchCall(&MoutXPool, nr, ctxData, &ub)
 
@@ -352,7 +357,8 @@ func Init(ac *atmi.ATMICtx) int {
 	MZeroStopwatch.Reset()
 
 	//Init the maps...
-	MConnections = make(map[int64]*ExCon)
+	MConnectionsSimple = make(map[int64]*ExCon)
+	MConnectionsComp = make(map[int64]*ExCon)
 	MConWaiter = make(map[int64]*DataBlock)
 	MCorrWaiter = make(map[string]*DataBlock)
 
@@ -420,6 +426,12 @@ func main() {
 		os.Exit(atmi.FAIL)
 	} else {
 		//Run as server
-		ac.TpRun(Init, Uninit)
+		if err=ac.TpRun(Init, Uninit); nil!=err {
+			ac.TpLogError("Exit with failure");
+			os.Exit(atmi.FAIL)
+		} else {
+			ac.TpLogInfo("Exit with success");
+			os.Exit(atmi.SUCCEED)
+		}
 	}
 }

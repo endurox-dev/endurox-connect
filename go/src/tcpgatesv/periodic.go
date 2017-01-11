@@ -45,7 +45,7 @@ func RunZeroOverOpenCons(ac *atmi.ATMICtx) {
 	//Lock all connections
 	MConnMutex.Lock()
 
-	for _, v := range MConnections {
+	for _, v := range MConnectionsComp {
 
 		var block DataBlock
 		p_block := &block
@@ -76,15 +76,19 @@ func CheckDial(ac *atmi.ATMICtx) {
 		SetupConnection(&con)
 
 		//1. Prepare connection block
+		MConnMutex.Lock()
 		con.id, con.id_stamp, con.id_comp = GetNewConnectionId()
 
 		if con.id == FAIL {
 			ac.TpLogError("Failed to get connection id - max reached?")
+			MConnMutex.Unlock()
 			break
 		}
 
 		//2. Add to hash
-		MConnections[con.id] = &con
+		MConnectionsSimple[con.id] = &con
+		MConnectionsComp[con.id_comp] = &con
+		MConnMutex.Unlock()
 
 		//3. and spawn the routine...
 		go GoDial(&con, nil)

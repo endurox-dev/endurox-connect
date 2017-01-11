@@ -99,7 +99,8 @@ type ExCon struct {
 }
 
 //We need a hash list of open connection (no matter incoming our outgoing...)
-var MConnections map[int64]*ExCon
+var MConnectionsComp map[int64]*ExCon
+var MConnectionsSimple map[int64]*ExCon
 var MConnMutex = &sync.Mutex{}
 
 //List of reply waiters on particular (compiled id)
@@ -133,7 +134,11 @@ func GetOpenConnection(ac *atmi.ATMICtx) *ExCon {
 		//Check that it is in connection hash list of opens
 		//Maybe some old stuff in channel left
 		MConnMutex.Lock()
-		if nil != MConnections[con.id_comp] {
+
+		ac.TpLogInfo("Checking: %d/%d in connection hash",
+			con.id, con.id_comp);
+
+		if nil != MConnectionsComp[con.id_comp] {
 			ok = true
 		} else {
 			ac.TpLogInfo("Got expired connection: %d, try next",
@@ -163,7 +168,7 @@ func GetConnectionByID(ac *atmi.ATMICtx, connid int64) *ExCon {
 		ac.TpLogInfo("Looks like compiled connection id - lookup by hash")
 
 		MConnMutex.Lock()
-		ret := MConnections[connid]
+		ret := MConnectionsComp[connid]
 		MConnMutex.Unlock()
 
 		if ret == nil {
@@ -181,19 +186,10 @@ func GetConnectionByID(ac *atmi.ATMICtx, connid int64) *ExCon {
 	} else {
 		ac.TpLogInfo("Search by simple connection id")
 
-		var ret *ExCon
-		//TODO: Might want another index by simple id
 		MConnMutex.Lock()
-		for _, v := range MConnections {
-			ac.TpLogDebug("got %d vs needle %d", v.id, connid)
-
-			if v.id == connid {
-				ret = v
-				break
-			}
-		}
-
+		ret := MConnectionsSimple[connid]
 		MConnMutex.Unlock()
+
 
 		if ret == nil {
 			ac.TpLogError("Connection by id %d not found", connid)
@@ -219,7 +215,7 @@ func CloseAllConnections(ac *atmi.ATMICtx) {
 	ac.TpLogInfo("Closing all open connections...")
 
 	MConnMutex.Lock()
-	for k, v := range MConnections {
+	for k, v := range MConnectionsSimple {
 
 		ac.TpLogInfo("Closing %d (%d)", k, v.id)
 
@@ -244,7 +240,7 @@ func GetNewConnectionId() (int64, int64, int64) {
 	var i int64
 
 	for i = 1; i < MMaxConnections; i++ {
-		if nil == MConnections[i] {
+		if nil == MConnectionsSimple[i] {
 			/* return time.Uni */
 			tstamp := exutil.GetEpochMillis()
 			//We have oldest 40 bit timestamp, youngest 24 bit - id
@@ -433,9 +429,10 @@ func HandleConnection(con *ExCon) {
 	}
 
 	//Remove our selves from connection list
-	MConnMutex.Lock()
 	ac.TpLogInfo("Removing %d/%d from connection list", con.id_comp, con.id)
-	delete(MConnections, con.id)
+	MConnMutex.Lock()
+	delete(MConnectionsSimple, con.id)
+	delete(MConnectionsComp, con.id_comp)
 	MConnMutex.Unlock()
 }
 
@@ -471,8 +468,6 @@ func GoDial(con *ExCon, block *DataBlock) {
 			con.ctx.TpLogWarn("Terminating connection object: id=%d, "+
 				"tstamp=%d, id_comp=%d", con.id, con.id_stamp, con.id_comp)
 		}
-		MConnections[con.id] = nil
-
 		MConnMutex.Unlock()
 
 	}()
@@ -517,10 +512,8 @@ func GoDial(con *ExCon, block *DataBlock) {
 
 	//Close connection
 	ac.TpLogWarn("Connection id=%d, "+
-		"tstamp=%d, id_comp=%d closing...",
+		"tstamp=%d, id_comp=%d terminating...",
 		con.id, con.id_stamp, con.id_comp)
-
-	err = con.con.Close()
 
 	if nil != err {
 		ac.TpLogError("Failed to close connection: %s", err)
@@ -566,7 +559,7 @@ func GetOpenConnectionCount() int64 {
 
 	MConnMutex.Lock()
 
-	ret := len(MConnections)
+	ret := len(MConnectionsComp)
 
 	MConnMutex.Unlock()
 
@@ -626,9 +619,14 @@ func PassiveConnectionListener() {
 				return
 			}
 
+			//Have buffered read/write API to socket
+			con.writer = bufio.NewWriter(con.con)
+			con.reader = bufio.NewReader(con.con)
+
 			//Add get connection number & add to hashes.
 
 			//1. Prepare connection block
+			MConnMutex.Lock()
 			con.id, con.id_stamp, con.id_comp = GetNewConnectionId()
 
 			ac.TpLogWarn("Got new connection id=%d tstamp=%d id_comp=%d",
@@ -637,15 +635,14 @@ func PassiveConnectionListener() {
 			if con.id == FAIL {
 				ac.TpLogError("Failed to get connection id - max reached?")
 				MShutdown = RUN_SHUTDOWN_FAIL
+				MConnMutex.Unlock()
 				break
 			}
 
-			//Have buffered read/write API to socket
-			con.writer = bufio.NewWriter(con.con)
-			con.reader = bufio.NewReader(con.con)
-
 			//2. Add to hash
-			MConnections[con.id] = &con
+			MConnectionsSimple[con.id] = &con
+			MConnectionsComp[con.id_comp] = &con
+			MConnMutex.Unlock()
 
 			go HandleConnection(&con)
 		}

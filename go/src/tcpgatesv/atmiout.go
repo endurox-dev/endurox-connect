@@ -105,6 +105,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 		}
 	}()
 
+	ac.TpLogInfo("About to restore context data in goroutine...")
 	ac.TpSrvSetCtxData(ctxData, 0)
 
 	//OK so our context have a call, now do something with it
@@ -197,7 +198,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 					ac.TpLogInfo("Removing request from corr table, by "+
 						"correlator: [%s]", corr)
 					MCorrWaiterMutex.Lock()
-                    delete(MCorrWaiter, corr)
+                    			delete(MCorrWaiter, corr)
 					MCorrWaiterMutex.Unlock()
 				}
 
@@ -258,7 +259,8 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 
 		//2. Add to hash
 
-		MConnections[con.id] = &con
+		MConnectionsSimple[con.id] = &con
+		MConnectionsComp[con.id_comp] = &con
 		MConnMutex.Unlock()
 
 		//3. and spawn the routine...

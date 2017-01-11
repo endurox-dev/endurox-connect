@@ -172,7 +172,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 				ac.TpLogInfo("Adding request to conn table, by "+
 					"comp_id: [%d]", con.id_comp)
 				MConWaiterMutex.Lock()
-				MConWaiter[con.id_comp] = &block
+                MConWaiter[con.id_comp] = &block
 				MConWaiterMutex.Unlock()
 				haveMConWaiter = true
 			}
@@ -197,7 +197,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 					ac.TpLogInfo("Removing request from corr table, by "+
 						"correlator: [%s]", corr)
 					MCorrWaiterMutex.Lock()
-					MCorrWaiter[corr] = nil
+                    delete(MCorrWaiter, corr)
 					MCorrWaiterMutex.Unlock()
 				}
 
@@ -205,7 +205,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 					ac.TpLogInfo("Request from conn table, by "+
 						"comp_id: [%d]", con.id_comp)
 					MConWaiterMutex.Lock()
-					MConWaiter[con.id_comp] = nil
+					delete(MConWaiter, con.id_comp)
 					MConWaiterMutex.Unlock()
 				}
 			}

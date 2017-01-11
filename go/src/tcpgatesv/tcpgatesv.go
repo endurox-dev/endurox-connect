@@ -32,6 +32,8 @@ const (
 	RUN_CONTINUE      = 0
 	RUN_SHUTDOWN_OK   = 1
 	RUN_SHUTDOWN_FAIL = 2
+
+	CHANNEL_SIZE = 100
 )
 
 //XATMI sessions for outgoing (Enduro/X sends to Network)
@@ -276,6 +278,15 @@ func Init(ac *atmi.ATMICtx) int {
 
 	ac.TpLogInfo("Period housekeeping: scan_time - %d", MScanTime)
 
+	if errS := ConfigureNumberOfBytes(ac); errS != nil {
+		ac.TpLogError("Failed to configure number of bytes to use for "+
+			"message frame: %s", errS.Error())
+	}
+
+	if err != nil {
+
+	}
+
 	// Verify all work scenarios.
 	if MReqReply == RR_PERS_ASYNC_INCL_CORR {
 		ac.TpLogInfo("Persistent connections: Working on fully async " +
@@ -330,6 +341,8 @@ func Init(ac *atmi.ATMICtx) int {
 	MConnections = make(map[int64]*ExCon)
 	MConWaiter = make(map[int64]*DataBlock)
 	MCorrWaiter = make(map[string]*DataBlock)
+
+	Mfreeconns = make(chan *ExCon, MMaxConnections*5)
 
 	//Advertize Gateway service
 	if err := ac.TpAdvertise(MGateway, MGateway, TCPGATE); err != nil {

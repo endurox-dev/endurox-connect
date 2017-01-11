@@ -32,11 +32,11 @@ package main
 
 import (
 	"bufio"
+	"exutil"
 	"fmt"
 	"net"
 	"os"
 	"sync"
-	"time"
 
 	u "ubftab"
 
@@ -258,8 +258,7 @@ func GetNewConnectionId() (int64, int64, int64) {
 	for i = 1; i < MMaxConnections; i++ {
 		if nil == MConnections[i] {
 			/* return time.Uni */
-			var t time.Time
-			tstamp := t.Unix()
+			tstamp := exutil.GetEpochMillis()
 			//We have oldest 40 bit timestamp, youngest 24 bit - id
 			var compiled_id = tstamp<<24 | (i & 0xffffff)
 
@@ -272,25 +271,35 @@ func GetNewConnectionId() (int64, int64, int64) {
 }
 
 // Start a goroutine to read from our net connection
-func ReadConData(con *ExCon, ch chan []byte, eCh chan error) {
+func ReadConData(con *ExCon, ch chan<- []byte, eCh chan<- error) {
 	for {
 		// try to read the data
 		data, err := GetMessage(con)
 		if err != nil {
 			// send an error if it's encountered
+			con.ctx.TpLogInfo("conn %d got error: %s",
+				con.id_comp, err.Error())
 			eCh <- err
 			return
 		}
-		// send data if we read some.
-		ch <- data
+
+		con.ctx.TpLogInfo("conn %d get message len: %d",
+			con.id_comp, len(data))
+		if len(data) > 0 {
+			// send data if we read some.
+			ch <- data
+		} else {
+			con.ctx.TpLogInfo("conn %d zero length message - ignore",
+				con.id_comp)
+		}
 	}
 }
 
 //Operate with open connection
 func HandleConnection(con *ExCon) {
 
-	var dataIn chan []byte
-	var dataInErr chan error
+	dataIn := make(chan []byte)
+	dataInErr := make(chan error)
 	ok := true
 	ac := con.ctx
 	last_out := true
@@ -310,12 +319,18 @@ func HandleConnection(con *ExCon) {
 		if last_out && MReqReply == RR_PERS_ASYNC_INCL_CORR ||
 			MReqReply == RR_PERS_CONN_EX2NET ||
 			MReqReply == RR_PERS_CONN_NET2EX {
-			Mfreeconns <- con
+
 			ac.TpLogInfo("Putting connection back in RR list")
+
+			Mfreeconns <- con
+
+			ac.TpLogInfo("After putting in RR list")
+
 			last_out = false
 		}
 
 		//Add the connection to
+		ac.TpLogInfo("Conn: %d polling...", con.id_comp)
 		select {
 		case dataIncoming := <-dataIn:
 
@@ -397,7 +412,7 @@ func HandleConnection(con *ExCon) {
 
 			break
 		case err := <-dataInErr:
-			ac.TpLogError("Connection failed: %s - terminating", err)
+			ac.TpLogError("Connection failed: %s - terminating", err.Error())
 			ok = false
 			break
 		case shutdown := <-con.shutdown:
@@ -429,6 +444,26 @@ func HandleConnection(con *ExCon) {
 		}
 	}
 
+	//Remove our selves from connection list
+	MConnMutex.Lock()
+	ac.TpLogInfo("Removing %d/%d from connection list", con.id_comp, con.id)
+	delete(MConnections, con.id)
+	MConnMutex.Unlock()
+}
+
+//This will setup connection
+//@param con 	Newly created connection object
+func SetupConnection(con *ExCon) {
+
+	con.outgoing = make(chan *DataBlock, 10)
+	con.shutdown = make(chan bool, 10)
+}
+
+//Setup data block commons
+//@param block	Data block to setup
+func SetupDataBlock(block *DataBlock) {
+
+	block.atmi_chan = make(chan *atmi.TypedUBF, 10)
 }
 
 //Handle the connection - connect to server
@@ -560,7 +595,7 @@ func PassiveConnectionListener() {
 	var err error
 
 	if nil != err {
-		fmt.Fprintf(os.Stderr,"Failed to create ATMI Context: %d:%s",
+		fmt.Fprintf(os.Stderr, "Failed to create ATMI Context: %d:%s",
 			errA.Code(), errA.Message())
 		MShutdown = RUN_SHUTDOWN_FAIL
 		return
@@ -581,13 +616,18 @@ func PassiveConnectionListener() {
 			//Create ATMI context for connection
 			con.ctx, errA = atmi.NewATMICtx()
 
-			if nil!=errA {
-				fmt.Fprintf(os.Stderr,"Failed to create ATMI "+
+			if nil != errA {
+				fmt.Fprintf(os.Stderr, "Failed to create ATMI "+
 					"Context for connection: %d:%s",
 					errA.Code(), errA.Message())
 				MShutdown = RUN_SHUTDOWN_FAIL
 				return
 			}
+
+			fmt.Fprintf(os.Stderr, "Got connection atmi object: %p",
+				con.ctx)
+
+			SetupConnection(&con)
 
 			con.con, err = MPassiveLisener.Accept()
 			if err != nil {
@@ -608,6 +648,10 @@ func PassiveConnectionListener() {
 				MShutdown = RUN_SHUTDOWN_FAIL
 				break
 			}
+
+			//Have buffered read/write API to socket
+			con.writer = bufio.NewWriter(con.con)
+			con.reader = bufio.NewReader(con.con)
 
 			//2. Add to hash
 			MConnections[con.id] = &con

@@ -49,7 +49,7 @@ func RunZeroOverOpenCons(ac *atmi.ATMICtx) {
 
 		var block DataBlock
 		p_block := &block
-		ac.TpLogInfo("Seding zero lenght message to conn_id: %d", v.id_comp)
+		ac.TpLogInfo("Seding zero length message to conn_id: %d", v.id_comp)
 		//Send the data block.
 		v.outgoing <- p_block
 	}
@@ -71,6 +71,8 @@ func CheckDial(ac *atmi.ATMICtx) {
 
 		//Spawn new connection threads
 		var con ExCon
+
+		SetupConnection(&con)
 
 		//1. Prepare connection block
 		con.id, con.id_stamp, con.id_comp = GetNewConnectionId()
@@ -163,13 +165,6 @@ func CheckTimeouts(ac *atmi.ATMICtx) atmi.ATMIError {
 	}
 	MCorrWaiterMutex.Unlock()
 
-	if MPerZero > 0 && MZeroStopwatch.GetDetlaSec() > int64(MPerZero) {
-		ac.TpLogDebug("Time for periodic zero message over " +
-			"the active connections")
-		RunZeroOverOpenCons(ac)
-
-	}
-
 	return nil
 
 }
@@ -191,6 +186,15 @@ func Periodic(ac *atmi.ATMICtx) int {
 			err.Message())
 		return atmi.FAIL
 
+	}
+
+	//Send the zero length messages to network
+	if MPerZero > 0 && MZeroStopwatch.GetDetlaSec() > int64(MPerZero) {
+		ac.TpLogDebug("Time for periodic zero message over " +
+			"the active connections")
+		RunZeroOverOpenCons(ac)
+
+		MZeroStopwatch.Reset()
 	}
 
 	//TODO: Check for any outstanding network calls...

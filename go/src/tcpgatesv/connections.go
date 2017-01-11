@@ -119,18 +119,6 @@ var Mfreeconns chan *ExCon
 var MfreeconsLock sync.Mutex
 var MPassiveLisener net.Listener
 
-/*
-//Get UTC milliseconds since epoch
-//@return epoch milliseconds
-func GetEpochMillis() int64 {
-	now := time.Now()
-	nanos := now.UnixNano()
-	millis := nanos / 1000000
-
-	return millis
-}
-*/
-
 //Get open connection
 //@param ac	ATMI Context
 //@return Connection object acquired or nil (if no connection found)
@@ -642,6 +630,9 @@ func PassiveConnectionListener() {
 
 			//1. Prepare connection block
 			con.id, con.id_stamp, con.id_comp = GetNewConnectionId()
+
+			ac.TpLogWarn("Got new connection id=%d tstamp=%d id_comp=%d",
+				con.id, con.id_stamp, con.id_comp);
 
 			if con.id == FAIL {
 				ac.TpLogError("Failed to get connection id - max reached?")

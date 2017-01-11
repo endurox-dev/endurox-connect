@@ -49,7 +49,8 @@ func RunZeroOverOpenCons(ac *atmi.ATMICtx) {
 
 		var block DataBlock
 		p_block := &block
-		ac.TpLogInfo("Seding zero length message to conn_id: %d", v.id_comp)
+		ac.TpLogInfo("Seding zero length message to id:%d conn_id: %d ",
+			v.id, v.id_comp)
 		//Send the data block.
 		v.outgoing <- p_block
 	}

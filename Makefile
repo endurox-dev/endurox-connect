@@ -8,8 +8,8 @@ all:
 	$(MAKE) -C tests
 	$(MAKE) -C go
 	$(MAKE) -C doc
-	cd pkg; cmake .
+	cd pkg && cmake .
 
 pkg: all
-	cd pkg; cpack
+	cd pkg && cpack
 

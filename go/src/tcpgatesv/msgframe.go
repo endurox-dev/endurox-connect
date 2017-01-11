@@ -61,7 +61,7 @@ const (
 func ConfigureNumberOfBytes(ac *atmi.ATMICtx) error {
 	var c rune
 	var n int
-	first := false
+	first := true
 
 	ac.TpLogInfo("Framing mode from config [%s]", MFraming)
 
@@ -69,6 +69,8 @@ func ConfigureNumberOfBytes(ac *atmi.ATMICtx) error {
 		if first {
 			c = r
 		} else if c != r {
+			ac.TpLogError("Different symbols in message framing: [" +
+				string(c) + "] and [" + string(r) + "]")
 			return errors.New("Different symbols in message framing: [" +
 				string(c) + "] and [" + string(r) + "]")
 		}
@@ -118,6 +120,10 @@ func ConfigureNumberOfBytes(ac *atmi.ATMICtx) error {
 		MFramingLen = 0
 		ac.TpLogInfo("Start delimiter %x, Stop delimiter: %x",
 			MDelimStart, MDelimStop)
+		break
+	default:
+		ac.TpLogError("Invalid framing...")
+		return errors.New("Invalid message framing...")
 		break
 	}
 
@@ -198,6 +204,12 @@ func GetMessage(con *ExCon) ([]byte, error) {
 		}
 
 		ac.TpLogInfo("Got header, indicating message len to read: %d", mlen)
+
+		if mlen < 0 {
+			ac.TpLogError("Reiceived invalid message len: %d", mlen)
+			return nil, errors.New(fmt.Sprintf(
+				"Reiceived invalid message len: %d", mlen))
+		}
 
 		if MFramingMaxMsgLen > 0 && mlen > int64(MFramingMaxMsgLen) {
 			ac.TpLogError("Error ! Message len received: %d,"+
@@ -301,7 +313,7 @@ func PutMessage(con *ExCon, data []byte) error {
 			}
 
 		} else {
-			mlenStr := fmt.Sprintf("%*d", MFramingLen, mlen)
+			mlenStr := fmt.Sprintf("%0*d", MFramingLen, mlen)
 			header = []byte(mlenStr)
 		}
 
@@ -316,6 +328,20 @@ func PutMessage(con *ExCon, data []byte) error {
 			dataToSend, len(dataToSend))
 
 		nw, err := con.writer.Write(dataToSend)
+
+		if nil != err {
+			errMsg:=fmt.Sprintf("Failed to write data to socket: %s", err);
+			ac.TpLogError(errMsg)
+			return errors.New(errMsg)
+		}
+
+		err = con.writer.Flush()
+
+		if nil != err {
+			errMsg:=fmt.Sprintf("Failed to flush socket: %s", err);
+			ac.TpLogError(errMsg)
+			return errors.New(errMsg)
+		}
 
 		if nil != err {
 			ac.TpLogError("Failed to write data to socket: %s", err)

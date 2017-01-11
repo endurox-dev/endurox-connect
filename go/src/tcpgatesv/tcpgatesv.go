@@ -9,6 +9,12 @@ import (
 	atmi "github.com/endurox-dev/endurox-go"
 )
 
+/*
+#include <signal.h>
+*/
+import "C"
+
+
 const (
 	SUCCEED     = atmi.SUCCEED
 	FAIL        = atmi.FAIL
@@ -170,6 +176,17 @@ func Init(ac *atmi.ATMICtx) int {
 
 		switch fldName {
 
+		case "gencore":
+                        gencore, _ := buf.BGetInt(u.EX_CC_VALUE, occ)
+
+                        if 1 == gencore {
+                                //Process signals by default handlers
+                                ac.TpLogInfo("gencore=1 - SIGSEG signal will be " +
+                                        "processed by default OS handler")
+                                // Have some core dumps...
+                                C.signal(11, nil)
+                        }
+                        break
 		case "workers_out":
 			MWorkersOut, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
 			ac.TpLogDebug("Got [%s] = [%d] ", fldName, MWorkersOut)
@@ -281,10 +298,7 @@ func Init(ac *atmi.ATMICtx) int {
 	if errS := ConfigureNumberOfBytes(ac); errS != nil {
 		ac.TpLogError("Failed to configure number of bytes to use for "+
 			"message frame: %s", errS.Error())
-	}
-
-	if err != nil {
-
+		return FAIL
 	}
 
 	// Verify all work scenarios.

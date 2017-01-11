@@ -1,2 +1,2 @@
-# endurox-addons
-Enduro/X Addons packages
+# endurox-connect
+Enduro/X Connectivity packages

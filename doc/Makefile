@@ -30,10 +30,10 @@
 ## -----------------------------------------------------------------------------
 ##
 
-SOURCE_DOCS :=$(shell find -name '*.adoc' -printf "%f\n")
+SOURCE_DOCS :=$(shell ls -1 *.adoc)
 DOCS  := $(patsubst %.adoc, %.html, $(SOURCE_DOCS))
 
-SOURCES_GRAPHS :=$(shell find -name '*.dia' -printf "%f\n")
+SOURCES_GRAPHS :=$(shell ls -1 *.dia)
 GRAPHS  := $(patsubst %.dia, %.png, $(SOURCES_GRAPHS))
 
 $(info $$SOURCES_GRAPHS is [${SOURCES_GRAPHS}])

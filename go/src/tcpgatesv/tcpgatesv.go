@@ -326,6 +326,11 @@ func Init(ac *atmi.ATMICtx) int {
 
 	MZeroStopwatch.Reset()
 
+	//Init the maps...
+	MConnections = make(map[int64]*ExCon)
+	MConWaiter = make(map[int64]*DataBlock)
+	MCorrWaiter = make(map[string]*DataBlock)
+
 	//Advertize Gateway service
 	if err := ac.TpAdvertise(MGateway, MGateway, TCPGATE); err != nil {
 		ac.TpLogError("Advertise failed %s", err)

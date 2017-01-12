@@ -63,7 +63,7 @@ var MIp string = "0.0.0.0"   //IP to listen or to connect to if Active
 var MPort int = 5555         //Port to connect to or listen on depending on active/passive role
 var MAddr string = ""        //Compiled ip:port
 var MIncomingSvc string = "" //Incomding service to send to incoming async traffic
-var MPerZero int = 60        //Period by witch to which send zero length message to all channels...
+var MPerZero int = 0         //Period by witch to which send zero length message to all channels...
 var MStatussvc string = ""   //Status service to which send connection information
 //Max number to connection to connect to server, or allow max incomings in the same time.
 var MMaxConnections int64 = 5

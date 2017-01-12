@@ -36,8 +36,8 @@
 		-->
 		
 		<!-- 
-		Time (seconds) after attach when program will start do sanity & respawn checks,
-		starts counting after configuration load 
+			Time (seconds) after attach when program will start do sanity & respawn checks,
+			starts counting after configuration load 
 		-->
 		<restart_to_check>20</restart_to_check>
 		
@@ -138,6 +138,20 @@
 			<max>1</max>
 			<srvid>210</srvid>
 			<sysopt>-e ${NDRX_APPHOME}/log/tcpgatesv-test1-passive.log -r</sysopt>
+		</server>
+		<server name="tcpgatesv">
+			<cctag>nonpers/active</cctag>
+			<min>1</min>
+			<max>1</max>
+			<srvid>220</srvid>
+			<sysopt>-e ${NDRX_APPHOME}/log/tcpgatesv-nonpers-active.log -r</sysopt>
+		</server>
+		<server name="tcpgatesv">
+			<cctag>nonpers/pasive</cctag>
+			<min>1</min>
+			<max>1</max>
+			<srvid>230</srvid>
+			<sysopt>-e ${NDRX_APPHOME}/log/tcpgatesv-nonpers-passive.log -r</sysopt>
 		</server>
 		<server name="cpmsrv">
 			<min>1</min>

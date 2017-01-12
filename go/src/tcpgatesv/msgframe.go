@@ -35,7 +35,6 @@ import (
 	"fmt"
 	"io"
 	"strconv"
-	"unsafe"
 
 	atmi "github.com/endurox-dev/endurox-go"
 )
@@ -127,23 +126,7 @@ func ConfigureNumberOfBytes(ac *atmi.ATMICtx) error {
 		return errors.New("Invalid message framing...")
 	}
 
-	if IsLittleEndian() {
-		ac.TpLogInfo("Machine is little-endian")
-	} else {
-		ac.TpLogInfo("Machine is big-endian")
-	}
-
 	return nil
-}
-
-//Check is machine little endian
-//@return true if machine is little endian, false if machine is big endian
-func IsLittleEndian() bool {
-	var i int32 = 0x01020304
-	u := unsafe.Pointer(&i)
-	pb := (*byte)(u)
-	b := *pb
-	return (b == 0x04)
 }
 
 //Read the message from connection
@@ -182,35 +165,19 @@ func GetMessage(con *ExCon) ([]byte, error) {
 		if MFramingCode != FRAME_ASCII && MFramingCode != FRAME_ASCII_ILEN {
 
 			for i := 0; i < MFramingLen; i++ {
-
 				//Move the current byte to front
 				mlen <<= 8
-				if IsLittleEndian() {
-					switch MFramingCode {
-					case FRAME_LITTLE_ENDIAN:
-					case FRAME_LITTLE_ENDIAN_ILEN:
-						//Add current byte
-						mlen |= int64(header[i])
-						break
-					case FRAME_BIG_ENDIAN:
-					case FRAME_BIG_ENDIAN_ILEN:
-						//Add current byte, but take from older
-						mlen |= int64(header[int(MFramingLen-1)-i])
-						break
-					}
-				} else {
-					switch MFramingCode {
-					case FRAME_BIG_ENDIAN:
-					case FRAME_BIG_ENDIAN_ILEN:
-						//Add current byte
-						mlen |= int64(header[i])
-						break
-					case FRAME_LITTLE_ENDIAN:
-					case FRAME_LITTLE_ENDIAN_ILEN:
-						//Add current byte, but take from older
-						mlen |= int64(header[int(MFramingLen-1)-i])
-						break
-					}
+				switch MFramingCode {
+				case FRAME_LITTLE_ENDIAN:
+				case FRAME_LITTLE_ENDIAN_ILEN:
+					//Add current byte
+					mlen |= int64(header[i])
+					break
+				case FRAME_BIG_ENDIAN:
+				case FRAME_BIG_ENDIAN_ILEN:
+					//Add current byte, but take from older
+					mlen |= int64(header[int(MFramingLen-1)-i])
+					break
 				}
 			}
 		} else {
@@ -326,36 +293,18 @@ func PutMessage(con *ExCon, data []byte) error {
 
 		//Generate the header
 		if MFramingCode != FRAME_ASCII && MFramingCode != FRAME_ASCII_ILEN {
-
 			for i := 0; i < MFramingLen; i++ {
-
-				if IsLittleEndian() {
-					switch MFramingCode {
-					case FRAME_LITTLE_ENDIAN:
-					case FRAME_LITTLE_ENDIAN_ILEN:
-
-						//So the least significant byte goes to end the array
-						header[(MFramingLen-1)-i] = byte(mlen & 0xff)
-						break
-					case FRAME_BIG_ENDIAN:
-					case FRAME_BIG_ENDIAN_ILEN:
-						//So the least significant byte goes in front of the array
-						header[i] = byte(mlen & 0xff)
-						break
-					}
-				} else {
-					switch MFramingCode {
-					case FRAME_BIG_ENDIAN:
-					case FRAME_BIG_ENDIAN_ILEN:
-						//So the least significant byte goes to end the array
-						header[(MFramingLen-1)-i] = byte(mlen & 0xff)
-						break
-					case FRAME_LITTLE_ENDIAN:
-					case FRAME_LITTLE_ENDIAN_ILEN:
-						//So the least significant byte goes in front of the array
-						header[i] = byte(mlen & 0xff)
-						break
-					}
+				switch MFramingCode {
+				case FRAME_LITTLE_ENDIAN:
+				case FRAME_LITTLE_ENDIAN_ILEN:
+					//So the least significant byte goes to end the array
+					header[(MFramingLen-1)-i] = byte(mlen & 0xff)
+					break
+				case FRAME_BIG_ENDIAN:
+				case FRAME_BIG_ENDIAN_ILEN:
+					//So the least significant byte goes in front of the array
+					header[i] = byte(mlen & 0xff)
+					break
 				}
 
 				mlen >>= 8

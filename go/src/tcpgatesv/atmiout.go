@@ -42,7 +42,7 @@ import (
 //@param id_comp	Compiled/composite connection id (can be simple too)
 //@param code		Error code
 //@param messages	Customer error message
-func GenError(ac *atmi.ATMICtx, buf *atmi.TypedUBF, id_comp int64, code int, message string) {
+func GenResponse(ac *atmi.ATMICtx, buf *atmi.TypedUBF, id_comp int64, code int, message string) {
 
 	sz, _ := buf.BSizeof()
 	ac.TpLogDebug("Allocating: %d", sz)
@@ -101,7 +101,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 
 		if SUCCEED == ret {
 			buf.TpLogPrintUBF(atmi.LOG_DEBUG, "Reply with SUCCEED")
-			ac.TpReturn(atmi.SUCCEED, 0, buf, 0)
+			ac.TpReturn(atmi.TPSUCCESS, 0, buf, 0)
 		} else {
 			buf.TpLogPrintUBF(atmi.LOG_DEBUG, "Reply with FAIL")
 			ac.TpReturn(atmi.TPFAIL, 0, buf, 0)
@@ -130,7 +130,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 				ac.TpLogError("Missing EX_NETDATA: %s!", errA.Message())
 				//Reply with failure
 
-				GenError(ac, buf, atmi.NEMANDATORY, 0,
+				GenResponse(ac, buf, atmi.NEMANDATORY, 0,
 					"Mandatory field EX_NETDATA missing!")
 				ret = FAIL
 				return
@@ -144,7 +144,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 			}
 
 			if nil == con {
-				GenError(ac, buf, 0, atmi.NENOCONN,
+				GenResponse(ac, buf, 0, atmi.NENOCONN,
 					"No open connections available")
 				ret = FAIL
 				return
@@ -212,10 +212,15 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 					delete(MConWaiter, con.id_comp)
 					MConWaiterMutex.Unlock()
 				}
+			} else {
+				//Just approve the call (and remove data
+				//so that we do not generate extra IPC traffic
+				buf.BDel(u.EX_NETDATA, 0)
+				GenResponse(ac, buf, con.id_comp, 0, "SUCCEED")
 			}
 		} else {
 			//Reply - no connection
-			GenError(ac, buf, 0, atmi.NENOCONN,
+			GenResponse(ac, buf, 0, atmi.NENOCONN,
 				"No open connections available")
 			ret = FAIL
 			return
@@ -239,7 +244,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 			ac.TpLogError("Missing EX_NETDATA: %s!", errA.Message())
 			//Reply with failure
 
-			GenError(ac, buf, 0, atmi.NEMANDATORY,
+			GenResponse(ac, buf, 0, atmi.NEMANDATORY,
 				"Mandatory field EX_NETDATA missing!")
 			ret = FAIL
 			return

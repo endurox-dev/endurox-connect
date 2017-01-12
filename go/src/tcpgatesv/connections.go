@@ -145,6 +145,7 @@ func GetOpenConnection(ac *atmi.ATMICtx) *ExCon {
 				con.id_comp)
 		}
 
+		MConnMutex.Unlock()
 	}
 
 	MfreeconsLock.Unlock()

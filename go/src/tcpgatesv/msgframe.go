@@ -35,6 +35,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"unsafe"
 
 	atmi "github.com/endurox-dev/endurox-go"
 )
@@ -124,10 +125,25 @@ func ConfigureNumberOfBytes(ac *atmi.ATMICtx) error {
 	default:
 		ac.TpLogError("Invalid framing...")
 		return errors.New("Invalid message framing...")
-		break
+	}
+
+	if IsLittleEndian() {
+		ac.TpLogInfo("Machine is little-endian")
+	} else {
+		ac.TpLogInfo("Machine is big-endian")
 	}
 
 	return nil
+}
+
+//Check is machine little endian
+//@return true if machine is little endian, false if machine is big endian
+func IsLittleEndian() bool {
+	var i int32 = 0x01020304
+	u := unsafe.Pointer(&i)
+	pb := (*byte)(u)
+	b := *pb
+	return (b == 0x04)
 }
 
 //Read the message from connection
@@ -167,17 +183,34 @@ func GetMessage(con *ExCon) ([]byte, error) {
 
 			for i := 0; i < MFramingLen; i++ {
 
-				switch MFramingCode {
-				case FRAME_BIG_ENDIAN:
-				case FRAME_BIG_ENDIAN_ILEN:
-					mlen <<= 8               //Move the current byte to front
-					mlen |= int64(header[i]) //Add current byte
-					break
-				case FRAME_LITTLE_ENDIAN:
-				case FRAME_LITTLE_ENDIAN_ILEN:
-					mlen <<= 8                                  //Move the current byte to end
-					mlen |= int64(header[int(MFramingLen-1)-i]) //Add current byte, but take from older
-					break
+				//Move the current byte to front
+				mlen <<= 8
+				if IsLittleEndian() {
+					switch MFramingCode {
+					case FRAME_LITTLE_ENDIAN:
+					case FRAME_LITTLE_ENDIAN_ILEN:
+						//Add current byte
+						mlen |= int64(header[i])
+						break
+					case FRAME_BIG_ENDIAN:
+					case FRAME_BIG_ENDIAN_ILEN:
+						//Add current byte, but take from older
+						mlen |= int64(header[int(MFramingLen-1)-i])
+						break
+					}
+				} else {
+					switch MFramingCode {
+					case FRAME_BIG_ENDIAN:
+					case FRAME_BIG_ENDIAN_ILEN:
+						//Add current byte
+						mlen |= int64(header[i])
+						break
+					case FRAME_LITTLE_ENDIAN:
+					case FRAME_LITTLE_ENDIAN_ILEN:
+						//Add current byte, but take from older
+						mlen |= int64(header[int(MFramingLen-1)-i])
+						break
+					}
 				}
 			}
 		} else {
@@ -296,17 +329,33 @@ func PutMessage(con *ExCon, data []byte) error {
 
 			for i := 0; i < MFramingLen; i++ {
 
-				switch MFramingCode {
-				case FRAME_BIG_ENDIAN:
-				case FRAME_BIG_ENDIAN_ILEN:
-					//So the least significant byte goes to end the array
-					header[(MFramingLen-1)-i] = byte(mlen & 0xff)
-					break
-				case FRAME_LITTLE_ENDIAN:
-				case FRAME_LITTLE_ENDIAN_ILEN:
-					//So the least significant byte goes in front of the array
-					header[i] = byte(mlen & 0xff)
-					break
+				if IsLittleEndian() {
+					switch MFramingCode {
+					case FRAME_LITTLE_ENDIAN:
+					case FRAME_LITTLE_ENDIAN_ILEN:
+
+						//So the least significant byte goes to end the array
+						header[(MFramingLen-1)-i] = byte(mlen & 0xff)
+						break
+					case FRAME_BIG_ENDIAN:
+					case FRAME_BIG_ENDIAN_ILEN:
+						//So the least significant byte goes in front of the array
+						header[i] = byte(mlen & 0xff)
+						break
+					}
+				} else {
+					switch MFramingCode {
+					case FRAME_BIG_ENDIAN:
+					case FRAME_BIG_ENDIAN_ILEN:
+						//So the least significant byte goes to end the array
+						header[(MFramingLen-1)-i] = byte(mlen & 0xff)
+						break
+					case FRAME_LITTLE_ENDIAN:
+					case FRAME_LITTLE_ENDIAN_ILEN:
+						//So the least significant byte goes in front of the array
+						header[i] = byte(mlen & 0xff)
+						break
+					}
 				}
 
 				mlen >>= 8
@@ -330,7 +379,7 @@ func PutMessage(con *ExCon, data []byte) error {
 		nw, err := con.writer.Write(dataToSend)
 
 		if nil != err {
-			errMsg:=fmt.Sprintf("Failed to write data to socket: %s", err);
+			errMsg := fmt.Sprintf("Failed to write data to socket: %s", err)
 			ac.TpLogError(errMsg)
 			return errors.New(errMsg)
 		}
@@ -338,7 +387,7 @@ func PutMessage(con *ExCon, data []byte) error {
 		err = con.writer.Flush()
 
 		if nil != err {
-			errMsg:=fmt.Sprintf("Failed to flush socket: %s", err);
+			errMsg := fmt.Sprintf("Failed to flush socket: %s", err)
 			ac.TpLogError(errMsg)
 			return errors.New(errMsg)
 		}

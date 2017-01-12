@@ -67,7 +67,7 @@ The typical *restincl* configuration looks like:
 
 --------------------------------------------------------------------------------
 
-[RESTIN]
+[@restin]
 port=8080
 ip=0.0.0.0
 #

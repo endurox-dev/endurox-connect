@@ -58,7 +58,7 @@ import (
 import "C"
 
 const (
-	progsection = "RESTIN"
+	progsection = "@restin"
 )
 
 const (

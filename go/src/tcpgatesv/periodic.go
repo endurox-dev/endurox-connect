@@ -47,12 +47,21 @@ func RunZeroOverOpenCons(ac *atmi.ATMICtx) {
 
 	for _, v := range MConnectionsComp {
 
-		var block DataBlock
-		p_block := &block
-		ac.TpLogInfo("Seding zero length message to id:%d conn_id: %d ",
-			v.id, v.id_comp)
-		//Send the data block.
-		v.outgoing <- p_block
+		if v.is_open {
+			var block DataBlock
+			p_block := &block
+			ac.TpLogInfo("Sending zero length message to id:%d conn_id: %d ",
+				v.id, v.id_comp)
+
+			//Remove connection from free list
+			MarkConnAsBusy(v)
+
+			//Send the data block.
+			v.outgoing <- p_block
+		} else {
+			ac.TpLogInfo("conn %d/%d is not yet open - not sending zero msg",
+				v.id, v.id_comp)
+		}
 	}
 
 	MConnMutex.Unlock()
@@ -67,7 +76,6 @@ func CheckDial(ac *atmi.ATMICtx) {
 
 	ac.TpLogInfo("CheckDial: Active connection, checking outgoing connections...")
 
-	MConnMutex.Lock()
 	for i = GetOpenConnectionCount(); i < MMaxConnections; i++ {
 
 		//Spawn new connection threads
@@ -94,7 +102,6 @@ func CheckDial(ac *atmi.ATMICtx) {
 		go GoDial(&con, nil)
 	}
 
-	MConnMutex.Unlock()
 }
 
 //Test is call block timed out

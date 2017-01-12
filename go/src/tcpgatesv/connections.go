@@ -96,6 +96,7 @@ type ExCon struct {
 
 	outgoing chan *DataBlock //This is for outgoing
 	shutdown chan bool       //This is if we get shutdown messages
+	is_open  bool            //Is connection open?
 }
 
 //We need a hash list of open connection (no matter incoming our outgoing...)
@@ -120,6 +121,55 @@ var Mfreeconns chan *ExCon
 var MfreeconsLock sync.Mutex
 var MPassiveLisener net.Listener
 
+//Remove given connection from channel list (if found there)
+func MarkConnAsBusy(con *ExCon) {
+
+	connList := []*ExCon{}
+	in_list := true
+	MfreeconsLock.Lock()
+
+	//So we need to pull all connections to the list
+	//Remove our selves
+	con.ctx.TpLogInfo("Removing connection %d/%d from Mfreeconns channel",
+		con.id, con.id_comp)
+
+	for in_list {
+		select {
+
+		case tmp := <-Mfreeconns:
+
+			if tmp.id_comp != con.id_comp {
+				connList = append(connList, tmp)
+				con.ctx.TpLogDebug("Putting back %d/%d",
+					tmp.id, tmp.id_comp)
+
+			} else {
+				con.ctx.TpLogDebug("Removing connection %d/%d "+
+					"from Mfreeconns channel - found!",
+					con.id, con.id_comp)
+			}
+			break
+		default:
+			in_list = false
+			break
+		}
+	}
+
+	MfreeconsLock.Unlock()
+
+	con.ctx.TpLogInfo("Removal of connection %d/%d from Mfreeconns channel done",
+		con.id, con.id_comp)
+
+	//Put all stuff back to channel (with out lock)
+	for _, element := range connList {
+		con.ctx.TpLogDebug("Adding connection %d/%d back to chan",
+			element.id, element.id_comp)
+
+		Mfreeconns <- element
+	}
+
+}
+
 //Get open connection
 //@param ac	ATMI Context
 //@return Connection object acquired or nil (if no connection found)
@@ -136,7 +186,7 @@ func GetOpenConnection(ac *atmi.ATMICtx) *ExCon {
 		MConnMutex.Lock()
 
 		ac.TpLogInfo("Checking: %d/%d in connection hash",
-			con.id, con.id_comp);
+			con.id, con.id_comp)
 
 		if nil != MConnectionsComp[con.id_comp] {
 			ok = true
@@ -176,12 +226,7 @@ func GetConnectionByID(ac *atmi.ATMICtx, connid int64) *ExCon {
 			ac.TpLogError("Connection by id %d not found", connid)
 		}
 
-		//Wait for some connection (so that we free up channel
-		//if all the time work by conn ids)
-		ac.TpLogInfo("Get one free connection for channel cleanup (1)...")
-		tmp := <-Mfreeconns
-
-		ac.TpLogInfo("Rotated compiled connection id: %d", tmp.id_comp)
+		MarkConnAsBusy(ret)
 
 		return ret
 	} else {
@@ -191,16 +236,11 @@ func GetConnectionByID(ac *atmi.ATMICtx, connid int64) *ExCon {
 		ret := MConnectionsSimple[connid]
 		MConnMutex.Unlock()
 
-
 		if ret == nil {
 			ac.TpLogError("Connection by id %d not found", connid)
 		}
 
-		//Wait for some connection (so that we free up channel
-		//if all the time work by conn ids)
-		ac.TpLogInfo("Get one free connection for channel cleanup (2)...")
-		tmp := <-Mfreeconns
-		ac.TpLogInfo("Rotated compiled connection id: %d", tmp.id_comp)
+		MarkConnAsBusy(ret)
 
 		return ret
 	}
@@ -240,7 +280,8 @@ func GetNewConnectionId() (int64, int64, int64) {
 
 	var i int64
 
-	for i = 1; i < MMaxConnections; i++ {
+	//Will enumerate connections from
+	for i = 1; i < MMaxConnections+1; i++ {
 		if nil == MConnectionsSimple[i] {
 			/* return time.Uni */
 			tstamp := exutil.GetEpochMillis()
@@ -262,7 +303,7 @@ func ReadConData(con *ExCon, ch chan<- []byte, eCh chan<- error) {
 		data, err := GetMessage(con)
 		if err != nil {
 			// send an error if it's encountered
-			con.ctx.TpLogInfo("conn %d got error: %s",
+			con.ctx.TpLogInfo("conn %d got error: %s - sending to eCh",
 				con.id_comp, err.Error())
 			eCh <- err
 			return
@@ -280,6 +321,22 @@ func ReadConData(con *ExCon, ch chan<- []byte, eCh chan<- error) {
 	}
 }
 
+func MarkConnAsFree(ac *atmi.ATMICtx, con *ExCon) {
+	//Connection ready, submit to list of available conns
+	//(if last msg wast not) ougoing
+	if MReqReply == RR_PERS_ASYNC_INCL_CORR ||
+		MReqReply == RR_PERS_CONN_EX2NET ||
+		MReqReply == RR_PERS_CONN_NET2EX {
+
+		ac.TpLogInfo("Putting connection %d/%d in RR list",
+			con.id, con.id_comp)
+
+		Mfreeconns <- con
+
+		ac.TpLogInfo("After putting %d/%d in RR list", con.id, con.id_comp)
+	}
+}
+
 //Operate with open connection
 func HandleConnection(con *ExCon) {
 
@@ -287,7 +344,6 @@ func HandleConnection(con *ExCon) {
 	dataInErr := make(chan error)
 	ok := true
 	ac := con.ctx
-	last_out := true
 	/* Need a:
 	 * - byte array channel
 	 * - error channel for socket
@@ -299,20 +355,7 @@ func HandleConnection(con *ExCon) {
 
 		var preAllocUBF *atmi.TypedUBF = nil
 
-		//Connection ready, submit to list of available conns
-		//(if last msg wast not) ougoing
-		if last_out && MReqReply == RR_PERS_ASYNC_INCL_CORR ||
-			MReqReply == RR_PERS_CONN_EX2NET ||
-			MReqReply == RR_PERS_CONN_NET2EX {
-
-			ac.TpLogInfo("Putting connection back in RR list")
-
-			Mfreeconns <- con
-
-			ac.TpLogInfo("After putting in RR list")
-
-			last_out = false
-		}
+		MarkConnAsFree(ac, con)
 
 		//Add the connection to
 		ac.TpLogInfo("Conn: %d polling...", con.id_comp)
@@ -327,6 +370,10 @@ func HandleConnection(con *ExCon) {
 
 			//1. Check that we do have some reply waiters on connection
 			MConWaiterMutex.Lock()
+
+			//Well we are busy here too, we shall remove our selves from
+			//Connection list...
+			MarkConnAsBusy(con)
 
 			block := MConWaiter[con.id_comp]
 			if nil != block {
@@ -408,8 +455,8 @@ func HandleConnection(con *ExCon) {
 			break
 		case dataOutgoing := <-con.outgoing:
 
-			//Put the conneciton back to RR channel
-			last_out = true
+			//The caller did remove our selves from connection list...
+			//Thos conn is already locked to him.
 
 			//Send data away
 			if err := PutMessage(con, dataOutgoing.data); nil != err {
@@ -435,6 +482,10 @@ func HandleConnection(con *ExCon) {
 	delete(MConnectionsSimple, con.id)
 	delete(MConnectionsComp, con.id_comp)
 	MConnMutex.Unlock()
+
+	//Remove from channel
+	MarkConnAsBusy(con)
+
 }
 
 //This will setup connection
@@ -489,6 +540,12 @@ func GoDial(con *ExCon, block *DataBlock) {
 		// handle error
 		con.ctx.TpLogError("Failed to connect to [%s]:%s", MAddr, err)
 
+		//Remove connection from hashes
+		MConnMutex.Lock()
+		delete(MConnectionsSimple, con.id)
+		delete(MConnectionsComp, con.id_comp)
+		MConnMutex.Unlock()
+
 		//Generate erro buffer
 		if block != nil {
 			if rply_buf, _ := GenErrorUBF(ac, 0, atmi.NENOCONN,
@@ -498,6 +555,9 @@ func GoDial(con *ExCon, block *DataBlock) {
 		}
 		return
 	}
+
+	ac.TpLogInfo("Marking connection %d/%d as open", con.id, con.id_comp)
+	con.is_open = true
 
 	//Have buffered read/write API to socket
 	con.writer = bufio.NewWriter(con.con)
@@ -629,13 +689,17 @@ func PassiveConnectionListener() {
 			//1. Prepare connection block
 			MConnMutex.Lock()
 			con.id, con.id_stamp, con.id_comp = GetNewConnectionId()
+			//Here it is open for 100%
+			con.is_open = true
 
 			ac.TpLogWarn("Got new connection id=%d tstamp=%d id_comp=%d",
-				con.id, con.id_stamp, con.id_comp);
+				con.id, con.id_stamp, con.id_comp)
 
 			if con.id == FAIL {
-				ac.TpLogError("Failed to get connection id - max reached?")
-				MShutdown = RUN_SHUTDOWN_FAIL
+				ac.TpLogError("Failed to get connection id - max reached? " +
+					"Will close connection...")
+				con.con.Close()
+				/* MShutdown = RUN_SHUTDOWN_FAIL */
 				MConnMutex.Unlock()
 				break
 			}

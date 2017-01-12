@@ -96,6 +96,9 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 
 	defer func() {
 
+		//Put back the channel
+		pool.freechan <- nr
+
 		if SUCCEED == ret {
 			buf.TpLogPrintUBF(atmi.LOG_DEBUG, "Reply with SUCCEED")
 			ac.TpReturn(atmi.SUCCEED, 0, buf, 0)
@@ -173,7 +176,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 				ac.TpLogInfo("Adding request to conn table, by "+
 					"comp_id: [%d]", con.id_comp)
 				MConWaiterMutex.Lock()
-                MConWaiter[con.id_comp] = &block
+				MConWaiter[con.id_comp] = &block
 				MConWaiterMutex.Unlock()
 				haveMConWaiter = true
 			}
@@ -198,7 +201,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 					ac.TpLogInfo("Removing request from corr table, by "+
 						"correlator: [%s]", corr)
 					MCorrWaiterMutex.Lock()
-                    			delete(MCorrWaiter, corr)
+					delete(MCorrWaiter, corr)
 					MCorrWaiterMutex.Unlock()
 				}
 
@@ -273,9 +276,6 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 
 		ac.TpLogInfo("Got reply back")
 	}
-
-	//Put back the channel
-	pool.freechan <- nr
 }
 
 //TODO: Allow to broadcast message over all open connections

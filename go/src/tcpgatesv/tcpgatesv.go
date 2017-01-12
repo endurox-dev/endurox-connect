@@ -14,7 +14,6 @@ import (
 */
 import "C"
 
-
 const (
 	SUCCEED     = atmi.SUCCEED
 	FAIL        = atmi.FAIL
@@ -103,7 +102,7 @@ func TCPGATE(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 			 * Or it have nothing todo.
 			 * as operation  must be last.
 			 */
-			 ac.TpContinue()
+			ac.TpContinue()
 		} else {
 			ac.TpReturn(atmi.TPFAIL, 0, &svc.Data, 0)
 		}
@@ -182,16 +181,16 @@ func Init(ac *atmi.ATMICtx) int {
 		switch fldName {
 
 		case "gencore":
-                        gencore, _ := buf.BGetInt(u.EX_CC_VALUE, occ)
+			gencore, _ := buf.BGetInt(u.EX_CC_VALUE, occ)
 
-                        if 1 == gencore {
-                                //Process signals by default handlers
-                                ac.TpLogInfo("gencore=1 - SIGSEG signal will be " +
-                                        "processed by default OS handler")
-                                // Have some core dumps...
-                                C.signal(11, nil)
-                        }
-                        break
+			if 1 == gencore {
+				//Process signals by default handlers
+				ac.TpLogInfo("gencore=1 - SIGSEG signal will be " +
+					"processed by default OS handler")
+				// Have some core dumps...
+				C.signal(11, nil)
+			}
+			break
 		case "workers_out":
 			MWorkersOut, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
 			ac.TpLogDebug("Got [%s] = [%d] ", fldName, MWorkersOut)
@@ -362,7 +361,7 @@ func Init(ac *atmi.ATMICtx) int {
 	MConWaiter = make(map[int64]*DataBlock)
 	MCorrWaiter = make(map[string]*DataBlock)
 
-	Mfreeconns = make(chan *ExCon, MMaxConnections*5)
+	Mfreeconns = make(chan *ExCon, MMaxConnections*2)
 
 	//Advertize Gateway service
 	if err := ac.TpAdvertise(MGateway, MGateway, TCPGATE); err != nil {
@@ -426,11 +425,11 @@ func main() {
 		os.Exit(atmi.FAIL)
 	} else {
 		//Run as server
-		if err=ac.TpRun(Init, Uninit); nil!=err {
-			ac.TpLogError("Exit with failure");
+		if err = ac.TpRun(Init, Uninit); nil != err {
+			ac.TpLogError("Exit with failure")
 			os.Exit(atmi.FAIL)
 		} else {
-			ac.TpLogInfo("Exit with success");
+			ac.TpLogInfo("Exit with success")
 			os.Exit(atmi.SUCCEED)
 		}
 	}

@@ -30,6 +30,8 @@
 ## -----------------------------------------------------------------------------
 ##
 
+A2X := $(shell a2x --version 2> /dev/null)
+
 SOURCE_DOCS :=$(shell ls -1 *.adoc)
 DOCS  := $(patsubst %.adoc, %.html, $(SOURCE_DOCS))
 
@@ -39,7 +41,13 @@ GRAPHS  := $(patsubst %.dia, %.png, $(SOURCES_GRAPHS))
 $(info $$SOURCES_GRAPHS is [${SOURCES_GRAPHS}])
 $(info $$GRAPHS is [${GRAPHS}])
 
-all: $(DOCS)
+check_asciidoc: 
+	@type a2x >/dev/null 2>&1 || echo "Missing asciidoc - docs will not built"
+
+check_dia: 
+	@type dia >/dev/null 2>&1 || echo "Missing asciidoc - docs will not built"
+
+all: check_sciidoc check_dia $(DOCS) 
 
 #
 # Do not remove images

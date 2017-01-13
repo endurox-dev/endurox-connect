@@ -158,6 +158,12 @@
 			<srvid>230</srvid>
 			<sysopt>-e ${NDRX_APPHOME}/log/tcpgatesv-nonpers-passive.log -r</sysopt>
 		</server>
+		<server name="testsv">
+			<min>1</min>
+			<max>1</max>
+			<srvid>500</srvid>
+			<sysopt>-e ${NDRX_APPHOME}/log/testsv.log -r</sysopt>
+		</server>
 		<server name="cpmsrv">
 			<min>1</min>
 			<max>1</max>

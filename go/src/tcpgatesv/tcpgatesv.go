@@ -265,6 +265,7 @@ func Init(ac *atmi.ATMICtx) int {
 			break
 		case "req_reply_timeout":
 			MReqReplyTimeout, _ = buf.BGetInt64(u.EX_CC_VALUE, occ)
+			MReqReplyTimeout *= 1000 //Convert to millis
 			ac.TpLogDebug("Got [%s] = [%d] ", fldName, MReqReplyTimeout)
 			break
 		case "scan_time":

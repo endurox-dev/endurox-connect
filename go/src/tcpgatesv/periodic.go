@@ -108,16 +108,21 @@ func CheckDial(ac *atmi.ATMICtx) {
 //@param v	Call block
 //@return true - timed out, false - call not timed out
 func IsBlockTimeout(ac *atmi.ATMICtx, v *DataBlock) bool {
+
+	cur := exutil.GetEpochMillis()
+	sum := v.tstamp_sent + MReqReplyTimeout
 	ac.TpLogDebug("Testing tout: tstamp_sent=%d, "+
-		"MReqReplyTimeout=%d, sum=%d, current=%d",
+		"MReqReplyTimeout=%d, sum=%d, current=%d, delta=%d",
 		v.tstamp_sent, MReqReplyTimeout,
-		v.tstamp_sent+MReqReplyTimeout, exutil.GetEpochMillis())
-	if v.tstamp_sent+MReqReplyTimeout > exutil.GetEpochMillis() {
+		sum, cur,
+		(cur - v.tstamp_sent))
+
+	if sum < cur {
 		ac.TpLogWarn("Call timed out!")
-		return false
+		return true
 	}
 
-	return true
+	return false
 }
 
 //Check the connection timeouts
@@ -137,13 +142,20 @@ func CheckTimeouts(ac *atmi.ATMICtx) atmi.ATMIError {
 			MReqReply == RR_PERS_CONN_EX2NET {
 
 			if IsBlockTimeout(ac, v) {
+				ac.TpLogWarn("Call expired!")
 				buf, err := GenErrorUBF(ac, 0, atmi.NETOUT,
 					"Timed out waiting for answer...")
 
 				if nil == err {
 					//Remove from list
-					MConWaiter[k] = nil
+					delete(MConWaiter, k)
+					ac.TpLogInfo("Sending reply back to ATMI")
 					v.atmi_chan <- buf
+					ac.TpLogInfo("Killing connection")
+					//Kill the connection
+					v.con.shutdown <- true
+					ac.TpLogInfo("Killing connection, done")
+
 				} else {
 					MConWaiterMutex.Unlock()
 					return err
@@ -166,8 +178,15 @@ func CheckTimeouts(ac *atmi.ATMICtx) atmi.ATMIError {
 
 				if nil == err {
 					//Remove from list
-					MCorrWaiter[k] = nil
+					delete(MCorrWaiter, k)
+					ac.TpLogInfo("Sending reply back to ATMI")
 					v.atmi_chan <- buf
+					ac.TpLogInfo("Sending reply back to ATMI, done")
+					//Kill the connection
+					ac.TpLogInfo("Killing connection")
+					v.con.shutdown <- true
+					ac.TpLogInfo("Killing connection, done")
+
 				} else {
 					MCorrWaiterMutex.Unlock()
 					return err
@@ -200,7 +219,7 @@ func Periodic(ac *atmi.ATMICtx) int {
 
 	}
 
-	//Send the zero length messages to network
+	//Send the zero length messages to network...
 	if MPerZero > 0 && MZeroStopwatch.GetDetlaSec() > int64(MPerZero) {
 		ac.TpLogDebug("Time for periodic zero message over " +
 			"the active connections")

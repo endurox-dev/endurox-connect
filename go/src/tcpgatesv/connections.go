@@ -76,6 +76,7 @@ type DataBlock struct {
 	atmi_out_conn_id int64  //Connection id if specified (0) - then random.
 	corr             string //Correlator string (opt)
 	net_conn_id      int64  //Network connection id (when sending in)
+	con              *ExCon //Req-reply connection (for ex2net)
 
 	tstamp_sent   int64 //Timestamp messag sent, TODO: We need cleanup monitor...
 	send_and_shut bool  //Send and shutdown
@@ -297,7 +298,7 @@ func GetNewConnectionId(ac *atmi.ATMICtx) (int64, int64, int64) {
 
 		} else {
 			ac.TpLogDebug("Having conn %d/%d, thus +1",
-				MConnectionsSimple[i].id, MConnectionsSimple[i].id_comp);
+				MConnectionsSimple[i].id, MConnectionsSimple[i].id_comp)
 		}
 	}
 

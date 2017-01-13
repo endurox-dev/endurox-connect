@@ -124,6 +124,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 			var block DataBlock
 			var errA atmi.ATMIError
 
+			SetupDataBlock(&block)
 			block.data, errA = buf.BGetByteArr(u.EX_NETDATA, 0)
 
 			if nil != errA {
@@ -251,7 +252,8 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 
 		}
 
-		SetupConnection(&con);
+		SetupConnection(&con)
+		SetupDataBlock(&block)
 
 		block.corr = corr
 		block.atmi_out_conn_id = connid
@@ -276,25 +278,26 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 		MConnectionsComp[con.id_comp] = &con
 		MConnMutex.Unlock()
 
+		block.con = &con
+
 		//3. and spawn the routine...
 		//TODO: We need to pass in here channel to which reply if
 		//Connection did not succeed.
-		ac.TpLogInfo("About to Dial...");
+		ac.TpLogInfo("About to Dial...")
 		go GoDial(&con, &block)
 
 		//4. Register conn in list
-		ac.TpLogInfo("Register the call");
-		MConWaiterMutex.Lock();
+		ac.TpLogInfo("Register the call")
+		MConWaiterMutex.Lock()
 		MConWaiter[con.id_comp] = &block
-		MConWaiterMutex.Unlock();
+		MConWaiterMutex.Unlock()
 
 		//5. Now try to send stuff out?
-		ac.TpLogInfo("Sending block out...");
+		ac.TpLogInfo("Sending block out...")
 		con.outgoing <- &block
 
-
 		//6. Wait for reply
-		ac.TpLogInfo("Waiting for reply...");
+		ac.TpLogInfo("Waiting for reply...")
 		buf = <-block.atmi_chan
 
 		ac.TpLogInfo("Got reply back")

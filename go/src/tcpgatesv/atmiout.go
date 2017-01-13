@@ -251,18 +251,23 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 
 		}
 
+		SetupConnection(&con);
+
 		block.corr = corr
 		block.atmi_out_conn_id = connid
 		block.tstamp_sent = exutil.GetEpochMillis()
 
 		//1. Prepare connection block
 		MConnMutex.Lock()
-		con.id, con.id_stamp, con.id_comp = GetNewConnectionId()
+		con.id, con.id_stamp, con.id_comp = GetNewConnectionId(ac)
 
 		if con.id == FAIL {
+			MConnMutex.Unlock()
 			ac.TpLogError("Failed to get connection id - max reached?")
 			ret = FAIL
-			MConnMutex.Unlock()
+			GenResponse(ac, buf, 0, atmi.NELIMIT,
+				"Max connections reached!")
+			return
 		}
 
 		//2. Add to hash
@@ -274,9 +279,22 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 		//3. and spawn the routine...
 		//TODO: We need to pass in here channel to which reply if
 		//Connection did not succeed.
+		ac.TpLogInfo("About to Dial...");
 		go GoDial(&con, &block)
 
-		//4. Now try to send stuff out?
+		//4. Register conn in list
+		ac.TpLogInfo("Register the call");
+		MConWaiterMutex.Lock();
+		MConWaiter[con.id_comp] = &block
+		MConWaiterMutex.Unlock();
+
+		//5. Now try to send stuff out?
+		ac.TpLogInfo("Sending block out...");
+		con.outgoing <- &block
+
+
+		//6. Wait for reply
+		ac.TpLogInfo("Waiting for reply...");
 		buf = <-block.atmi_chan
 
 		ac.TpLogInfo("Got reply back")

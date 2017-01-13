@@ -85,7 +85,7 @@ func CheckDial(ac *atmi.ATMICtx) {
 
 		//1. Prepare connection block
 		MConnMutex.Lock()
-		con.id, con.id_stamp, con.id_comp = GetNewConnectionId()
+		con.id, con.id_stamp, con.id_comp = GetNewConnectionId(ac)
 
 		if con.id == FAIL {
 			ac.TpLogError("Failed to get connection id - max reached?")
@@ -188,7 +188,7 @@ func Periodic(ac *atmi.ATMICtx) int {
 
 	ret := atmi.SUCCEED
 	//if we are active, check that we have enought connections
-	if MType == CON_TYPE_ACTIVE {
+	if MType == CON_TYPE_ACTIVE && MReqReply == RR_PERS_ASYNC_INCL_CORR {
 		CheckDial(ac)
 	}
 

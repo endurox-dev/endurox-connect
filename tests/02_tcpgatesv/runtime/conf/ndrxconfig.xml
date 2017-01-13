@@ -89,6 +89,11 @@
 			to process until it have been terminated.
 		-->
 		<killtime>1</killtime>
+
+                <!--
+                        Reload the process on change
+                -->
+                <reloadonchange>Y</reloadonchange>
 		
 	</defaults>
 	<servers>

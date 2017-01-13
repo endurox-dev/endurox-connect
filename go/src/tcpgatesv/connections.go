@@ -276,9 +276,11 @@ func CloseAllConnections(ac *atmi.ATMICtx) {
 
 //This assumes that MConnections is locked
 //@return <id> <tstamp> <compiled id> new connection id >0 or FAIL (-1)
-func GetNewConnectionId() (int64, int64, int64) {
+func GetNewConnectionId(ac *atmi.ATMICtx) (int64, int64, int64) {
 
 	var i int64
+
+	ac.TpLogDebug("Generating new connectiond Id, MMaxConnections=%d", MMaxConnections)
 
 	//Will enumerate connections from
 	for i = 1; i < MMaxConnections+1; i++ {
@@ -288,10 +290,18 @@ func GetNewConnectionId() (int64, int64, int64) {
 			//We have oldest 40 bit timestamp, youngest 24 bit - id
 			var compiled_id = tstamp<<24 | (i & 0xffffff)
 
+			ac.TpLogWarn("Generated connection id: %d/%d/%d",
+				i, tstamp, compiled_id)
+
 			return i, tstamp, compiled_id
 
+		} else {
+			ac.TpLogDebug("Having conn %d/%d, thus +1",
+				MConnectionsSimple[i].id, MConnectionsSimple[i].id_comp);
 		}
 	}
+
+	ac.TpLogWarn("Cannot get connection id")
 
 	return FAIL, FAIL, FAIL
 }
@@ -688,7 +698,7 @@ func PassiveConnectionListener() {
 
 			//1. Prepare connection block
 			MConnMutex.Lock()
-			con.id, con.id_stamp, con.id_comp = GetNewConnectionId()
+			con.id, con.id_stamp, con.id_comp = GetNewConnectionId(ac)
 			//Here it is open for 100%
 			con.is_open = true
 

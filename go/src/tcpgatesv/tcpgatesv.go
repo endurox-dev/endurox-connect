@@ -277,6 +277,18 @@ func Init(ac *atmi.ATMICtx) int {
 			MCorrSvc, _ = buf.BGetString(u.EX_CC_VALUE, occ)
 			ac.TpLogDebug("Got [%s] = [%s] ", fldName, MReqReplyTimeout)
 			break
+		case "debug":
+			//Set debug configuration string
+			debug, _ := buf.BGetString(u.EX_CC_VALUE, occ)
+			ac.TpLogDebug("Got [%s] = [%s] ", fldName, debug)
+			if err:=ac.TpLogConfig((atmi.LOG_FACILITY_NDRX | atmi.LOG_FACILITY_UBF | atmi.LOG_FACILITY_TP),
+				-1, debug, "TCPG", ""); nil!=err {
+				ac.TpLogError("Invalid debug config [%s] %d:[%s]\n", 
+					debug, err.Code(), err.Message())
+				return FAIL;
+			}
+			
+			break
 		default:
 
 			break

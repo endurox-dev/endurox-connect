@@ -39,7 +39,7 @@ Driver opens number of connections. When doing outgoing message delivery the use
 id (by connection id) compiled or not compiled. If channel not specified, then random or round robin
 channel will be used.
 
-== Design ides
+== Design ideas
 
 For round-robin mode available connection sharing channel can be used. Any open connection will submit
 it's ID in channel it's handler. In case of async outgoing the connection thread will put it self back

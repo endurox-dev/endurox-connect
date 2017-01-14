@@ -4,9 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	u "ubftab"
-
 	atmi "github.com/endurox-dev/endurox-go"
+	u "ubftab"
 )
 
 /*
@@ -15,7 +14,7 @@ import (
 import "C"
 
 const (
-	ProgSection = "testcl"
+	ProgSection = "+cltname+@"
 )
 
 var MSomeConfigFlag string = ""
@@ -33,13 +32,12 @@ func apprun(ac *atmi.ATMICtx) error {
 //@param ac	ATMI context
 //@return error (if erro) or nil
 func appinit(ac *atmi.ATMICtx) error {
-	//runtime.LockOSThread()
 
 	if err := ac.TpInit(); err != nil {
 		return errors.New(err.Error())
 	}
 
-	//Get the configuration
+//Get the configuration
 	buf, err := ac.NewUBF(16 * 1024)
 	if nil != err {
 		ac.TpLogError("Failed to allocate buffer: [%s]", err.Error())
@@ -106,11 +104,21 @@ func appinit(ac *atmi.ATMICtx) error {
 				C.signal(11, nil)
 			}
 			break
+		case "debug":
+			//Set debug configuration string
+			debug, _ := buf.BGetString(u.EX_CC_VALUE, occ)
+			ac.TpLogDebug("Got [%s] = [%s] ", fldName, debug)
+			if err := ac.TpLogConfig((atmi.LOG_FACILITY_NDRX | atmi.LOG_FACILITY_UBF | atmi.LOG_FACILITY_TP),
+				-1, debug, "TCPG", ""); nil != err {
+				ac.TpLogError("Invalid debug config [%s] %d:[%s]\n",
+					debug, err.Code(), err.Message())
+				return errors.New(err.Message())
+			}
+
 		default:
 			ac.TpLogInfo("Unknown flag [%s] - ignoring...", fldName)
 			break
 		}
-
 	}
 
 	return nil
@@ -150,3 +158,4 @@ func main() {
 
 	unInit(ac, atmi.SUCCEED)
 }
+

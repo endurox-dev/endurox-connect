@@ -154,6 +154,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 			block.corr = corr
 			block.atmi_out_conn_id = connid
 			block.tstamp_sent = exutil.GetEpochMillis()
+			block.con = con
 
 			//Register in tables (if needed by config)
 			haveMCorrWaiter := false
@@ -253,7 +254,6 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 		}
 
 		SetupConnection(&con)
-		SetupDataBlock(&block)
 
 		block.corr = corr
 		block.atmi_out_conn_id = connid

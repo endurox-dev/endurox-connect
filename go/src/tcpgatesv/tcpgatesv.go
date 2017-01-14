@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	u "ubftab"
 
 	atmi "github.com/endurox-dev/endurox-go"
@@ -212,12 +213,32 @@ func Init(ac *atmi.ATMICtx) int {
 			ac.TpLogDebug("Got [%s] = [%d] ", fldName, MFramingMaxMsgLen)
 			break
 		case "delim_start":
-			MDelimStart, _ = buf.BGetByte(u.EX_CC_VALUE, occ)
-			ac.TpLogDebug("Got [%s] = [%b] ", fldName, MDelimStart)
+			tmpDelimStart, _ := buf.BGetString(u.EX_CC_VALUE, occ)
+			ac.TpLogDebug("Got [%s] = [%b] ", fldName, tmpDelimStart)
+			cleaned := strings.Replace(tmpDelimStart, "0x", "", -1)
+			val, err := strconv.ParseUint(cleaned, 16, 64)
+
+			if err != nil {
+				ac.TpLogError("Failed to parse delim_start hex string: %s",
+					err.Error())
+				return atmi.FAIL
+			}
+			MDelimStart = byte(val)
+			ac.TpLogInfo("etx=[%x]", MDelimStart)
 			break
 		case "delim_stop":
-			MDelimStop, _ = buf.BGetByte(u.EX_CC_VALUE, occ)
-			ac.TpLogDebug("Got [%s] = [%b] ", fldName, MDelimStop)
+			tmpDelimStop, _ := buf.BGetString(u.EX_CC_VALUE, occ)
+			ac.TpLogDebug("Got [%s] = [%b] ", fldName, tmpDelimStop)
+			cleaned := strings.Replace(tmpDelimStop, "0x", "", -1)
+			val, err := strconv.ParseUint(cleaned, 16, 64)
+
+			if err != nil {
+				ac.TpLogError("Failed to parse delim_stop hex string: %s",
+					err.Error())
+				return atmi.FAIL
+			}
+			MDelimStop = byte(val)
+			ac.TpLogInfo("etx=[%x]", MDelimStop)
 			break
 		case "type":
 			MType, _ = buf.BGetString(u.EX_CC_VALUE, occ)
@@ -265,7 +286,6 @@ func Init(ac *atmi.ATMICtx) int {
 			break
 		case "req_reply_timeout":
 			MReqReplyTimeout, _ = buf.BGetInt64(u.EX_CC_VALUE, occ)
-			MReqReplyTimeout *= 1000 //Convert to millis
 			ac.TpLogDebug("Got [%s] = [%d] ", fldName, MReqReplyTimeout)
 			break
 		case "scan_time":
@@ -281,19 +301,21 @@ func Init(ac *atmi.ATMICtx) int {
 			//Set debug configuration string
 			debug, _ := buf.BGetString(u.EX_CC_VALUE, occ)
 			ac.TpLogDebug("Got [%s] = [%s] ", fldName, debug)
-			if err:=ac.TpLogConfig((atmi.LOG_FACILITY_NDRX | atmi.LOG_FACILITY_UBF | atmi.LOG_FACILITY_TP),
-				-1, debug, "TCPG", ""); nil!=err {
-				ac.TpLogError("Invalid debug config [%s] %d:[%s]\n", 
+			if err := ac.TpLogConfig((atmi.LOG_FACILITY_NDRX | atmi.LOG_FACILITY_UBF | atmi.LOG_FACILITY_TP),
+				-1, debug, "TCPG", ""); nil != err {
+				ac.TpLogError("Invalid debug config [%s] %d:[%s]\n",
 					debug, err.Code(), err.Message())
-				return FAIL;
+				return FAIL
 			}
-			
+
 			break
 		default:
 
 			break
 		}
 	}
+
+	MReqReplyTimeout *= 1000 //Convert to millis
 
 	MinXPool.nrWorkers = MworkersIn
 	MoutXPool.nrWorkers = MWorkersOut

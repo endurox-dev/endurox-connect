@@ -152,6 +152,10 @@ func CheckTimeouts(ac *atmi.ATMICtx) atmi.ATMIError {
 					ac.TpLogInfo("Sending reply back to ATMI")
 					v.atmi_chan <- buf
 					ac.TpLogInfo("Killing connection")
+
+					ac.TpLogDebug("v=%p", v)
+					ac.TpLogDebug("v.con=%p", v.con)
+
 					//Kill the connection
 					v.con.shutdown <- true
 					ac.TpLogInfo("Killing connection, done")
@@ -184,6 +188,8 @@ func CheckTimeouts(ac *atmi.ATMICtx) atmi.ATMIError {
 					ac.TpLogInfo("Sending reply back to ATMI, done")
 					//Kill the connection
 					ac.TpLogInfo("Killing connection")
+					ac.TpLogDebug("v=%p", v)
+					ac.TpLogDebug("v.con=%p", v.con)
 					v.con.shutdown <- true
 					ac.TpLogInfo("Killing connection, done")
 
@@ -207,7 +213,8 @@ func Periodic(ac *atmi.ATMICtx) int {
 
 	ret := atmi.SUCCEED
 	//if we are active, check that we have enought connections
-	if MType == CON_TYPE_ACTIVE && MReqReply == RR_PERS_ASYNC_INCL_CORR {
+	if MType == CON_TYPE_ACTIVE && (MReqReply == RR_PERS_ASYNC_INCL_CORR ||
+		MReqReply == RR_PERS_CONN_EX2NET) {
 		CheckDial(ac)
 	}
 

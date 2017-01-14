@@ -6,7 +6,7 @@
 	<appconfig>
 	
 		<!-- 
-			ALL BELLOW ONES USES <sanity> periodical timer  -->
+			ALL BELLOW ONES USES <sanity> periodical timer 
 			Sanity check time, sec
 		-->
 		<sanity>5</sanity>
@@ -131,31 +131,45 @@
 			<appopt>-f -n2 -r -i 172.0.0.1 -p 21003 -tA -z30</appopt>
 		</server>
 		<server name="tcpgatesv">
-			<cctag>test1/active</cctag>
+			<cctag>pers/async/active</cctag>
 			<min>1</min>
 			<max>1</max>
 			<srvid>200</srvid>
-			<sysopt>-e ${NDRX_APPHOME}/log/tcpgatesv-test1-active.log -r</sysopt>
+			<sysopt>-e ${NDRX_APPHOME}/log/tcpgatesv-async-active.log -r</sysopt>
 		</server>
 		<server name="tcpgatesv">
-			<cctag>test1/pasive</cctag>
+			<cctag>pers/async/pasive</cctag>
 			<min>1</min>
 			<max>1</max>
 			<srvid>210</srvid>
-			<sysopt>-e ${NDRX_APPHOME}/log/tcpgatesv-test1-passive.log -r</sysopt>
+			<sysopt>-e ${NDRX_APPHOME}/log/tcpgatesv-async-passive.log -r</sysopt>
+		</server>
+		<server name="tcpgatesv">
+			<cctag>pers/sync/active</cctag>
+			<min>1</min>
+			<max>1</max>
+			<srvid>220</srvid>
+			<sysopt>-e ${NDRX_APPHOME}/log/tcpgatesv-pers-sync-active.log -r</sysopt>
+		</server>
+		<server name="tcpgatesv">
+			<cctag>pers/sync/passive</cctag>
+			<min>1</min>
+			<max>1</max>
+			<srvid>230</srvid>
+			<sysopt>-e ${NDRX_APPHOME}/log/tcpgatesv-pers-sync-passive.log -r</sysopt>
 		</server>
 		<server name="tcpgatesv">
 			<cctag>nonpers/active</cctag>
 			<min>1</min>
 			<max>1</max>
-			<srvid>220</srvid>
+			<srvid>240</srvid>
 			<sysopt>-e ${NDRX_APPHOME}/log/tcpgatesv-nonpers-active.log -r</sysopt>
 		</server>
 		<server name="tcpgatesv">
 			<cctag>nonpers/pasive</cctag>
 			<min>1</min>
 			<max>1</max>
-			<srvid>230</srvid>
+			<srvid>250</srvid>
 			<sysopt>-e ${NDRX_APPHOME}/log/tcpgatesv-nonpers-passive.log -r</sysopt>
 		</server>
 		<server name="testsv">

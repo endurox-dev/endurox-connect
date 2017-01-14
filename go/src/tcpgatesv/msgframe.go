@@ -49,7 +49,6 @@ const (
 	FRAME_BIG_ENDIAN_ILEN    = 'B' //Big endian, include len it self
 	FRAME_ASCII              = 'a' //Ascii, does not include len it self
 	FRAME_ASCII_ILEN         = 'A' //Ascii, does not include len it self
-	FRAME_NO                 = 'n' //No frame
 	FRAME_DELIM_STOP         = 'd' //Delimiter, stop
 	FRAME_DELIM_BOTH         = 'D' //Delimiter, stop & start
 )
@@ -107,10 +106,6 @@ func ConfigureNumberOfBytes(ac *atmi.ATMICtx) error {
 		ac.TpLogInfo("Ascii len pfx mode, %d bytes, "+
 			"does include prefix len", MFramingLen)
 		MFamingInclPfxLen = true
-		break
-	case FRAME_NO:
-		MFramingLen = 0
-		ac.TpLogInfo("No framing used")
 		break
 	case FRAME_DELIM_STOP:
 		MFramingLen = 0
@@ -239,15 +234,15 @@ func GetMessage(con *ExCon) ([]byte, error) {
 
 		return data, nil
 	} else {
-		ac.TpLogInfo("About to read message until delimiter %x", MDelimStop)
+		ac.TpLogInfo("About to read message until delimiter 0x%x", MDelimStop)
 
 		//If we use delimiter, then read pu till that
-		data, err := con.reader.ReadBytes(MDelimStop)
+		data, err := con.reader.ReadSlice(MDelimStop)
 
 		if err != nil {
 
 			ac.TpLogError("Failed to read message with %x seperator: %s",
-				MDelimStop, err)
+				MDelimStop, err.Error())
 			return nil, err
 		}
 
@@ -265,13 +260,15 @@ func GetMessage(con *ExCon) ([]byte, error) {
 
 			//Strip off the first byte.
 			data = data[1:]
-
-			return data, nil
 		}
-	}
 
-	//We should not get here anyway
-	return nil, errors.New("Unexpeced EOF")
+		//Stip of flast elem
+		data = data[:len(data)-1]
+
+		ac.TpLogDump(atmi.LOG_DEBUG, "Message read", data, len(data))
+
+		return data, nil
+	}
 }
 
 //Put message on socket
@@ -279,7 +276,7 @@ func PutMessage(con *ExCon, data []byte) error {
 
 	ac := con.ctx
 
-	ac.TpLogInfo("Building ougoing message: len %d", MFramingLen)
+	ac.TpLogInfo("Building outgoing message: len %d", MFramingLen)
 
 	ac.TpLogDump(atmi.LOG_DEBUG, "Preparing message for sending", data, len(data))
 
@@ -353,16 +350,26 @@ func PutMessage(con *ExCon, data []byte) error {
 		//Put (STX)ETX
 		if MFramingCode == FRAME_DELIM_BOTH {
 			dataToSend = append(([]byte{MDelimStart})[:], data[:]...)
-			dataToSend = append(data[:], ([]byte{MDelimStop})[:]...)
+			dataToSend = append(dataToSend[:], ([]byte{MDelimStop})[:]...)
+
 		} else {
 			dataToSend = append(data[:], ([]byte{MDelimStop})[:]...)
 		}
-		ac.TpLogDump(atmi.LOG_DEBUG, "Sending message (etx/stx)", dataToSend, len(dataToSend))
+
+		ac.TpLogDump(atmi.LOG_DEBUG, "Sending message", dataToSend, len(dataToSend))
 
 		nw, err := con.writer.Write(dataToSend)
 
 		if nil != err {
 			ac.TpLogError("Failed to write data to socket: %s", err)
+		}
+
+		err = con.writer.Flush()
+
+		if nil != err {
+			errMsg := fmt.Sprintf("Failed to flush socket: %s", err)
+			ac.TpLogError(errMsg)
+			return errors.New(errMsg)
 		}
 
 		ac.TpLogInfo("Written %d bytes to socket", nw)

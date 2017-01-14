@@ -54,7 +54,7 @@ fi
 sleep 2
 
 # Check that given count of reponses are generated...
-CNT=`grep "Test case 11 OK" log/tpcall.c wc testbin1-1.log | awk '{print $1}'`
+CNT=`grep "Test case 11 OK" log/testsv.log | wc | awk '{print $1}'`
 
 if [[ $CNT !=  $NROFCALLS ]]; then
 	echo "Expected $NROFCALLS but got $CNT from server traces!"

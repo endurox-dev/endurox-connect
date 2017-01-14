@@ -130,6 +130,12 @@
 			<sysopt>-e ${NDRX_APPHOME}/log/tpbridge_2.log -r</sysopt>
 			<appopt>-f -n2 -r -i 172.0.0.1 -p 21003 -tA -z30</appopt>
 		</server>
+		<server name="testsv">
+			<min>1</min>
+			<max>1</max>
+			<srvid>500</srvid>
+			<sysopt>-e ${NDRX_APPHOME}/log/testsv.log -r</sysopt>
+		</server>
 		<server name="tcpgatesv">
 			<cctag>pers/async/active</cctag>
 			<min>1</min>
@@ -171,12 +177,6 @@
 			<max>1</max>
 			<srvid>250</srvid>
 			<sysopt>-e ${NDRX_APPHOME}/log/tcpgatesv-nonpers-passive.log -r</sysopt>
-		</server>
-		<server name="testsv">
-			<min>1</min>
-			<max>1</max>
-			<srvid>500</srvid>
-			<sysopt>-e ${NDRX_APPHOME}/log/testsv.log -r</sysopt>
 		</server>
 		<server name="cpmsrv">
 			<min>1</min>

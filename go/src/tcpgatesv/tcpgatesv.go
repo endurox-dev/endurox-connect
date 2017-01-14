@@ -117,7 +117,18 @@ func TCPGATE(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	ub.TpLogPrintUBF(atmi.LOG_DEBUG, "Incoming request:")
 
 	//Resize buffer, to have some more space
-	if err := ub.TpRealloc(1024); err != nil {
+
+	buf_size, err := ub.BUsed()
+
+	if err != nil {
+		ac.TpLogError("Failed to get incoming buffer used space: %d:%s",
+			err.Code(), err.Message())
+		ret = FAIL
+		return
+	}
+
+	//Realloc to have some free space for buffer manipulations
+	if err := ub.TpRealloc(buf_size + 1024); err != nil {
 		ac.TpLogError("TpRealloc() Got error: %d:[%s]", err.Code(), err.Message())
 		ret = FAIL
 		return
@@ -405,11 +416,14 @@ func Init(ac *atmi.ATMICtx) int {
 	}
 
 	//Send infos that connections are closed
-	if MStatussvc != "" {
-		var i int64
-		for i = 0; i < MMaxConnections; i++ {
-			ac.TpLogInfo("Notify connection %d down", i)
-			NotifyStatus(ac, i, FLAG_CON_DISCON)
+	if MReqReply == RR_PERS_ASYNC_INCL_CORR || MReqReply == RR_PERS_CONN_EX2NET ||
+		MReqReply == RR_PERS_CONN_NET2EX {
+		if MStatussvc != "" {
+			var i int64
+			for i = 1; i <= MMaxConnections; i++ {
+				ac.TpLogInfo("Notify connection %d down", i)
+				NotifyStatus(ac, i, FLAG_CON_DISCON)
+			}
 		}
 	}
 

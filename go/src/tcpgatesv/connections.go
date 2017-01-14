@@ -262,7 +262,8 @@ func CloseAllConnections(ac *atmi.ATMICtx) {
 		ac.TpLogInfo("Closing %d (%d)", k, v.id)
 
 		//Send infos that connection is closed.
-		NotifyStatus(ac, v.id, FLAG_CON_DISCON)
+		//No need these will be closed when go threads exit...
+		//NotifyStatus(ac, v.id, FLAG_CON_DISCON)
 
 		if err := v.con.Close(); err != nil {
 			ac.TpLogError("Failed to close connection id %d: %s",
@@ -359,6 +360,9 @@ func HandleConnection(con *ExCon) {
 	 * - byte array channel
 	 * - error channel for socket
 	 */
+
+	//Connection open...
+	NotifyStatus(con.ctx, con.id, FLAG_CON_ESTABLISHED)
 
 	go ReadConData(con, dataIn, dataInErr)
 
@@ -497,6 +501,9 @@ func HandleConnection(con *ExCon) {
 	//Remove from channel
 	MarkConnAsBusy(con)
 
+	//Connection closed...
+	NotifyStatus(con.ctx, con.id, FLAG_CON_DISCON)
+
 }
 
 //This will setup connection
@@ -574,13 +581,7 @@ func GoDial(con *ExCon, block *DataBlock) {
 	con.writer = bufio.NewWriter(con.con)
 	con.reader = bufio.NewReader(con.con)
 
-	//Connection open...
-	NotifyStatus(con.ctx, con.id, FLAG_CON_ESTABLISHED)
-
 	HandleConnection(con)
-
-	//Connection closed...
-	NotifyStatus(con.ctx, con.id, FLAG_CON_DISCON)
 
 	//Close connection
 	ac.TpLogWarn("Connection id=%d, "+
@@ -606,6 +607,11 @@ func NotifyStatus(ac *atmi.ATMICtx, id int64, flags string) {
 		return
 	}
 
+	if err = buf.BChg(u.EX_NETGATEWAY, 0, MGateway); err != nil {
+		ac.TpLogError("Failed to set EX_NETGATEWAY %d: %s", err.Code(), err.Message())
+		return
+	}
+
 	if err = buf.BChg(u.EX_NETCONNID, 0, id); err != nil {
 		ac.TpLogError("Failed to set EX_NETCONNID %d: %s", err.Code(), err.Message())
 		return
@@ -619,7 +625,7 @@ func NotifyStatus(ac *atmi.ATMICtx, id int64, flags string) {
 	buf.TpLogPrintUBF(atmi.LOG_DEBUG, "Sending notification")
 
 	//Call the service for status notification
-	if _, err = ac.TpCall(MStatussvc, buf, atmi.TPNOREPLY); nil != err {
+	if _, err = ac.TpACall(MStatussvc, buf, atmi.TPNOREPLY); nil != err {
 		ac.TpLogError("Failed to call [%s]: %s", MStatussvc, err.Error())
 		return
 	}

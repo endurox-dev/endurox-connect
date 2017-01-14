@@ -4,8 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	atmi "github.com/endurox-dev/endurox-go"
+	"strconv"
 	u "ubftab"
+
+	atmi "github.com/endurox-dev/endurox-go"
 )
 
 /*
@@ -13,17 +15,95 @@ import (
 */
 import "C"
 
-const (
-	ProgSection = "+cltname+@"
-)
-
-var MSomeConfigFlag string = ""
-var MSomeOtherConfigFlag int = 0
-
 //Run the listener
 func apprun(ac *atmi.ATMICtx) error {
 
 	//Do some work here
+	command := os.Args[1]
+
+	switch command {
+	case "async_call":
+
+		if len(os.Args) < 3 {
+			return errors.New(fmt.Sprintf("Missing count: %s async_call <count> <gateway>",
+				os.Args[0]))
+		}
+
+		nrOfTimes, err := strconv.Atoi(os.Args[2])
+
+		gw := os.Args[3]
+
+		if err != nil {
+			return err
+		}
+
+		ba := make([]byte, 2048)
+
+		//Test case 11
+		ba[0] = 1
+		ba[1] = 1
+
+		for i := 2; i < len(ba); i++ {
+			ba[i] = byte(i % 256)
+		}
+
+		//Setup the buffer
+
+		ub, errA := ac.NewUBF(3000)
+
+		if nil != errA {
+			ac.TpLogError("Failed to allocate UBF buffer %d:%s",
+				errA.Code(), errA.Message())
+			return errors.New(errA.Message())
+		}
+
+		if errA := ub.BChg(u.EX_NETDATA, 0, ba); nil != errA {
+			ac.TpLogError("Failed to set EX_NETDATA %d:%s",
+				errA.Code(), errA.Message())
+			return errors.New(errA.Message())
+		}
+
+		//Send the stuff out!!!
+		//To async target
+		for i := 0; i < nrOfTimes; i++ {
+
+			//The reply here kills the buffer,
+			//Thus we need a copy...
+			ub.TpLogPrintUBF(atmi.LOG_INFO, "Calling server")
+			if _, errA = ac.TpCall(gw, ub, 0); nil != errA {
+				ac.TpLogError("Failed to call [%s] %d:%s",
+					gw, errA.Code(), errA.Message())
+			}
+
+			//The response should succeed
+			if rsp_code, err := ub.BGetInt(u.EX_NERROR_CODE, 0); nil != err {
+				ac.TpLogError("TESTERROR: Failed to get EX_NERROR_CODE: %s",
+					err.Message())
+				return errors.New(err.Message())
+			} else if rsp_code != 0 {
+				ac.TpLogError("TESTERROR: Response code must be 0 but got %d!",
+					rsp_code)
+				return errors.New("Invalid response code")
+			}
+
+			//OK Realloc buffer back
+			ub, errA = ac.NewUBF(3000)
+
+			if nil != errA {
+				ac.TpLogError("Failed to allocate UBF buffer %d:%s",
+					errA.Code(), errA.Message())
+				return errors.New(errA.Message())
+			}
+
+			if errA = ub.BChg(u.EX_NETDATA, 0, ba); nil != errA {
+				ac.TpLogError("Failed to set EX_NETDATA %d:%s",
+					errA.Code(), errA.Message())
+				return errors.New(errA.Message())
+			}
+		}
+
+		break
+	}
 
 	return nil
 }
@@ -37,88 +117,9 @@ func appinit(ac *atmi.ATMICtx) error {
 		return errors.New(err.Error())
 	}
 
-//Get the configuration
-	buf, err := ac.NewUBF(16 * 1024)
-	if nil != err {
-		ac.TpLogError("Failed to allocate buffer: [%s]", err.Error())
-		return errors.New(err.Error())
-	}
-
-	//If we have a command line flag, then use it
-	//else use CCTAG from env
-	buf.BChg(u.EX_CC_CMD, 0, "g")
-
-	subSection := ""
-
-	if len(os.Args) > 1 {
-		subSection = os.Args[1]
-		ac.TpLogInfo("Using subsection from command line: [%s]", subSection)
-	} else {
-		subSection = os.Getenv("NDRX_CCTAG")
-		ac.TpLogInfo("Using subsection from environment NDRX_CCTAG: [%s]",
-			subSection)
-	}
-
-	buf.BChg(u.EX_CC_LOOKUPSECTION, 0, fmt.Sprintf("%s/%s", ProgSection, subSection))
-
-	if _, err := ac.TpCall("@CCONF", buf, 0); nil != err {
-		ac.TpLogError("ATMI Error %d:[%s]\n", err.Code(), err.Message())
-		return errors.New(err.Error())
-	}
-
-	buf.TpLogPrintUBF(atmi.LOG_DEBUG, "Got configuration.")
-
-	//Set the parameters
-	occs, _ := buf.BOccur(u.EX_CC_KEY)
-	// Load in the config...
-	for occ := 0; occ < occs; occ++ {
-		ac.TpLog(atmi.LOG_DEBUG, "occ %d", occ)
-		fldName, err := buf.BGetString(u.EX_CC_KEY, occ)
-
-		if nil != err {
-			ac.TpLog(atmi.LOG_ERROR, "Failed to get field "+
-				"%d occ %d", u.EX_CC_KEY, occ)
-			return errors.New(err.Error())
-		}
-
-		ac.TpLog(atmi.LOG_DEBUG, "Got config field [%s]", fldName)
-
-		switch fldName {
-
-		case "some_config_flag":
-			MSomeConfigFlag, _ = buf.BGetString(u.EX_CC_VALUE, occ)
-			ac.TpLogInfo("Got [%s] = [%s]", fldName, MSomeConfigFlag)
-			break
-		case "some_other_flag":
-			MSomeOtherConfigFlag, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
-			ac.TpLogInfo("Got [%s] = [%d]", fldName, MSomeOtherConfigFlag)
-			break
-		case "gencore":
-			gencore, _ := buf.BGetInt(u.EX_CC_VALUE, occ)
-
-			if 1 == gencore {
-				//Process signals by default handlers
-				ac.TpLogInfo("gencore=1 - SIGSEG signal will be " +
-					"processed by default OS handler")
-				// Have some core dumps...
-				C.signal(11, nil)
-			}
-			break
-		case "debug":
-			//Set debug configuration string
-			debug, _ := buf.BGetString(u.EX_CC_VALUE, occ)
-			ac.TpLogDebug("Got [%s] = [%s] ", fldName, debug)
-			if err := ac.TpLogConfig((atmi.LOG_FACILITY_NDRX | atmi.LOG_FACILITY_UBF | atmi.LOG_FACILITY_TP),
-				-1, debug, "TCPG", ""); nil != err {
-				ac.TpLogError("Invalid debug config [%s] %d:[%s]\n",
-					debug, err.Code(), err.Message())
-				return errors.New(err.Message())
-			}
-
-		default:
-			ac.TpLogInfo("Unknown flag [%s] - ignoring...", fldName)
-			break
-		}
+	if len(os.Args) < 2 {
+		return errors.New(fmt.Sprintf("Missing arguments: %s <command>",
+			os.Args[0]))
 	}
 
 	return nil
@@ -158,4 +159,3 @@ func main() {
 
 	unInit(ac, atmi.SUCCEED)
 }
-

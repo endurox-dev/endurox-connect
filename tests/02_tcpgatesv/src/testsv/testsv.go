@@ -1,25 +1,24 @@
 package main
 
 import (
-	atmi "github.com/endurox-dev/endurox-go"
 	"fmt"
 	"os"
 	u "ubftab"
+
+	atmi "github.com/endurox-dev/endurox-go"
 )
 
 const (
-	SUCCEED = atmi.SUCCEED
-	FAIL    = atmi.FAIL
+	SUCCEED     = atmi.SUCCEED
+	FAIL        = atmi.FAIL
 	PROGSECTION = "testsv"
 )
 
-//TESTSVC service
-//@param ac ATMI Context
-//@param svc Service call information
-func TESTSVC(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
+//Connection status service
+func CONSTAT(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 
 	ret := SUCCEED
-	
+
 	//Return to the caller
 	defer func() {
 
@@ -30,25 +29,148 @@ func TESTSVC(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 			ac.TpReturn(atmi.TPFAIL, 0, &svc.Data, 0)
 		}
 	}()
-	
-	
+
+	//Get UBF Handler
+	ub, _ := ac.CastToUBF(&svc.Data)
+	ub.TpLogPrintUBF(atmi.LOG_DEBUG, "CONSTAT: Incoming request:")
+
+	gateway, _ := ub.BGetString(u.EX_NETGATEWAY, 0)
+	con, _ := ub.BGetInt64(u.EX_NETCONNID, 0)
+	flag, _ := ub.BGetString(u.EX_NETFLAGS, 0)
+
+	ac.TpLogInfo("CONSTAT: Gatway %s Connection %d status %s",
+		gateway, con, flag)
+}
+
+//Correlation service
+//Will return correlator as first 4x bytes, if buffer larger than 4x bytes
+func CORSVC(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
+	ret := SUCCEED
+
+	//Return to the caller
+	defer func() {
+
+		ac.TpLogCloseReqFile()
+		if SUCCEED == ret {
+			ac.TpReturn(atmi.TPSUCCESS, 0, &svc.Data, 0)
+		} else {
+			ac.TpReturn(atmi.TPFAIL, 0, &svc.Data, 0)
+		}
+	}()
+
 	//Get UBF Handler
 	ub, _ := ac.CastToUBF(&svc.Data)
 
 	//Print the buffer to stdout
 	//fmt.Println("Incoming request:")
-	ub.TpLogPrintUBF(atmi.LOG_DEBUG, "Incoming request:")
+	ub.TpLogPrintUBF(atmi.LOG_DEBUG, "CORSVC: Incoming request:")
 
+	arr, err := ub.BGetByteArr(u.EX_NETDATA, 0)
+
+	if err != nil {
+		ac.TpLogError("Failed to get EX_NETDATA: %s", err.Message())
+		ret = FAIL
+		return
+	}
+
+	if len(arr) > 4 {
+
+		corr := string(arr[:4])
+		arr = arr[4:]
+
+		ac.TpLogInfo("Extracted correlator: [%s]", corr)
+
+		if err := ub.BChg(u.EX_NETDATA, 0, arr); nil != err {
+			ac.TpLogError("Failed to set EX_NETDATA: %s", err.Message())
+			ret = FAIL
+			return
+		}
+
+		if err := ub.BChg(u.EX_NETCORR, 0, arr); nil != err {
+			ac.TpLogError("Failed to set EX_NETCORR: %s", err.Message())
+			ret = FAIL
+			return
+		}
+
+	}
+
+	ub.TpLogPrintUBF(atmi.LOG_DEBUG, "Reply buffer afrer correl")
+
+}
+
+//TESTSVC service
+//@param ac ATMI Context
+//@param svc Service call information
+func TESTSVC(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
+
+	ret := SUCCEED
+
+	//Return to the caller
+	defer func() {
+
+		ac.TpLogCloseReqFile()
+		if SUCCEED == ret {
+			ac.TpReturn(atmi.TPSUCCESS, 0, &svc.Data, 0)
+		} else {
+			ac.TpReturn(atmi.TPFAIL, 0, &svc.Data, 0)
+		}
+	}()
+
+	//Get UBF Handler
+	ub, _ := ac.CastToUBF(&svc.Data)
+
+	//Print the buffer to stdout
+	//fmt.Println("Incoming request:")
+	ub.TpLogPrintUBF(atmi.LOG_DEBUG, "TESTSVC: Incoming request:")
+
+	used, _ := ub.BUsed()
 	//Resize buffer, to have some more space
-	if err := ub.TpRealloc(1024); err != nil {
+	if err := ub.TpRealloc(used + 1024); err != nil {
 		ac.TpLogError("TpRealloc() Got error: %d:[%s]\n", err.Code(), err.Message())
 		ret = FAIL
 		return
 	}
-	
-	
-	//TODO: Run your processing here, and keep the succeed or fail status in 
-	//in "ret" flag.
+
+	arr, err := ub.BGetByteArr(u.EX_NETDATA, 0)
+
+	if err != nil {
+		ac.TpLogError("Failed to get EX_NETDATA: %s", err.Message())
+		ret = FAIL
+		return
+	}
+
+	//Check the if it is first test case (11), then
+	//Verify all data sent
+	if arr[0] == 1 && arr[1] == 1 {
+		ac.TpLogInfo("First test case")
+		for i := 2; i < 2048; i++ {
+			if arr[i] != byte(i%256) {
+				ac.TpLogError("TESTERROR: buffer index %d got "+
+					"%d expected %d", i, arr[i], byte(i%256))
+			}
+		}
+
+		ac.TpLogInfo("Test case 11 OK")
+
+	} else {
+
+		if len(arr) > 4 {
+
+			for i := 4; i < len(arr); i++ {
+				arr[i] += 1
+			}
+		}
+
+		err = ub.BChg(u.EX_NETDATA, 0, arr)
+
+		if nil != err {
+			ac.TpLogError("Failed to set EX_NETDATA: %s", err.Message())
+			ret = FAIL
+			return
+		}
+	}
+
+	ub.TpLogPrintUBF(atmi.LOG_DEBUG, "Reply buffer")
 
 	return
 }
@@ -57,9 +179,9 @@ func TESTSVC(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 //@param ac ATMI Context
 func Init(ac *atmi.ATMICtx) int {
 
-	ac.TpLogWarn("Doing server init...");
+	ac.TpLogWarn("Doing server init...")
 	if err := ac.TpInit(); err != nil {
-		return FAIL;
+		return FAIL
 	}
 
 	//Get the configuration
@@ -76,7 +198,7 @@ func Init(ac *atmi.ATMICtx) int {
 
 	if _, err := ac.TpCall("@CCONF", buf, 0); nil != err {
 		ac.TpLogError("ATMI Error %d:[%s]\n", err.Code(), err.Message())
-		return FAIL;
+		return FAIL
 	}
 
 	//Dump to log the config read
@@ -92,7 +214,7 @@ func Init(ac *atmi.ATMICtx) int {
 		if nil != err {
 			ac.TpLogError("Failed to get field "+
 				"%d occ %d", u.EX_CC_KEY, occ)
-			return FAIL;
+			return FAIL
 		}
 
 		ac.TpLogDebug("Got config field [%s]", fldName)
@@ -100,8 +222,8 @@ func Init(ac *atmi.ATMICtx) int {
 		switch fldName {
 
 		case "mykey1":
-            myval, _ := buf.BGetString(u.EX_CC_VALUE, occ);
-			ac.TpLogDebug("Got [%s] = [%s] ", fldName, myval);
+			myval, _ := buf.BGetString(u.EX_CC_VALUE, occ)
+			ac.TpLogDebug("Got [%s] = [%s] ", fldName, myval)
 			break
 
 		default:
@@ -111,7 +233,20 @@ func Init(ac *atmi.ATMICtx) int {
 	}
 	//Advertize TESTSVC
 	if err := ac.TpAdvertise("TESTSVC", "TESTSVC", TESTSVC); err != nil {
-		ac.TpLogError("Failed to Advertise: ATMI Error %d:[%s]\n", err.Code(), err.Message())
+		ac.TpLogError("Failed to Advertise: ATMI Error %d:[%s]\n",
+			err.Code(), err.Message())
+		return atmi.FAIL
+	}
+
+	if err := ac.TpAdvertise("CORSVC", "CORSVC", CORSVC); err != nil {
+		ac.TpLogError("Failed to Advertise: ATMI Error %d:[%s]\n",
+			err.Code(), err.Message())
+		return atmi.FAIL
+	}
+
+	if err := ac.TpAdvertise("CONSTAT", "CONSTAT", CONSTAT); err != nil {
+		ac.TpLogError("Failed to Advertise: ATMI Error %d:[%s]\n",
+			err.Code(), err.Message())
 		return atmi.FAIL
 	}
 
@@ -121,7 +256,7 @@ func Init(ac *atmi.ATMICtx) int {
 //Server shutdown
 //@param ac ATMI Context
 func Uninit(ac *atmi.ATMICtx) {
-	ac.TpLogWarn("Server is shutting down...");
+	ac.TpLogWarn("Server is shutting down...")
 }
 
 //Executable main entry point

@@ -21,10 +21,12 @@ func apprun(ac *atmi.ATMICtx) error {
 	//Do some work here
 	command := os.Args[1]
 
+	ac.TpLogInfo("Command: [%s]", command)
 	switch command {
-	case "async_call":
-
-		if len(os.Args) < 3 {
+	case "async_call", "nocon":
+		//case "nocon":
+		ac.TpLogInfo("Command: [%s] 2", command)
+		if len(os.Args) < 4 {
 			return errors.New(fmt.Sprintf("Missing count: %s async_call <count> <gateway>",
 				os.Args[0]))
 		}
@@ -81,9 +83,13 @@ func apprun(ac *atmi.ATMICtx) error {
 					err.Message())
 				return errors.New(err.Message())
 			} else if rsp_code != 0 {
-				ac.TpLogError("TESTERROR: Response code must be 0 but got %d!",
-					rsp_code)
-				return errors.New("Invalid response code")
+				if command == "nocon" && rsp_code == atmi.NENOCONN {
+					ac.TpLogError("No connection test ok")
+				} else {
+					ac.TpLogError("TESTERROR: Response code must be 0 but got %d!",
+						rsp_code)
+					return errors.New("Invalid response code")
+				}
 			}
 
 			//OK Realloc buffer back
@@ -103,6 +109,111 @@ func apprun(ac *atmi.ATMICtx) error {
 		}
 
 		break
+	case "corr":
+		//case "nocon":
+		ac.TpLogInfo("Command: [%s] 2", command)
+		if len(os.Args) < 4 {
+			return errors.New(fmt.Sprintf("Missing count: %s corr <count> <gateway>",
+				os.Args[0]))
+		}
+
+		nrOfTimes, err := strconv.Atoi(os.Args[2])
+
+		gw := os.Args[3]
+
+		if err != nil {
+			return err
+		}
+
+		ba := make([]byte, 2048)
+
+		for i := 2; i < len(ba); i++ {
+			ba[i] = byte(i % 256)
+		}
+
+		//Send the stuff out!!!
+		//To async target
+		for i := 0; i < nrOfTimes; i++ {
+
+			//OK Realloc buffer back
+			ub, errA := ac.NewUBF(3000)
+
+			if nil != errA {
+				ac.TpLogError("Failed to allocate UBF buffer %d:%s",
+					errA.Code(), errA.Message())
+				return errors.New(errA.Message())
+			}
+
+			//Test case with correlation
+			ba[0] = 'A' //Test case A
+			ba[1] = 'B' + byte(i%10)
+			ba[2] = 'C' + byte(i%10)
+			ba[3] = 'D' + byte(i%10)
+
+			correl:=string(ba[:4])
+
+			ac.TpLogInfo("Built correlator [%s]", correl)
+
+			if errA := ub.BChg(u.EX_NETCORR, 0, correl); nil != errA {
+				ac.TpLogError("Failed to set EX_NETCORR %d:%s",
+					errA.Code(), errA.Message())
+				return errors.New(errA.Message())
+			}
+
+			if errA := ub.BChg(u.EX_NETDATA, 0, ba); nil != errA {
+				ac.TpLogError("Failed to set EX_NETDATA %d:%s",
+					errA.Code(), errA.Message())
+				return errors.New(errA.Message())
+			}
+
+			//The reply here kills the buffer,
+			//Thus we need a copy...
+			ub.TpLogPrintUBF(atmi.LOG_INFO, "Calling server")
+			if _, errA = ac.TpCall(gw, ub, 0); nil != errA {
+				ac.TpLogError("Failed to call [%s] %d:%s",
+					gw, errA.Code(), errA.Message())
+			}
+
+			//The response should succeed
+			if rsp_code, err := ub.BGetInt(u.EX_NERROR_CODE, 0); nil != err {
+				ac.TpLogError("TESTERROR: Failed to get EX_NERROR_CODE: %s",
+					err.Message())
+				return errors.New(err.Message())
+			} else if rsp_code != 0 {
+				ac.TpLogError("TESTERROR: Response code must be 0 but got %d!",
+					rsp_code)
+				return errors.New("Invalid response code")
+			}
+
+			//Verify response
+			arrRsp, err := ub.BGetByteArr(u.EX_NETDATA, 0)
+
+			if err != nil {
+				ac.TpLogError("Failed to get EX_NETDATA: %s", err.Message())
+				return errors.New("Failed to get EX_NETDATA!")
+			}
+
+			//Test the header in response, must match!
+			for i := 0; i < 4; i++ {
+				if arrRsp[i]!=ba[i] {
+					ac.TpLogError("TESTERROR at index %d, expected %d got %d",
+					i, ba[i], arrRsp[i])
+					return errors.New("TESTERROR in header!")
+				}
+			}
+
+			//Test the msg
+			for i := 4; i < len(ba); i++ {
+				exp:=byte((int(ba[i] + 1) % 256))
+				if arrRsp[i] != exp {
+					ac.TpLogError("TESTERROR at index %d, expected %d got %d",
+					i, exp, arrRsp[i])
+					return errors.New("TESTERROR in content!")
+				}
+			}
+		}
+		break
+		//TODO Have a test case with corr timeout.
 	}
 
 	return nil

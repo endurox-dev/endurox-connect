@@ -5,6 +5,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+//	"runtime"
 	u "ubftab"
 
 	atmi "github.com/endurox-dev/endurox-go"
@@ -113,11 +114,9 @@ func TCPGATE(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	ub, _ := ac.CastToUBF(&svc.Data)
 
 	//Print the buffer to stdout
-	//fmt.Println("Incoming request:")
 	ub.TpLogPrintUBF(atmi.LOG_DEBUG, "Incoming request:")
 
 	//Resize buffer, to have some more space
-
 	buf_size, err := ub.BUsed()
 
 	if err != nil {
@@ -144,7 +143,9 @@ func TCPGATE(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	}
 
 	nr := getFreeXChan(ac, &MoutXPool)
-	go XATMIDispatchCall(&MoutXPool, nr, ctxData, &ub)
+	go XATMIDispatchCall(&MoutXPool, nr, ctxData, ub)
+
+	//runtime.GC()
 
 	return
 }

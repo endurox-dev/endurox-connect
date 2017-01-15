@@ -41,12 +41,13 @@ sleep 2
 ################################################################################
 # Run async calls
 ################################################################################
-NROFCALLS=5000
+NROFCALLS=100
+COMMAND="async_call"
 testcl async_call $NROFCALLS TCP_P_ASYNC_A
 RET=$?
 
 if [[ $RET != 0 ]]; then
-	echo "testcl async_call $NROFCALLS TCP_P_ASYNC_A failed"
+	echo "testcl $COMMAND $NROFCALLS TCP_P_ASYNC_A failed"
 	go_out 1
 fi
 
@@ -61,10 +62,43 @@ if [[ $CNT !=  $NROFCALLS ]]; then
 	go_out 2
 fi
 
+################################################################################
+# No connection
+################################################################################
+NROFCALLS=100
+COMMAND="nocon"
+xadmin stop -i 210
+
+# Flush connections
+sleep 1
+testcl $COMMAND $NROFCALLS TCP_P_ASYNC_A
+RET=$?
+
+if [[ $RET != 0 ]]; then
+	echo "testcl $COMMAND $NROFCALLS TCP_P_ASYNC_A failed"
+	go_out 3
+fi
+
+xadmin start -i 210
+sleep 1
+
+################################################################################
+# Run Correlation...
+################################################################################
+NROFCALLS=2000
+COMMAND="corr"
+
+# Flush connections
+# This time will start from Passive side...
+testcl $COMMAND $NROFCALLS TCP_P_ASYNC_P
+RET=$?
+
+if [[ $RET != 0 ]]; then
+	echo "testcl $COMMAND $NROFCALLS TCP_P_ASYNC_A failed"
+	go_out 4
+fi
 
 xadmin stop -c -y
 
-
 go_out 0
-
 

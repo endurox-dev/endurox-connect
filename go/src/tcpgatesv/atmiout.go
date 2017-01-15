@@ -111,6 +111,9 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 	ac.TpLogInfo("About to restore context data in goroutine...")
 	ac.TpSrvSetCtxData(ctxData, 0)
 
+	//Change the buffer owning context
+	buf.GetBuf().TpSetCtxt(ac)
+
 	//OK so our context have a call, now do something with it
 
 	connid, _ = buf.BGetInt64(u.EX_NETCONNID, 0)
@@ -194,6 +197,8 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 					"req_reply %d", corr, MReqReply)
 				//Override the reply buffer
 				//No more checks... as tout should be already generated.
+				//So it looks like GO does not track
+				//pointer in the channel...
 				buf = <-block.atmi_chan
 
 				//Remove waiter from lists...

@@ -72,21 +72,15 @@ func CORSVC(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 		ret = FAIL
 		return
 	}
-
-	if len(arr) > 4 {
+	if arr[0] == 1 && arr[1] == 1 {
+		ac.TpLogInfo("Test case 11 - no need for correlation")
+	} else if len(arr) > 4 {
 
 		corr := string(arr[:4])
-		arr = arr[4:]
 
 		ac.TpLogInfo("Extracted correlator: [%s]", corr)
 
-		if err := ub.BChg(u.EX_NETDATA, 0, arr); nil != err {
-			ac.TpLogError("Failed to set EX_NETDATA: %s", err.Message())
-			ret = FAIL
-			return
-		}
-
-		if err := ub.BChg(u.EX_NETCORR, 0, arr); nil != err {
+		if err := ub.BChg(u.EX_NETCORR, 0, corr); nil != err {
 			ac.TpLogError("Failed to set EX_NETCORR: %s", err.Message())
 			ret = FAIL
 			return
@@ -139,9 +133,33 @@ func TESTSVC(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 		return
 	}
 
-	//Check the if it is first test case (11), then
-	//Verify all data sent
-	if arr[0] == 1 && arr[1] == 1 {
+	//Test case 'A' - with correlation, reply back with cor
+	if arr[0] == 'A' {
+		ac.TpLogInfo("Running test case A")
+		for i := 4; i < len(arr); i++ {
+			arr[i] = byte((int(arr[i] + 1) % 256))
+		}
+
+		err = ub.BChg(u.EX_NETDATA, 0, arr)
+
+		if nil != err {
+			ac.TpLogError("Failed to set EX_NETDATA: %s", err.Message())
+			ret = FAIL
+			return
+		}
+
+		//Kill the outgoing correlator, otherwise service will not just
+		//Send the message, but also put it in waiters list!
+		//But we need to send a reply to caller service....
+
+		ub.BDel(u.EX_NETCORR, 0)
+
+		ac.TpACall("TCP_P_ASYNC_A", ub, atmi.TPNOREPLY)
+
+		//Check the if it is first test case (11), then
+		//Verify all data sent
+	} else if arr[0] == 1 && arr[1] == 1 {
+
 		ac.TpLogInfo("First test case")
 		for i := 2; i < 2048; i++ {
 			if arr[i] != byte(i%256) {

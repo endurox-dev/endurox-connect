@@ -413,17 +413,15 @@ func HandleConnection(con *ExCon) {
 					break
 				}
 
-				corr := ""
 				preAllocUBF = buf
-				corr, errA = NetGetCorID(ac, buf)
+				inCorr, errA = NetGetCorID(ac, buf)
 
-				if nil == errA {
+				if nil != errA {
 					ac.TpLogWarn("Error calling correlator service: %s",
 						errA.Message())
-				} else if corr != "" {
-
+				} else if inCorr != "" {
 					ac.TpLogWarn("Got correlator for incoming "+
-						"message: [%s] - looking up for reply waiter", corr)
+						"message: [%s] - looking up for reply waiter", inCorr)
 
 					//So this is answer, add some answer fields
 					buf.BChg(u.EX_NERROR_CODE, 0, 0)
@@ -433,13 +431,13 @@ func HandleConnection(con *ExCon) {
 					block := MCorrWaiter[inCorr]
 
 					if nil != block {
-						MConWaiterMutex.Unlock()
+						MCorrWaiterMutex.Unlock()
 						ac.TpLogInfo("Reply waiter found!")
 						NetDispatchCorAnswer(ac, con, block,
 							buf, &ok)
 						continue //<<< Continue!
 					} else {
-						MConWaiterMutex.Unlock()
+						MCorrWaiterMutex.Unlock()
 					}
 				}
 			}

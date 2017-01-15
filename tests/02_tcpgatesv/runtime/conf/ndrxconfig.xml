@@ -144,7 +144,7 @@
 			<sysopt>-e ${NDRX_APPHOME}/log/tcpgatesv-async-active.log -r</sysopt>
 		</server>
 		<server name="tcpgatesv">
-			<cctag>pers/async/pasive</cctag>
+			<cctag>pers/async/passive</cctag>
 			<min>1</min>
 			<max>1</max>
 			<srvid>210</srvid>

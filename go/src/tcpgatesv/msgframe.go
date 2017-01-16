@@ -163,13 +163,11 @@ func GetMessage(con *ExCon) ([]byte, error) {
 				//Move the current byte to front
 				mlen <<= 8
 				switch MFramingCode {
-				case FRAME_LITTLE_ENDIAN:
-				case FRAME_LITTLE_ENDIAN_ILEN:
+				case FRAME_LITTLE_ENDIAN, FRAME_LITTLE_ENDIAN_ILEN:
 					//Add current byte
 					mlen |= int64(header[i])
 					break
-				case FRAME_BIG_ENDIAN:
-				case FRAME_BIG_ENDIAN_ILEN:
+				case FRAME_BIG_ENDIAN, FRAME_BIG_ENDIAN_ILEN:
 					//Add current byte, but take from older
 					mlen |= int64(header[int(MFramingLen-1)-i])
 					break
@@ -292,13 +290,11 @@ func PutMessage(con *ExCon, data []byte) error {
 		if MFramingCode != FRAME_ASCII && MFramingCode != FRAME_ASCII_ILEN {
 			for i := 0; i < MFramingLen; i++ {
 				switch MFramingCode {
-				case FRAME_LITTLE_ENDIAN:
-				case FRAME_LITTLE_ENDIAN_ILEN:
+				case FRAME_LITTLE_ENDIAN, FRAME_LITTLE_ENDIAN_ILEN:
 					//So the least significant byte goes to end the array
 					header[(MFramingLen-1)-i] = byte(mlen & 0xff)
 					break
-				case FRAME_BIG_ENDIAN:
-				case FRAME_BIG_ENDIAN_ILEN:
+				case FRAME_BIG_ENDIAN, FRAME_BIG_ENDIAN_ILEN:
 					//So the least significant byte goes in front of the array
 					header[i] = byte(mlen & 0xff)
 					break

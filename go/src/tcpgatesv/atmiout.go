@@ -199,6 +199,12 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 				//No more checks... as tout should be already generated.
 				//So it looks like GO does not track
 				//pointer in the channel...
+
+				//Well before that we shall kill the current
+				//buffer it is auto, and not allocated by go
+				//Thus we might get possible memleak here.
+				ac.TpFree(buf.GetBuf())
+
 				buf = <-block.atmi_chan
 
 				//Remove waiter from lists...

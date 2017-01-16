@@ -156,6 +156,8 @@ func GetMessage(con *ExCon) ([]byte, error) {
 
 		//Swap bytes if needed
 		if MFramingHalfSwap {
+			ac.TpLogDump(atmi.LOG_DEBUG, "Got message prefix (before swapping)",
+				header, len(header))
 			half := MFramingLen / 2
 			for i := 0; i < half; i++ {
 				tmp := header[i]
@@ -164,7 +166,7 @@ func GetMessage(con *ExCon) ([]byte, error) {
 			}
 		}
 
-		ac.TpLogDump(atmi.LOG_DEBUG, "Got message prefix", header, len(header))
+		ac.TpLogDump(atmi.LOG_DEBUG, "Got message prefix (final)", header, len(header))
 
 		//Decode the length now...
 		if MFramingCode != FRAME_ASCII && MFramingCode != FRAME_ASCII_ILEN {
@@ -320,6 +322,8 @@ func PutMessage(con *ExCon, data []byte) error {
 
 		//Swap bytes if needed
 		if MFramingHalfSwap {
+			ac.TpLogDump(atmi.LOG_INFO, "Built message header (before swapping)",
+				header, len(header))
 			half := MFramingLen / 2
 			for i := 0; i < half; i++ {
 				tmp := header[i]
@@ -329,7 +333,7 @@ func PutMessage(con *ExCon, data []byte) error {
 		}
 
 		// Print len
-		ac.TpLogDump(atmi.LOG_INFO, "Built message header",
+		ac.TpLogDump(atmi.LOG_INFO, "Built message header (final)",
 			header, len(header))
 
 		//About to send message.

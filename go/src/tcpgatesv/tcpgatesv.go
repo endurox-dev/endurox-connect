@@ -5,7 +5,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
-//	"runtime"
+	//	"runtime"
 	u "ubftab"
 
 	atmi "github.com/endurox-dev/endurox-go"
@@ -56,6 +56,7 @@ var MFramingCode rune = FRAME_LITTLE_ENDIAN
 var MFramingLen int = len(MFraming)
 var MFamingInclPfxLen bool = false //Does len format include prefix length it self?
 var MFramingMaxMsgLen int = 0      //Max message len (checked if >0)
+var MFramingHalfSwap bool = false  //Should we swap on the half incoming length bytes
 
 //In case if framing is "d"
 var MDelimStart byte = 0x02  //can be optional
@@ -220,6 +221,14 @@ func Init(ac *atmi.ATMICtx) int {
 			MFraming, _ = buf.BGetString(u.EX_CC_VALUE, occ)
 			ac.TpLogDebug("Got [%s] = [%s] ", fldName, MFraming)
 			break
+		case "framing_half_swap":
+			tmpSwap, _ := buf.BGetInt(u.EX_CC_VALUE, occ)
+
+			if 1 == tmpSwap {
+				ac.TpLogInfo("Will swap framing bytes in half")
+				MFramingHalfSwap = true
+			}
+
 		case "max_msg_len":
 			MFramingMaxMsgLen, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
 			ac.TpLogDebug("Got [%s] = [%d] ", fldName, MFramingMaxMsgLen)
@@ -349,6 +358,12 @@ func Init(ac *atmi.ATMICtx) int {
 	if errS := ConfigureNumberOfBytes(ac); errS != nil {
 		ac.TpLogError("Failed to configure number of bytes to use for "+
 			"message frame: %s", errS.Error())
+		return FAIL
+	}
+
+	if MFramingHalfSwap && MFramingLen%2 > 0 {
+		ac.TpLogWarn("Using half swap of framing bytes, but byte length is odd: %d",
+			MFramingLen)
 		return FAIL
 	}
 

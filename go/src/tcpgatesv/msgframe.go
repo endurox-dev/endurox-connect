@@ -154,6 +154,16 @@ func GetMessage(con *ExCon) ([]byte, error) {
 			return nil, errors.New(emsg)
 		}
 
+		//Swap bytes if needed
+		if MFramingHalfSwap {
+			half := MFramingLen / 2
+			for i := 0; i < half; i++ {
+				tmp := header[i]
+				header[i] = header[half+i]
+				header[half+i] = tmp
+			}
+		}
+
 		ac.TpLogDump(atmi.LOG_DEBUG, "Got message prefix", header, len(header))
 
 		//Decode the length now...
@@ -306,6 +316,16 @@ func PutMessage(con *ExCon, data []byte) error {
 		} else {
 			mlenStr := fmt.Sprintf("%0*d", MFramingLen, mlen)
 			header = []byte(mlenStr)
+		}
+
+		//Swap bytes if needed
+		if MFramingHalfSwap {
+			half := MFramingLen / 2
+			for i := 0; i < half; i++ {
+				tmp := header[i]
+				header[i] = header[half+i]
+				header[half+i] = tmp
+			}
 		}
 
 		// Print len

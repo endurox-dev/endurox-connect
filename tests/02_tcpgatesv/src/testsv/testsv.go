@@ -171,21 +171,8 @@ func TESTSVC(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 		ac.TpLogInfo("Test case 11 OK")
 
 	} else {
-
-		if len(arr) > 4 {
-
-			for i := 4; i < len(arr); i++ {
-				arr[i] += 1
-			}
-		}
-
-		err = ub.BChg(u.EX_NETDATA, 0, arr)
-
-		if nil != err {
-			ac.TpLogError("Failed to set EX_NETDATA: %s", err.Message())
-			ret = FAIL
-			return
-		}
+		//NOTE: This basically is dumped, because we do not do reply back
+		//and we were invoked in async way.
 	}
 
 	ub.TpLogPrintUBF(atmi.LOG_DEBUG, "Reply buffer")

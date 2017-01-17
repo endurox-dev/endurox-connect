@@ -213,7 +213,65 @@ func apprun(ac *atmi.ATMICtx) error {
 			}
 		}
 		break
-		//TODO Have a test case with corr timeout.
+	case "corrtot":
+		//case "nocon":
+		ac.TpLogInfo("Command: [%s] 3", command)
+		if len(os.Args) < 3 {
+			return errors.New(fmt.Sprintf("Missing count: %s corrtot <gateway>",
+				os.Args[0]))
+		}
+
+		gw := os.Args[2]
+
+
+		ba := make([]byte, 2048)
+
+		for i := 0; i < len(ba); i++ {
+			ba[i] = byte(i % 256)
+		}
+
+		//OK Realloc buffer back
+		ub, errA := ac.NewUBF(3000)
+
+		if nil != errA {
+			ac.TpLogError("Failed to allocate UBF buffer %d:%s",
+				errA.Code(), errA.Message())
+			return errors.New(errA.Message())
+		}
+
+		if errA := ub.BChg(u.EX_NETCORR, 0, "HELLO NO SUCH CORR"); nil != errA {
+			ac.TpLogError("Failed to set EX_NETCORR %d:%s",
+				errA.Code(), errA.Message())
+			return errors.New(errA.Message())
+		}
+
+		if errA := ub.BChg(u.EX_NETDATA, 0, ba); nil != errA {
+			ac.TpLogError("Failed to set EX_NETDATA %d:%s",
+				errA.Code(), errA.Message())
+			return errors.New(errA.Message())
+		}
+
+		//The reply here kills the buffer,
+		//Thus we need a copy...
+		ub.TpLogPrintUBF(atmi.LOG_INFO, "Calling server")
+		if _, errA = ac.TpCall(gw, ub, 0); nil != errA {
+			ac.TpLogError("Failed to call [%s] %d:%s",
+				gw, errA.Code(), errA.Message())
+		}
+		ub.TpLogPrintUBF(atmi.LOG_INFO, "Got response")
+
+		//The response should succeed
+		if rsp_code, err := ub.BGetInt(u.EX_NERROR_CODE, 0); nil != err {
+			ac.TpLogError("TESTERROR: Failed to get EX_NERROR_CODE: %s",
+				err.Message())
+			return errors.New(err.Message())
+		} else if rsp_code != atmi.NETOUT {
+			ac.TpLogError("TESTERROR: Response code must be %d but got %d!",
+				atmi.NETOUT, rsp_code)
+			return errors.New("TESTERROR: Invalid response code")
+		}
+
+		break
 	}
 
 	return nil

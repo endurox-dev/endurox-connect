@@ -94,9 +94,37 @@ testcl $COMMAND $NROFCALLS TCP_P_ASYNC_P
 RET=$?
 
 if [[ $RET != 0 ]]; then
-	echo "testcl $COMMAND $NROFCALLS TCP_P_ASYNC_A failed"
+	echo "testcl $COMMAND $NROFCALLS TCP_P_ASYNC_P failed"
 	go_out 4
 fi
+
+################################################################################
+# Run Correlation, timeout
+################################################################################
+COMMAND="corrtot"
+
+# Flush connections
+# This time will start from Passive side...
+testcl $COMMAND TCP_P_ASYNC_P
+RET=$?
+
+if [[ $RET != 0 ]]; then
+	echo "testcl $COMMAND TCP_P_ASYNC_P failed"
+	go_out 4
+fi
+
+################################################################################
+# TODO: Persistent, Sync connection, call
+################################################################################
+
+################################################################################
+# TODO: Persistent, Sync connection, call, timeout
+################################################################################
+
+################################################################################
+# TODO: Persistent, Sync connection, call, no-connection
+################################################################################
+
 
 xadmin stop -c -y
 

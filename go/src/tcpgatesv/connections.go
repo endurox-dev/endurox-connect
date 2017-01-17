@@ -377,6 +377,12 @@ func HandleConnection(con *ExCon) {
 		select {
 		case dataIncoming := <-dataIn:
 
+			ac.TpLogDebug("dataIn: conn %d/%d got something on channel",
+				con.id, con.id_comp)
+
+			ac.TpLogDump(atmi.LOG_DEBUG, "Got message prefix (before swapping)",
+				dataIncoming, len(dataIncoming))
+
 			inCorr := "" //Use for sending to incoming service (if not found in tables)
 			//We should call the server or check that reply is needed
 			//for some call in progress.

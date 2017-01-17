@@ -138,8 +138,8 @@ func CheckTimeouts(ac *atmi.ATMICtx) atmi.ATMIError {
 	ac.TpLogDebug("Checking sync connection lists for timeouts")
 	for k, v := range MConWaiter {
 
-		if v.corr != "" || MReqReply == RR_NONPERS_EX2NET ||
-			MReqReply == RR_PERS_CONN_EX2NET {
+		if MReqReply == RR_PERS_CONN_EX2NET || MReqReply == RR_PERS_CONN_NET2EX ||
+			MReqReply == RR_NONPERS_EX2NET || MReqReply == RR_NONPERS_NET2EX {
 
 			if IsBlockTimeout(ac, v) {
 				ac.TpLogWarn("Call expired!")
@@ -151,12 +151,15 @@ func CheckTimeouts(ac *atmi.ATMICtx) atmi.ATMIError {
 					delete(MConWaiter, k)
 					ac.TpLogInfo("Sending reply back to ATMI")
 					v.atmi_chan <- buf
-					ac.TpLogInfo("Killing connection")
+					ac.TpLogInfo("Sending reply back to ATMI, done")
 
+					//Will kill a connection
+					//Because the other end will might sent reply
+					//later and that will confuse next caller.
+					ac.TpLogInfo("Killing connection")
 					ac.TpLogDebug("v=%p", v)
 					ac.TpLogDebug("v.con=%p", v.con)
 
-					//Kill the connection
 					v.con.shutdown <- true
 					ac.TpLogInfo("Killing connection, done")
 
@@ -186,12 +189,16 @@ func CheckTimeouts(ac *atmi.ATMICtx) atmi.ATMIError {
 					ac.TpLogInfo("Sending reply back to ATMI")
 					v.atmi_chan <- buf
 					ac.TpLogInfo("Sending reply back to ATMI, done")
-					//Kill the connection
+					
+					//Kill the connection, if non persistent
+					if MReqReply == RR_NONPERS_EX2NET ||
+						MReqReply == RR_PERS_CONN_EX2NET {
 					ac.TpLogInfo("Killing connection")
 					ac.TpLogDebug("v=%p", v)
 					ac.TpLogDebug("v.con=%p", v.con)
 					v.con.shutdown <- true
 					ac.TpLogInfo("Killing connection, done")
+					}
 
 				} else {
 					MCorrWaiterMutex.Unlock()

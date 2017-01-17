@@ -129,6 +129,14 @@ func apprun(ac *atmi.ATMICtx) error {
 
 		for i := 2; i < len(ba); i++ {
 			ba[i] = byte(i % 256)
+			//Avoid stx/etx for later tests
+			if ba[i] == 2 {
+				ba[i] =5
+			}
+
+			if ba[i] == 3 {
+				ba[i] =6
+			}
 		}
 
 		//Send the stuff out!!!

@@ -85,7 +85,7 @@ sleep 1
 ################################################################################
 # Run Correlation...
 ################################################################################
-NROFCALLS=2000
+NROFCALLS=100
 COMMAND="corr"
 
 # Flush connections
@@ -110,12 +110,26 @@ RET=$?
 
 if [[ $RET != 0 ]]; then
 	echo "testcl $COMMAND TCP_P_ASYNC_P failed"
-	go_out 4
+	go_out 5
 fi
 
 ################################################################################
 # TODO: Persistent, Sync connection, call
 ################################################################################
+NROFCALLS=100
+# We can reuse same test case, it will return some data (but tcpgates will match with
+# connection id
+COMMAND="corr"
+
+# Flush connections
+# This time will start from Passive side...
+testcl $COMMAND $NROFCALLS TCP_P_SYNC_A
+RET=$?
+
+if [[ $RET != 0 ]]; then
+	echo "testcl $COMMAND $NROFCALLS TCP_P_ASYNC_P failed"
+	go_out 6
+fi
 
 ################################################################################
 # TODO: Persistent, Sync connection, call, timeout

@@ -114,7 +114,7 @@ if [[ $RET != 0 ]]; then
 fi
 
 ################################################################################
-# TODO: Persistent, Sync connection, call
+# Persistent, Sync connection, call
 ################################################################################
 NROFCALLS=100
 # We can reuse same test case, it will return some data (but tcpgates will match with
@@ -127,13 +127,26 @@ testcl $COMMAND $NROFCALLS TCP_P_SYNC_A
 RET=$?
 
 if [[ $RET != 0 ]]; then
-	echo "testcl $COMMAND $NROFCALLS TCP_P_ASYNC_P failed"
+	echo "testcl $COMMAND $NROFCALLS TCP_P_SYNC_A failed"
 	go_out 6
 fi
 
 ################################################################################
 # TODO: Persistent, Sync connection, call, timeout
+# Looks like server makes a response, well we do not need it...
 ################################################################################
+COMMAND="corrtot"
+
+# Flush connections
+# This time will start from Passive side...
+testcl $COMMAND TCP_P_SYNC_P
+RET=$?
+
+if [[ $RET != 0 ]]; then
+	echo "testcl $COMMAND TCP_P_SYNC_P failed"
+	go_out 7
+fi
+
 
 ################################################################################
 # TODO: Persistent, Sync connection, call, no-connection

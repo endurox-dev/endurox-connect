@@ -111,6 +111,7 @@ func apprun(ac *atmi.ATMICtx) error {
 		break
 	case "corr":
 		//case "nocon":
+		//TODO: Try to send over connection number 1 it must be open
 		ac.TpLogInfo("Command: [%s] 2", command)
 		if len(os.Args) < 4 {
 			return errors.New(fmt.Sprintf("Missing count: %s corr <count> <gateway>",
@@ -131,11 +132,11 @@ func apprun(ac *atmi.ATMICtx) error {
 			ba[i] = byte(i % 256)
 			//Avoid stx/etx for later tests
 			if ba[i] == 2 {
-				ba[i] =5
+				ba[i] = 5
 			}
 
 			if ba[i] == 3 {
-				ba[i] =6
+				ba[i] = 6
 			}
 		}
 
@@ -158,7 +159,7 @@ func apprun(ac *atmi.ATMICtx) error {
 			ba[2] = 'C' + byte(i%10)
 			ba[3] = 'D' + byte(i%10)
 
-			correl:=string(ba[:4])
+			correl := string(ba[:4])
 
 			ac.TpLogInfo("Built correlator [%s]", correl)
 
@@ -203,19 +204,19 @@ func apprun(ac *atmi.ATMICtx) error {
 
 			//Test the header in response, must match!
 			for i := 0; i < 4; i++ {
-				if arrRsp[i]!=ba[i] {
+				if arrRsp[i] != ba[i] {
 					ac.TpLogError("TESTERROR at index %d, expected %d got %d",
-					i, ba[i], arrRsp[i])
+						i, ba[i], arrRsp[i])
 					return errors.New("TESTERROR in header!")
 				}
 			}
 
 			//Test the msg
 			for i := 4; i < len(ba); i++ {
-				exp:=byte((int(ba[i] + 1) % 256))
+				exp := byte((int(ba[i]+1) % 256))
 				if arrRsp[i] != exp {
 					ac.TpLogError("TESTERROR at index %d, expected %d got %d",
-					i, exp, arrRsp[i])
+						i, exp, arrRsp[i])
 					return errors.New("TESTERROR in content!")
 				}
 			}
@@ -231,11 +232,19 @@ func apprun(ac *atmi.ATMICtx) error {
 
 		gw := os.Args[2]
 
-
 		ba := make([]byte, 2048)
 
 		for i := 0; i < len(ba); i++ {
 			ba[i] = byte(i % 256)
+
+			//Avoid stx/etx for later tests
+			if ba[i] == 2 {
+				ba[i] = 5
+			}
+
+			if ba[i] == 3 {
+				ba[i] = 6
+			}
 		}
 
 		//OK Realloc buffer back

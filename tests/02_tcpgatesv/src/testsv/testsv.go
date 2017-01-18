@@ -137,7 +137,7 @@ func TESTSVC(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	if arr[0] == 'A' {
 		ac.TpLogInfo("Running test case A")
 		for i := 4; i < len(arr); i++ {
-			arr[i] = byte((int(arr[i] + 1) % 256))
+			arr[i] = byte((int(arr[i]+1) % 256))
 		}
 
 		err = ub.BChg(u.EX_NETDATA, 0, arr)
@@ -173,6 +173,7 @@ func TESTSVC(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	} else {
 		//NOTE: This basically is dumped, because we do not do reply back
 		//and we were invoked in async way.
+		ub.BDel(u.EX_NETDATA, 0)
 	}
 
 	ub.TpLogPrintUBF(atmi.LOG_DEBUG, "Reply buffer")

@@ -98,8 +98,8 @@
 	</defaults>
 	<servers>
 		<server name="cconfsrv">
-			<min>2</min>
-			<max>2</max>
+			<min>1</min>
+			<max>1</max>
 			<srvid>1</srvid>
 			<sysopt>-e ${NDRX_APPHOME}/log/cconfsrv.log -r</sysopt>
 		</server>

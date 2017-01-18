@@ -140,7 +140,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 				return
 
 			}
-
+			ac.TpLogInfo("Waiting for connection...")
 			if connid == 0 {
 				con = GetOpenConnection(ac)
 			} else {
@@ -312,6 +312,14 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 		buf = <-block.atmi_chan
 
 		ac.TpLogInfo("Got reply back")
+	} else {
+		ac.TpLogError("Unsupported operation - assuming no connection")
+		//Reply - no connection
+		buf.BDel(u.EX_NETDATA, 0)
+		GenResponse(ac, buf, 0, atmi.NENOCONN,
+			"No open connections available")
+		ret = FAIL
+		return
 	}
 }
 

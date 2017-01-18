@@ -78,7 +78,7 @@ var MReqReply int = RR_PERS_ASYNC_INCL_CORR
 
 //Timeout for req-reply model
 var MReqReplyTimeout int64 = 60
-
+var MConnWaitTime int64 = 60 //Max time to wait for connection in pool
 var MScanTime = 1 //Seconds for housekeeping
 
 //Correlator service for incoming messages
@@ -312,6 +312,11 @@ func Init(ac *atmi.ATMICtx) int {
 		case "scan_time":
 			MScanTime, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
 			ac.TpLogDebug("Got [%s] = [%d] ", fldName, MScanTime)
+			break
+		case "conn_wait_time":
+			//Max time to wait for connection
+			MConnWaitTime, _ = buf.BGetInt64(u.EX_CC_VALUE, occ)
+			ac.TpLogDebug("Got [%s] = [%d] ", fldName, MConnWaitTime)
 			break
 		case "corr_svc":
 			//Corelator service for sync tpcall over mulitple persistent connectinos

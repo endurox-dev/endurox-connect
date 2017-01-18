@@ -37,6 +37,7 @@ import (
 	"net"
 	"os"
 	"sync"
+	"time"
 
 	u "ubftab"
 
@@ -179,8 +180,29 @@ func GetOpenConnection(ac *atmi.ATMICtx) *ExCon {
 	var con *ExCon
 	MfreeconsLock.Lock()
 
+	//Have a timout object
+	ac.TpLogInfo("GetOpenConnection: Setting alarm clock to: %d", MConnWaitTime)
+	timeout := make(chan bool, 1)
+	go func() {
+	    time.Sleep(time.Second * time.Duration(MConnWaitTime))
+	    timeout <- true
+	}()
+
 	for !ok {
-		con = <-Mfreeconns
+
+		select {
+		case con = <-Mfreeconns:
+		    // a read from ch has occurred
+		    ac.TpLogInfo("Got connection object %d/%d",
+			    con.id, con.id_comp)
+		case <-timeout:
+		    // the read from ch has timed out
+		    ac.TpLogError("Timeout waiting for connection!")
+		    MfreeconsLock.Unlock();
+		    return nil
+		}
+
+		//con = <-Mfreeconns
 
 		//Check that it is in connection hash list of opens
 		//Maybe some old stuff in channel left

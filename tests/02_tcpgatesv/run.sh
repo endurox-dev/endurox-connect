@@ -68,6 +68,7 @@ fi
 NROFCALLS=100
 COMMAND="nocon"
 xadmin stop -i 210
+xadmin stop -i 230
 
 # Flush connections
 sleep 1
@@ -79,7 +80,11 @@ if [[ $RET != 0 ]]; then
 	go_out 3
 fi
 
+
+# Try also Persistent-sync channel, should be the same error.
+
 xadmin start -i 210
+xadmin start -i 230
 sleep 1
 
 ################################################################################
@@ -132,24 +137,45 @@ if [[ $RET != 0 ]]; then
 fi
 
 ################################################################################
-# TODO: Persistent, Sync connection, call, timeout
-# Looks like server makes a response, well we do not need it...
+# Persistent, Sync connection, call, timeout
 ################################################################################
 COMMAND="corrtot"
 
 # Flush connections
 # This time will start from Passive side...
-testcl $COMMAND TCP_P_SYNC_P
+testcl $COMMAND TCP_P_SYNC_A
 RET=$?
 
 if [[ $RET != 0 ]]; then
-	echo "testcl $COMMAND TCP_P_SYNC_P failed"
+	echo "testcl $COMMAND TCP_P_SYNC_A failed"
 	go_out 7
 fi
 
 
 ################################################################################
-# TODO: Persistent, Sync connection, call, no-connection
+# Persistent, Sync connection, call, no-connection, try from Passive end.
+################################################################################
+NROFCALLS=100
+COMMAND="nocon"
+
+testcl $COMMAND $NROFCALLS TCP_P_SYNC_P
+RET=$?
+
+if [[ $RET != 0 ]]; then
+	echo "testcl $COMMAND $NROFCALLS TCP_P_SYNC_P failed"
+	go_out 9
+fi
+
+################################################################################
+# TODO: Nonpersistent, normal call
+################################################################################
+
+################################################################################
+# TODO: Nonpersistent, timeout
+################################################################################
+
+################################################################################
+# TODO: Nonpersistent, cannot connect
 ################################################################################
 
 

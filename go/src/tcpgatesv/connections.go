@@ -247,6 +247,7 @@ func GetConnectionByID(ac *atmi.ATMICtx, connid int64) *ExCon {
 
 		if ret == nil {
 			ac.TpLogError("Connection by id %d not found", connid)
+			return nil
 		}
 
 		MarkConnAsBusy(ret)
@@ -420,6 +421,7 @@ func HandleConnection(con *ExCon) {
 
 			block := MConWaiter[con.id_comp]
 			if nil != block {
+				ac.TpLogInfo("Wo get a waiter on this conn reply")
 				//Send to connection
 				MConWaiterMutex.Unlock()
 				//This will tell should we terminate or not...

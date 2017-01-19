@@ -251,6 +251,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 		var block DataBlock
 		var errA atmi.ATMIError
 
+		SetupDataBlock(&block)
 		block.data, errA = buf.BGetByteArr(u.EX_NETDATA, 0)
 
 		if nil != errA {
@@ -265,7 +266,6 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 		}
 
 		SetupConnection(&con)
-
 		block.corr = corr
 		block.atmi_out_conn_id = connid
 		block.tstamp_sent = exutil.GetEpochMillis()
@@ -308,6 +308,8 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 		con.outgoing <- &block
 
 		//6. Wait for reply
+		ac.TpFree(buf.GetBuf())
+
 		ac.TpLogInfo("Waiting for reply...")
 		buf = <-block.atmi_chan
 

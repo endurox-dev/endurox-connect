@@ -167,17 +167,52 @@ if [[ $RET != 0 ]]; then
 fi
 
 ################################################################################
-# TODO: Nonpersistent, normal call
+# Nonpersistent, normal call
 ################################################################################
+NROFCALLS=100
+# We can reuse same test case, it will return some data (but tcpgates will match with
+# connection id
+COMMAND="corr"
+
+# Flush connections
+# This time will start from Passive side...
+testcl $COMMAND $NROFCALLS TCP_NP_A
+RET=$?
+
+if [[ $RET != 0 ]]; then
+	echo "testcl $COMMAND $NROFCALLS TCP_NP_A failed"
+	go_out 10
+fi
+
 
 ################################################################################
-# TODO: Nonpersistent, timeout
+# Nonpersistent, timeout
 ################################################################################
+COMMAND="corrtot"
+
+# Flush connections
+# This time will start from Passive side...
+testcl $COMMAND TCP_NP_A
+RET=$?
+
+if [[ $RET != 0 ]]; then
+	echo "testcl $COMMAND TCP_NP_A failed"
+	go_out 11
+fi
 
 ################################################################################
-# TODO: Nonpersistent, cannot connect
+# Nonpersistent, cannot connect
 ################################################################################
+NROFCALLS=100
+COMMAND="nocon"
 
+testcl $COMMAND $NROFCALLS TCP_NP_P
+RET=$?
+
+if [[ $RET != 0 ]]; then
+	echo "testcl $COMMAND $NROFCALLS TCP_NP_P failed"
+	go_out 9
+fi
 
 xadmin stop -c -y
 

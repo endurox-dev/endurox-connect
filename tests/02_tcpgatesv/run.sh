@@ -214,6 +214,12 @@ if [[ $RET != 0 ]]; then
 	go_out 9
 fi
 
+################################################################################
+# TODO: Have some test where we overload the channel - i.e.
+# Send multiple requests to desitnation host, the all messages must be cleared ok
+# i.e. wait the connection from queue...
+################################################################################
+
 xadmin stop -c -y
 
 go_out 0

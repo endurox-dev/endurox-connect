@@ -15,6 +15,123 @@ import (
 */
 import "C"
 
+
+var Mdone chan bool
+
+func runMany(gw string, i int) {
+
+	ac, errA := atmi.NewATMICtx()
+
+	if nil != errA {
+		fmt.Fprintf(os.Stderr, "TESTERROR: Failed to allocate cotnext %d:%s!\n",
+			errA.Code(), errA.Message())
+		os.Exit(atmi.FAIL)
+	}
+
+	ba := make([]byte, 2048)
+
+	for i := 2; i < len(ba); i++ {
+		ba[i] = byte(i % 256)
+		//Avoid stx/etx for later tests
+		if ba[i] == 2 {
+			ba[i] = 5
+		}
+
+		if ba[i] == 3 {
+			ba[i] = 6
+		}
+	}
+
+	//OK Realloc buffer back
+	ub, errA := ac.NewUBF(3000)
+
+	if nil != errA {
+		ac.TpLogError("TESTERROR: Failed to allocate UBF buffer %d:%s",
+			errA.Code(), errA.Message())
+		os.Exit(atmi.FAIL)
+	}
+
+	//Test case with correlation
+	ba[0] = 'A' //Test case A
+	ba[1] = 'B' + byte(i%10)
+	ba[2] = 'C' + byte(i%10)
+	ba[3] = 'D' + byte(i%10)
+
+	correl := string(ba[:4])
+
+	ac.TpLogInfo("Built correlator [%s]", correl)
+
+	if errA := ub.BChg(u.EX_NETCORR, 0, correl); nil != errA {
+		ac.TpLogError("TESTERROR: Failed to set EX_NETCORR %d:%s",
+			errA.Code(), errA.Message())
+		Mdone <-false
+		return
+	}
+
+	if errA := ub.BChg(u.EX_NETDATA, 0, ba); nil != errA {
+		ac.TpLogError("TESTERROR: Failed to set EX_NETDATA %d:%s",
+			errA.Code(), errA.Message())
+		Mdone <-false
+		return
+	}
+
+	//The reply here kills the buffer,
+	//Thus we need a copy...
+	ub.TpLogPrintUBF(atmi.LOG_INFO, "Calling server")
+	if _, errA = ac.TpCall(gw, ub, 0); nil != errA {
+		ac.TpLogError("TESTERROR: Failed to call [%s] %d:%s",
+			gw, errA.Code(), errA.Message())
+		Mdone <-false
+		return
+	}
+
+	//The response should succeed
+	if rsp_code, err := ub.BGetInt(u.EX_NERROR_CODE, 0); nil != err {
+		ac.TpLogError("TESTERROR: Failed to get EX_NERROR_CODE: %s",
+			err.Message())
+		Mdone <-false
+		return
+	} else if rsp_code != 0 {
+		ac.TpLogError("TESTERROR: Response code must be 0 but got %d!",
+			rsp_code)
+		Mdone <-false
+		return
+	}
+
+	//Verify response
+	arrRsp, err := ub.BGetByteArr(u.EX_NETDATA, 0)
+
+	if err != nil {
+		ac.TpLogError("TESTERRO: Failed to get EX_NETDATA: %s", err.Message())
+		Mdone <-false
+		return
+	}
+
+	//Test the header in response, must match!
+	for i := 0; i < 4; i++ {
+		if arrRsp[i] != ba[i] {
+			ac.TpLogError("TESTERROR at index %d, expected %d got %d",
+				i, ba[i], arrRsp[i])
+			Mdone <-false
+			return
+		}
+	}
+
+	//Test the msg
+	for i := 4; i < len(ba); i++ {
+		exp := byte((int(ba[i]+1) % 256))
+		if arrRsp[i] != exp {
+			ac.TpLogError("TESTERROR at index %d, expected %d got %d",
+				i, exp, arrRsp[i])
+			Mdone <-false
+			return
+		}
+	}
+
+	Mdone <-true
+
+}
+
 //Run the listener
 func apprun(ac *atmi.ATMICtx) error {
 
@@ -105,6 +222,36 @@ func apprun(ac *atmi.ATMICtx) error {
 				ac.TpLogError("Failed to set EX_NETDATA %d:%s",
 					errA.Code(), errA.Message())
 				return errors.New(errA.Message())
+			}
+		}
+
+		break
+	case "corrsim":
+		ac.TpLogInfo("Command: [%s] 2", command)
+		if len(os.Args) < 4 {
+			return errors.New(fmt.Sprintf("Missing count: %s corrsim <count> <gateway>",
+				os.Args[0]))
+		}
+
+		nrOfTimes, err := strconv.Atoi(os.Args[2])
+
+		Mdone = make(chan bool, nrOfTimes)
+
+		gw := os.Args[3]
+
+		if err != nil {
+			return err
+		}
+
+		for i:=0; i<nrOfTimes; i++ {
+			go runMany(gw, i)
+		}
+
+		for i:=0; i<nrOfTimes; i++ {
+			result:=<-Mdone
+
+			if !result {
+				return errors.New(fmt.Sprintf("Thread %d failed", i))
 			}
 		}
 

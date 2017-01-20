@@ -219,6 +219,17 @@ fi
 # Send multiple requests to desitnation host, the all messages must be cleared ok
 # i.e. wait the connection from queue...
 ################################################################################
+NROFCALLS=100
+COMMAND="corrsim"
+
+testcl $COMMAND $NROFCALLS TCP_P_ASYNC_A
+RET=$?
+
+if [[ $RET != 0 ]]; then
+	echo "testcl $COMMAND $NROFCALLS TCP_P_ASYNC_A failed"
+	go_out 9
+fi
+
 
 xadmin stop -c -y
 

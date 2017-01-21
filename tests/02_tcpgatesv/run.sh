@@ -215,18 +215,19 @@ if [[ $RET != 0 ]]; then
 fi
 
 ################################################################################
-# TODO: Have some test where we overload the channel - i.e.
+# Have some test where we overload the channel - i.e.
 # Send multiple requests to desitnation host, the all messages must be cleared ok
 # i.e. wait the connection from queue...
 ################################################################################
-NROFCALLS=100
+# Number of calls depends on internal modulus, now 40... over the ascii table from A
+NROFCALLS=40
 COMMAND="corrsim"
 
-testcl $COMMAND $NROFCALLS TCP_P_ASYNC_A
+testcl $COMMAND $NROFCALLS TCP_P_ASYNC_P
 RET=$?
 
 if [[ $RET != 0 ]]; then
-	echo "testcl $COMMAND $NROFCALLS TCP_P_ASYNC_A failed"
+	echo "testcl $COMMAND $NROFCALLS TCP_P_ASYNC_P failed"
 	go_out 9
 fi
 

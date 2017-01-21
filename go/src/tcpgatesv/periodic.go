@@ -54,7 +54,7 @@ func RunZeroOverOpenCons(ac *atmi.ATMICtx) {
 				v.id, v.id_comp)
 
 			//Remove connection from free list
-			MarkConnAsBusy(v)
+			MarkConnAsBusy(ac, v)
 
 			//Send the data block.
 			v.outgoing <- p_block
@@ -189,7 +189,7 @@ func CheckTimeouts(ac *atmi.ATMICtx) atmi.ATMIError {
 					ac.TpLogInfo("Sending reply back to ATMI")
 					v.atmi_chan <- buf
 					ac.TpLogInfo("Sending reply back to ATMI, done")
-					
+
 					//Kill the connection, if non persistent
 					if MReqReply == RR_NONPERS_EX2NET ||
 						MReqReply == RR_PERS_CONN_EX2NET {

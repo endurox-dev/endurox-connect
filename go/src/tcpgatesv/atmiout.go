@@ -33,7 +33,6 @@ package main
 import (
 	"exutil"
 	u "ubftab"
-
 	atmi "github.com/endurox-dev/endurox-go"
 )
 
@@ -87,7 +86,8 @@ func GenErrorUBF(ac *atmi.ATMICtx, id_comp int64, code int, message string) (*at
 //@param nr	XATMI client number
 //@param ctxData	Context data for request
 //@param buf	ATMI buffer with request data
-func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf *atmi.TypedUBF) {
+func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
+	buf *atmi.TypedUBF, cd int) {
 
 	ret := SUCCEED
 	ac := pool.ctxs[nr]
@@ -96,9 +96,6 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 
 	defer func() {
 
-		//Put back the channel
-		pool.freechan <- nr
-
 		if SUCCEED == ret {
 			buf.TpLogPrintUBF(atmi.LOG_DEBUG, "Reply with SUCCEED")
 			ac.TpReturn(atmi.TPSUCCESS, 0, buf, 0)
@@ -106,10 +103,17 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 			buf.TpLogPrintUBF(atmi.LOG_DEBUG, "Reply with FAIL")
 			ac.TpReturn(atmi.TPFAIL, 0, buf, 0)
 		}
+
+		//Put back the channel
+		//!!!! MUST Be last, otherwise while tpreturn completes
+		//Other thread can take this object, and that makes race condition +
+		//Corrpuption !!!!
+		pool.freechan <- nr
 	}()
 
 	ac.TpLogInfo("About to restore context data in goroutine...")
 	ac.TpSrvSetCtxData(ctxData, 0)
+	ac.TpSrvFreeCtxData(ctxData) //missing bit...
 
 	//Change the buffer owning context
 	buf.GetBuf().TpSetCtxt(ac)
@@ -206,6 +210,9 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 				ac.TpFree(buf.GetBuf())
 
 				buf = <-block.atmi_chan
+
+				//Change the context of the buf back to ours...
+				buf.Buf.TpSetCtxt(ac)
 
 				//Remove waiter from lists...
 				ac.TpLogInfo("Got reply back")
@@ -312,6 +319,9 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA, buf 
 
 		ac.TpLogInfo("Waiting for reply...")
 		buf = <-block.atmi_chan
+
+		//Change the context of the buf back to ours...
+		buf.Buf.TpSetCtxt(ac)
 
 		ac.TpLogInfo("Got reply back")
 	} else {

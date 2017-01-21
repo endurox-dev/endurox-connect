@@ -38,6 +38,7 @@ import (
 	"os"
 	"sync"
 	"time"
+	"errors"
 
 	u "ubftab"
 
@@ -124,7 +125,7 @@ var MfreeconsLock sync.Mutex
 var MPassiveLisener net.Listener
 
 //Remove given connection from channel list (if found there)
-func MarkConnAsBusy(con *ExCon) {
+func MarkConnAsBusy(ac *atmi.ATMICtx, con *ExCon) {
 
 	connList := []*ExCon{}
 	in_list := true
@@ -132,7 +133,7 @@ func MarkConnAsBusy(con *ExCon) {
 
 	//So we need to pull all connections to the list
 	//Remove our selves
-	con.ctx.TpLogInfo("Removing connection %d/%d from Mfreeconns channel",
+	ac.TpLogInfo("Removing connection %d/%d from Mfreeconns channel",
 		con.id, con.id_comp)
 
 	for in_list {
@@ -142,11 +143,11 @@ func MarkConnAsBusy(con *ExCon) {
 
 			if tmp.id_comp != con.id_comp {
 				connList = append(connList, tmp)
-				con.ctx.TpLogDebug("Putting back %d/%d",
+				ac.TpLogDebug("Putting back %d/%d",
 					tmp.id, tmp.id_comp)
 
 			} else {
-				con.ctx.TpLogDebug("Removing connection %d/%d "+
+				ac.TpLogDebug("Removing connection %d/%d "+
 					"from Mfreeconns channel - found!",
 					con.id, con.id_comp)
 			}
@@ -159,12 +160,12 @@ func MarkConnAsBusy(con *ExCon) {
 
 	MfreeconsLock.Unlock()
 
-	con.ctx.TpLogInfo("Removal of connection %d/%d from Mfreeconns channel done",
+	ac.TpLogInfo("Removal of connection %d/%d from Mfreeconns channel done",
 		con.id, con.id_comp)
 
 	//Put all stuff back to channel (with out lock)
 	for _, element := range connList {
-		con.ctx.TpLogDebug("Adding connection %d/%d back to chan",
+		ac.TpLogDebug("Adding connection %d/%d back to chan",
 			element.id, element.id_comp)
 
 		Mfreeconns <- element
@@ -250,7 +251,7 @@ func GetConnectionByID(ac *atmi.ATMICtx, connid int64) *ExCon {
 			return nil
 		}
 
-		MarkConnAsBusy(ret)
+		MarkConnAsBusy(ac, ret)
 
 		return ret
 	} else {
@@ -264,7 +265,7 @@ func GetConnectionByID(ac *atmi.ATMICtx, connid int64) *ExCon {
 			ac.TpLogError("Connection by id %d not found", connid)
 		}
 
-		MarkConnAsBusy(ret)
+		MarkConnAsBusy(ac, ret)
 
 		return ret
 	}
@@ -333,24 +334,36 @@ func GetNewConnectionId(ac *atmi.ATMICtx) (int64, int64, int64) {
 
 // Start a goroutine to read from our net connection
 func ReadConData(con *ExCon, ch chan<- []byte, eCh chan<- error) {
+
+	//This guy also needs it's own atmi context
+	ac, err := atmi.NewATMICtx()
+
+	if nil != err {
+		fmt.Fprintf(os.Stderr, "Failed to allocate new context: %s\n",
+			err.Message())
+		eCh <- errors.New(fmt.Sprintf("Failed to allocate new context: %s\n",
+			err.Message()))
+		return
+	}
+
 	for {
 		// try to read the data
-		data, err := GetMessage(con)
+		data, err := GetMessage(ac, con)
 		if err != nil {
 			// send an error if it's encountered
-			con.ctx.TpLogInfo("conn %d got error: %s - sending to eCh",
+			ac.TpLogInfo("conn %d got error: %s - sending to eCh",
 				con.id_comp, err.Error())
 			eCh <- err
 			return
 		}
 
-		con.ctx.TpLogInfo("conn %d get message len: %d",
+		ac.TpLogInfo("conn %d get message len: %d",
 			con.id_comp, len(data))
 		if len(data) > 0 {
 			// send data if we read some.
 			ch <- data
 		} else {
-			con.ctx.TpLogInfo("conn %d zero length message - ignore",
+			ac.TpLogInfo("conn %d zero length message - ignore",
 				con.id_comp)
 		}
 	}
@@ -385,7 +398,7 @@ func HandleConnection(con *ExCon) {
 	 */
 
 	//Connection open...
-	NotifyStatus(con.ctx, con.id, FLAG_CON_ESTABLISHED)
+	NotifyStatus(ac, con.id, FLAG_CON_ESTABLISHED)
 
 	go ReadConData(con, dataIn, dataInErr)
 
@@ -417,7 +430,7 @@ func HandleConnection(con *ExCon) {
 
 			//Well we are busy here too, we shall remove our selves from
 			//Connection list...
-			MarkConnAsBusy(con)
+			MarkConnAsBusy(ac, con)
 
 			block := MConWaiter[con.id_comp]
 			if nil != block {
@@ -462,7 +475,8 @@ func HandleConnection(con *ExCon) {
 
 					if nil != block {
 						MCorrWaiterMutex.Unlock()
-						ac.TpLogInfo("Reply waiter found!")
+						ac.TpLogInfo("Reply waiter found! Waiting on corr [%s] got corr [%s]",
+						block.corr, inCorr)
 						NetDispatchCorAnswer(ac, con, block,
 							buf, &ok)
 						continue //<<< Continue!
@@ -483,7 +497,14 @@ func HandleConnection(con *ExCon) {
 			//Do the action which comes first...
 			//Or thread will wait until TPCALL terminates, and then do
 			//reply if socket will be still open...
-			go NetDispatchCall(ac, con, preAllocUBF, inCorr, dataIncoming)
+
+			//Well this guy looks like needs a handler from IN pool...
+
+			ac.TpLogInfo("Waiting for free XATMI-in object")
+			nr := getFreeXChan(ac, &MinXPool)
+			ac.TpLogInfo("Got XATMI in object")
+
+			go NetDispatchCall(&MinXPool, nr, con, preAllocUBF, inCorr, dataIncoming)
 
 			break
 		case err := <-dataInErr:
@@ -502,7 +523,7 @@ func HandleConnection(con *ExCon) {
 			//Thos conn is already locked to him.
 
 			//Send data away
-			if err := PutMessage(con, dataOutgoing.data); nil != err {
+			if err := PutMessage(ac, con, dataOutgoing.data); nil != err {
 				ac.TpLogError("Failed to send message to network"+
 					": %s - terminating", err)
 				ok = false
@@ -527,10 +548,10 @@ func HandleConnection(con *ExCon) {
 	MConnMutex.Unlock()
 
 	//Remove from channel
-	MarkConnAsBusy(con)
+	MarkConnAsBusy(ac, con)
 
 	//Connection closed...
-	NotifyStatus(con.ctx, con.id, FLAG_CON_DISCON)
+	NotifyStatus(ac, con.id, FLAG_CON_DISCON)
 
 }
 
@@ -563,7 +584,7 @@ func GoDial(con *ExCon, block *DataBlock) {
 		MConnMutex.Lock()
 
 		if nil != con.ctx {
-			con.ctx.TpLogWarn("Terminating connection object: id=%d, "+
+			ac.TpLogWarn("Terminating connection object: id=%d, "+
 				"tstamp=%d, id_comp=%d", con.id, con.id_stamp, con.id_comp)
 		}
 		MConnMutex.Unlock()
@@ -576,7 +597,7 @@ func GoDial(con *ExCon, block *DataBlock) {
 		return
 	}
 
-	con.ctx.TpLogWarn("Connection id=%d, "+
+	ac.TpLogWarn("Connection id=%d, "+
 		"tstamp=%d, id_comp=%d doing connect to: %s", con.id, con.id_stamp, con.id_comp, MAddr)
 
 	//Get the ATMI Context
@@ -584,7 +605,7 @@ func GoDial(con *ExCon, block *DataBlock) {
 
 	if err != nil {
 		// handle error
-		con.ctx.TpLogError("Failed to connect to [%s]:%s", MAddr, err)
+		ac.TpLogError("Failed to connect to [%s]:%s", MAddr, err)
 
 		//Remove connection from hashes
 		MConnMutex.Lock()

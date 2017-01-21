@@ -143,8 +143,10 @@ func TCPGATE(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 		return
 	}
 
+        ac.TpLogInfo("Waiting for free XATMI out object")
 	nr := getFreeXChan(ac, &MoutXPool)
-	go XATMIDispatchCall(&MoutXPool, nr, ctxData, ub)
+        ac.TpLogInfo("Got XATMI out object")
+	go XATMIDispatchCall(&MoutXPool, nr, ctxData, ub, svc.Cd)
 
 	//runtime.GC()
 
@@ -203,6 +205,7 @@ func Init(ac *atmi.ATMICtx) int {
 					"processed by default OS handler")
 				// Have some core dumps...
 				C.signal(11, nil)
+				C.signal(6, nil)
 			}
 			break
 		case "workers_out":

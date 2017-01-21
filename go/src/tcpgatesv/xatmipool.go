@@ -100,5 +100,7 @@ func getFreeXChan(ac *atmi.ATMICtx, pool *XATMIPool) int {
 
 	pool.freechansync.Unlock()
 
+	ac.TpLogInfo("Got free XATMI out object id=%d ", nr)
+
 	return nr
 }

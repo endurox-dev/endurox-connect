@@ -89,10 +89,19 @@ func AllocReplyDataBuffer(ac *atmi.ATMICtx, con *ExCon, corr string, data []byte
 //This should be run on go routine.
 //@param data 	Data received from Network
 //@param bool	set to false if do not need to continue (i.e. close conn)
-func NetDispatchCall(ac *atmi.ATMICtx, con *ExCon,
+func NetDispatchCall(pool *XATMIPool, nr int, con *ExCon,
 	preAllocUBF *atmi.TypedUBF, corr string, data []byte) {
 
 	buf := preAllocUBF
+	ac := pool.ctxs[nr]
+
+	//Return to the caller
+	defer func() {
+		ac.TpLogInfo("About to put back XATMI-in object %d", nr)
+		//put batch in channel
+		pool.freechan <- nr
+	}()
+
 	var errA atmi.ATMIError
 	//Setup UBF buffer, load the fields
 	if nil == buf {
@@ -103,6 +112,9 @@ func NetDispatchCall(ac *atmi.ATMICtx, con *ExCon,
 				errA.Message())
 			return
 		}
+	} else {
+		//Set the current context of the buffer
+		buf.GetBuf().TpSetCtxt(ac)
 	}
 
 	//OK we are here, lets call the service
@@ -149,6 +161,8 @@ func NetDispatchCall(ac *atmi.ATMICtx, con *ExCon,
 			}
 		}
 	}
+
+
 }
 
 //Dispatch connection answer

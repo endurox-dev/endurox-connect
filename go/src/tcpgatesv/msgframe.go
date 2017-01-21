@@ -127,8 +127,8 @@ func ConfigureNumberOfBytes(ac *atmi.ATMICtx) error {
 //Read the message from connection
 //@param con 	Connection handler
 //@return <Binary message read>, <Error or nil>
-func GetMessage(con *ExCon) ([]byte, error) {
-	ac := con.ctx
+func GetMessage(ac *atmi.ATMICtx, con *ExCon) ([]byte, error) {
+
 	if MFramingLen > 0 {
 
 		header := make([]byte, MFramingLen)
@@ -282,9 +282,7 @@ func GetMessage(con *ExCon) ([]byte, error) {
 }
 
 //Put message on socket
-func PutMessage(con *ExCon, data []byte) error {
-
-	ac := con.ctx
+func PutMessage(ac *atmi.ATMICtx, con *ExCon, data []byte) error {
 
 	ac.TpLogInfo("Building outgoing message: len %d", MFramingLen)
 

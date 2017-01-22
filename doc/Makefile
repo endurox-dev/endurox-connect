@@ -41,13 +41,15 @@ GRAPHS  := $(patsubst %.dia, %.png, $(SOURCES_GRAPHS))
 $(info $$SOURCES_GRAPHS is [${SOURCES_GRAPHS}])
 $(info $$GRAPHS is [${GRAPHS}])
 
+.DEFAULT_GOAL := all
+
 check_asciidoc: 
 	@type a2x >/dev/null 2>&1 || echo "Missing asciidoc - docs will not built"
 
 check_dia: 
 	@type dia >/dev/null 2>&1 || echo "Missing asciidoc - docs will not built"
 
-all: check_sciidoc check_dia $(DOCS) 
+all: check_asciidoc check_dia $(DOCS)
 
 #
 # Do not remove images

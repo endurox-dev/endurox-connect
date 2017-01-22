@@ -126,8 +126,6 @@ NROFCALLS=100
 # connection id
 COMMAND="corr"
 
-# Flush connections
-# This time will start from Passive side...
 testcl $COMMAND $NROFCALLS TCP_P_SYNC_A
 RET=$?
 
@@ -141,8 +139,6 @@ fi
 ################################################################################
 COMMAND="corrtot"
 
-# Flush connections
-# This time will start from Passive side...
 testcl $COMMAND TCP_P_SYNC_A
 RET=$?
 
@@ -211,7 +207,7 @@ RET=$?
 
 if [[ $RET != 0 ]]; then
 	echo "testcl $COMMAND $NROFCALLS TCP_NP_P failed"
-	go_out 9
+	go_out 12
 fi
 
 ################################################################################
@@ -228,9 +224,39 @@ RET=$?
 
 if [[ $RET != 0 ]]; then
 	echo "testcl $COMMAND $NROFCALLS TCP_P_ASYNC_P failed"
-	go_out 9
+	go_out 13
 fi
 
+################################################################################
+# have some batch callers to non persistant connections
+# They all should complete ok.
+################################################################################
+# Number of calls depends on internal modulus, now 40... over the ascii table from A
+NROFCALLS=40
+COMMAND="corrsim"
+
+testcl $COMMAND $NROFCALLS TCP_NP_A
+RET=$?
+
+if [[ $RET != 0 ]]; then
+	echo "testcl $COMMAND $NROFCALLS TCP_NP_A failed"
+	go_out 14
+fi
+
+################################################################################
+# TODO: Same test for sync mode
+################################################################################
+# Number of calls depends on internal modulus, now 40... over the ascii table from A
+NROFCALLS=40
+COMMAND="corrsim"
+
+testcl $COMMAND $NROFCALLS TCP_P_SYNC_A
+RET=$?
+
+if [[ $RET != 0 ]]; then
+	echo "testcl $COMMAND $NROFCALLS TCP_P_SYNC_A failed"
+	go_out 15
+fi
 
 xadmin stop -c -y
 

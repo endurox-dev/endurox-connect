@@ -408,6 +408,15 @@ func Init(ac *atmi.ATMICtx) int {
 				" cannot be used with req_reply type %d", MReqReply)
 			return FAIL
 		}
+
+		if int64(MWorkersOut) > MMaxConnections {
+			ac.TpLogError("In request/reply mode %d `workers_out' "+
+				"must be equal or lower to `max_connections', but "+
+				"got workers_out (%d) > max_connections (%d). "+
+				"Recommended: max_connections=workers_out*2",
+				MReqReply, MWorkersOut, MMaxConnections)
+			return FAIL
+		}
 	} else if MReqReply == RR_NONPERS_NET2EX {
 		ac.TpLogInfo("Non-persistent connections: Synchronous, Network requests Enduro/X")
 		if MType != CON_TYPE_PASSIVE {

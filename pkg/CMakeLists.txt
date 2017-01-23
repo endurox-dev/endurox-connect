@@ -32,7 +32,7 @@
 
 cmake_minimum_required (VERSION 2.6) 
 project (ENDUROXCONNECT) 
-set(VERSION "1.0.0")
+set(VERSION "1.0.1")
 set(PROJ_NAME "Enduro/X Connectivity Module")
 set(RELEASE "1")
 

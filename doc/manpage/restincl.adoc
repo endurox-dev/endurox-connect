@@ -15,6 +15,7 @@ SYNOPSIS
 
 DESCRIPTION
 -----------
+
 This is XATMI client which accepts HTTP/HTTPS REST requests, calls the XATMI server
 specified in configuration. The binary works with go routines (very cheap threads).
 But the number of concurrent invocations to XATMI sub-system is limited by *workers*
@@ -102,22 +103,66 @@ In case if multiple REST-IN handlers are needed with different binding IP/PORTS/
 settings. it is possible to use *NDRX_CCTAG* setting (environment or in client
 process monitor configuration).
 
-The JSON2UBF invocation of the service would look like:
+Next sections will describe supported buffer formats and it's handling in the
+Enduro/X.
+
+Conversion buffer type: 'json2ubf' - JSON converted to UBF message handling
+---------------------------------------------------------------------------
+
+With 'JSON2UBF' mode, it is expected that configured web service will receive JSON
+document formatted in one level, where basically data is encode in key:value
+format. Array's types is supported. The array elements are loaded into UBF buffer
+field occurrences. The BLOB elements are encoded as Base64 data and are loaded
+into UBF buffer's BFLD_CARRAY typed fields in decoded (binary form). If target field
+is not BFLD_CARRAY, then it is treated as string data and loaded into field via
+conversion functions.
+
+
+The JSON2UBF POST REST data of service invocation of would look like:
 
 --------------------------------------------------------------------------------
-
-...
-
+{
+	"T_CHAR_FLD":"A",
+	"T_SHORT_FLD":123,
+	"T_LONG_FLD":444444444,
+	"T_FLOAT_FLD":1.33,
+	"T_DOUBLE_FLD":4444.3333,
+	"T_STRING_FLD":["HELLO", "WORLD"],
+	"T_CARRAY_FLD":"SGVsbG8="
+}
 --------------------------------------------------------------------------------
 
-And the response message would look like:
+That would be converted into following UBF buffer:
 
 --------------------------------------------------------------------------------
-
-...
-
+T_CHAR_FLD	A
+T_SHORT_FLD	123
+T_LONG_FLD	444444444
+T_FLOAT_FLD	1.33
+T_DOUBLE_FLD	4444.3333
+T_STRING_FLD	HELLO
+T_STRING_FLD	WORLD
+T_CARRAY_FLD	Hello
 --------------------------------------------------------------------------------
 
+When response is generated for caller, the UBF buffer coming back from Enduro/X IPC
+would be in the same JSON format as in request - single level JSON document with
+arrays if necessary i.e. hvae multiple occurrences for field.
+
+The 'restincl' for incoming data does not check the MIME type, but in response
+MIME type will be set to: <TODO>
+
+
+Conversion buffer type: 'json' - Direct JSON buffer
+---------------------------------------------------
+
+In this case JSON text is received in POST message and buffer is loaded into XATMI
+buffer type 'JSON'. Buffer is sent to target service. It is expected that target
+service will respond with valid JSON text back which is returned in HTTP response.
+
+
+Conversion buffer type: 'text' - Arbitrary text message
+-------------------------------------------------------
 
 
 

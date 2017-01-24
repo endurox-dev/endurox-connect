@@ -134,9 +134,17 @@ func runMany(gw string, n int) {
 		}
 	}
 
-	/* Test the msg - no need for this.
 	for i := 4; i < len(ba); i++ {
 		exp := byte((int(ba[i]+1) % 256))
+        //Avoid stx/etx for later tests
+        if exp == 2 {
+            exp = 5
+        }
+
+        if exp == 3 {
+            exp = 6
+        }
+
 		if arrRsp[i] != exp {
 			ac.TpLogError("TESTERROR at index %d, expected %d got %d",
 				i, exp, arrRsp[i])
@@ -144,8 +152,6 @@ func runMany(gw string, n int) {
 			return
 		}
 	}
-	*/
-
 
 	ac.TpLogInfo("#%d done..", n)
 
@@ -387,6 +393,16 @@ func apprun(ac *atmi.ATMICtx) error {
 			//Test the msg
 			for i := 4; i < len(ba); i++ {
 				exp := byte((int(ba[i]+1) % 256))
+
+                //Avoid stx/etx for later tests
+                if exp == 2 {
+                    exp = 5
+                }
+
+                if exp == 3 {
+                    exp = 6
+                }
+
 				if arrRsp[i] != exp {
 					ac.TpLogError("TESTERROR at index %d, expected %d got %d",
 						i, exp, arrRsp[i])

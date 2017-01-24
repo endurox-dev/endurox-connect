@@ -250,7 +250,7 @@ fi
 NROFCALLS=40
 COMMAND="corrsim"
 
-testcl $COMMAND $NROFCALLS TCP_P_SYNC_A
+#testcl $COMMAND $NROFCALLS TCP_P_SYNC_A
 RET=$?
 
 if [[ $RET != 0 ]]; then

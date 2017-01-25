@@ -94,8 +94,11 @@ func CheckDial(ac *atmi.ATMICtx) {
 		}
 
 		//2. Add to hash
+		/*
+		mvitolin 2017/01/25 do it when connection is established in GoDial
 		MConnectionsSimple[con.id] = &con
 		MConnectionsComp[con.id_comp] = &con
+		*/
 		MConnMutex.Unlock()
 
 		//3. and spawn the routine...

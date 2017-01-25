@@ -32,13 +32,13 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"exutil"
 	"fmt"
 	"net"
 	"os"
 	"sync"
 	"time"
-	"errors"
 
 	u "ubftab"
 
@@ -185,22 +185,22 @@ func GetOpenConnection(ac *atmi.ATMICtx) *ExCon {
 	ac.TpLogInfo("GetOpenConnection: Setting alarm clock to: %d", MConnWaitTime)
 	timeout := make(chan bool, 1)
 	go func() {
-	    time.Sleep(time.Second * time.Duration(MConnWaitTime))
-	    timeout <- true
+		time.Sleep(time.Second * time.Duration(MConnWaitTime))
+		timeout <- true
 	}()
 
 	for !ok {
 
 		select {
 		case con = <-Mfreeconns:
-		    // a read from ch has occurred
-		    ac.TpLogInfo("Got connection object %d/%d",
-			    con.id, con.id_comp)
+			// a read from ch has occurred
+			ac.TpLogInfo("Got connection object %d/%d",
+				con.id, con.id_comp)
 		case <-timeout:
-		    // the read from ch has timed out
-		    ac.TpLogError("Timeout waiting for connection!")
-		    MfreeconsLock.Unlock();
-		    return nil
+			// the read from ch has timed out
+			ac.TpLogError("Timeout waiting for connection!")
+			MfreeconsLock.Unlock()
+			return nil
 		}
 
 		//con = <-Mfreeconns
@@ -476,7 +476,7 @@ func HandleConnection(con *ExCon) {
 					if nil != block {
 						MCorrWaiterMutex.Unlock()
 						ac.TpLogInfo("Reply waiter found! Waiting on corr [%s] got corr [%s]",
-						block.corr, inCorr)
+							block.corr, inCorr)
 						NetDispatchCorAnswer(ac, con, block,
 							buf, &ok)
 						continue //<<< Continue!
@@ -608,11 +608,13 @@ func GoDial(con *ExCon, block *DataBlock) {
 		ac.TpLogError("Failed to connect to [%s]:%s", MAddr, err)
 
 		//Remove connection from hashes
-		MConnMutex.Lock()
-		delete(MConnectionsSimple, con.id)
-		delete(MConnectionsComp, con.id_comp)
-		MConnMutex.Unlock()
-
+		/*
+			Not in let yet
+			MConnMutex.Lock()
+			delete(MConnectionsSimple, con.id)
+			delete(MConnectionsComp, con.id_comp)
+			MConnMutex.Unlock()
+		*/
 		//Generate erro buffer
 		if block != nil {
 			if rply_buf, _ := GenErrorUBF(ac, 0, atmi.NENOCONN,
@@ -624,6 +626,12 @@ func GoDial(con *ExCon, block *DataBlock) {
 	}
 
 	ac.TpLogInfo("Marking connection %d/%d as open", con.id, con.id_comp)
+
+	MConnMutex.Lock()
+	MConnectionsSimple[con.id] = con
+	MConnectionsComp[con.id_comp] = con
+	MConnMutex.Unlock()
+
 	con.is_open = true
 
 	//Have buffered read/write API to socket

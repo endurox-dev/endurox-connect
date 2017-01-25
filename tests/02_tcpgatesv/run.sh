@@ -10,6 +10,8 @@ rm runtime/log/* 2>/dev/null
 
 cd runtime
 
+
+NUMCALL=100
 #
 # Generic exit function
 #
@@ -41,7 +43,7 @@ sleep 2
 ################################################################################
 # Run async calls
 ################################################################################
-NROFCALLS=100
+NROFCALLS=$NUMCALL
 COMMAND="async_call"
 testcl async_call $NROFCALLS TCP_P_ASYNC_A
 RET=$?
@@ -52,7 +54,7 @@ if [[ $RET != 0 ]]; then
 fi
 
 # Let connections to complete as we go async!
-sleep 2
+sleep 60
 
 # Check that given count of reponses are generated...
 CNT=`grep "Test case 11 OK" log/testsv.log | wc | awk '{print $1}'`
@@ -65,7 +67,7 @@ fi
 ################################################################################
 # No connection
 ################################################################################
-NROFCALLS=100
+NROFCALLS=$NUMCALL
 COMMAND="nocon"
 xadmin stop -i 210
 xadmin stop -i 230
@@ -90,7 +92,7 @@ sleep 1
 ################################################################################
 # Run Correlation...
 ################################################################################
-NROFCALLS=100
+NROFCALLS=$NUMCALL
 COMMAND="corr"
 
 # Flush connections
@@ -121,7 +123,7 @@ fi
 ################################################################################
 # Persistent, Sync connection, call
 ################################################################################
-NROFCALLS=100
+NROFCALLS=$NUMCALL
 # We can reuse same test case, it will return some data (but tcpgates will match with
 # connection id
 COMMAND="corr"
@@ -151,7 +153,7 @@ fi
 ################################################################################
 # Persistent, Sync connection, call, no-connection, try from Passive end.
 ################################################################################
-NROFCALLS=100
+NROFCALLS=$NUMCALL
 COMMAND="nocon"
 
 testcl $COMMAND $NROFCALLS TCP_P_SYNC_P
@@ -165,7 +167,7 @@ fi
 ################################################################################
 # Nonpersistent, normal call
 ################################################################################
-NROFCALLS=100
+NROFCALLS=$NUMCALL
 # We can reuse same test case, it will return some data (but tcpgates will match with
 # connection id
 COMMAND="corr"
@@ -199,7 +201,7 @@ fi
 ################################################################################
 # Nonpersistent, cannot connect
 ################################################################################
-NROFCALLS=100
+NROFCALLS=$NUMCALL
 COMMAND="nocon"
 
 testcl $COMMAND $NROFCALLS TCP_NP_P

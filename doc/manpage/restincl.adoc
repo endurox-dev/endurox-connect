@@ -167,12 +167,60 @@ is generated as pure string, with MIME set to 'text/plain'.
 
 
 Conversion buffer type: 'raw' - BLOB message
--------------------------------------------------------
+--------------------------------------------
 In this case arbitrary binary (BLOB) data is received from POST message. 
 The BLOB is loaded inti 'CARRAY' typed buffer and destination service is invoked
 with this buffer. If service invocation is success, then the received BLOB message
 from XATMI sub-system is returned to caller. In this case response will be generated
 as 'application/octet-stream'.
+
+
+Error handling type: 'http' - return error codes in HTTP protocol
+-----------------------------------------------------------------
+With this error handling method, the error codes are returned within HTTP protocol.
+The error code can be mapped from XATMI subsystem to HTTP codes by using 
+'errors_fmt_http_map' parameter in service or 'default' parameter block. The default
+mapping which is set if 'errors_fmt_http_map' is not present, is following:
+
+. atmi.TPMINVAL ()=  http.StatusOK
+. atmi.TPEABORT ()= http.StatusInternalServerError
+. atmi.TPEBADDESC ()=  http.StatusBadRequest
+. atmi.TPEBLOCK ()=  http.StatusInternalServerError
+. atmi.TPEINVAL ()=  http.StatusBadRequest
+. atmi.TPELIMIT() =  http.StatusRequestEntityTooLarge
+. atmi.TPENOENT ()=  http.StatusNotFound
+. atmi.TPEOS ()=  http.StatusInternalServerError
+. atmi.TPEPERM ()=  http.StatusUnauthorized
+. atmi.TPEPROTO ()=  http.StatusBadRequest
+. atmi.TPESVCERR ()=  http.StatusBadGateway
+. atmi.TPESVCFAIL ()=  http.StatusInternalServerError
+. atmi.TPESYSTEM ()=  http.StatusInternalServerError
+. atmi.TPETIME ()=  http.StatusGatewayTimeout
+. atmi.TPETRAN ()=  http.StatusInternalServerError
+. atmi.TPERMERR ()=  http.StatusInternalServerError
+. atmi.TPEITYPE ()=  http.StatusInternalServerError
+. atmi.TPEOTYPE ()=  http.StatusInternalServerError
+. atmi.TPERELEASE ()=  http.StatusInternalServerError
+. atmi.TPEHAZARD ()=  http.StatusInternalServerError
+. atmi.TPEHEURISTIC ()=  http.StatusInternalServerError
+. atmi.TPEEVENT ()=  http.StatusInternalServerError
+. atmi.TPEMATCH ()=  http.StatusInternalServerError
+. atmi.TPEDIAGNOSTIC ()=  http.StatusInternalServerError
+. atmi.TPEMIB ()=  http.StatusInternalServerError
+. Anything else (\*) = http.StatusInternalServerError
+
+
+Error handling type: 'json' - response code embedded JSON response message
+--------------------------------------------------------------------------
+TODO:
+
+Error handling type: 'json2ubf' - UBF format field in JSON response message
+---------------------------------------------------------------------------
+TODO:
+
+Error handling type: 'text' - Free format text error code and message
+---------------------------------------------------------------------
+TODO:
 
 
 CONFIGURATION
@@ -198,15 +246,15 @@ The default value is *0* which means use default Golang panic handling mechanism
 
 *tls_enable* = 'ENABLE_HTTPS'::
 With this setting set to *1*, HTTPS will be enabled. Default value is *0*. To complete
-the HTTPS activation, configuration flags *tls_cert_file* and *tls_key_file* must
+the HTTPS activation, configuration flags 'tls_cert_file' and 'tls_key_file' must
 be set too. Otherwise program will run in HTTP mode.
 
 *defaults* = 'SERVICE_CONFIGURATION_JSON*::
 This is JSON string (can be multiline), setting the defaults for the services. It
 is basically a service descriptor which is used as base configuration for services.
-Once the service is being setup, firstly it uses this *defaults* config block and
+Once the service is being setup, firstly it uses this 'defaults' config block and
 then overrides it by additional flags in service definition block. The details
-within the JSON are described in bellow section "SERVICE CONFIGURATION.
+within the JSON are described in bellow section *SERVICE CONFIGURATION*.
 
 */some/service/url* = 'SERVICE_CONFIGURATION_JSON*::
 This is the same configuration as for *default*, but describes the service route.
@@ -221,12 +269,13 @@ wait for service to complete or receive XATMI time-out. If service completes, th
 response is generated back to caller in configured format (conv parameter). If
 service fails or times-out. The error is returned. Depending on error handling
 mode (*errors* parameter), the data buffer can be returned too, including the 
-erroneous buffer data, because XATMI services at application level errors 'TPESVCFAIL'
+erroneous buffer data, because XATMI services at application level errors *TPESVCFAIL*
 returns the data buffer from service even the error occurred. The data is returned
-with error in case of following error handling methods: 'http', 'json', 'json2ubf'.
+with error in case of following error handling methods: *http*, *json*, *json2ubf*.
 
 *errors* = 'ERROR_HANDLING'::
-The parameter can be set to following values '
+The parameter can be set to following values *http*, *json*, *json2ubf* and *text*.
+See the working modes of each of the modes in above text.
 
 *notime* = 'NO_TIMEOUT'::
 .
@@ -279,7 +328,7 @@ Report bugs to madars.vitolins@gmail.com
 
 SEE ALSO
 --------
-*xadmin(8)*
+*restoutsv(8)*
 
 AUTHOR
 ------
@@ -288,5 +337,5 @@ Enduro/X is created by Madars Vitolins.
 
 COPYING
 -------
-(C) Madars Vitolins
+(C) Mavimax SIA
 

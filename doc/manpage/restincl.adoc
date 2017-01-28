@@ -297,13 +297,23 @@ The parameter can be set to following values *http*, *json*, *json2ubf* and *tex
 See the working modes of each of the modes in above text.
 
 *notime* = 'NO_TIMEOUT'::
-.
+Set value to *1* if service call shall be run with out XATMI sub-system tpcall()
+timeout value. Default is *0*, meaning that standard timeout settings applies on
+the destination service call.
 
 *errfmt_text* = 'TEXT_BUFFER_ERROR_FORMAT_STRING'::
-.
+Format string for buffer to return in case if destination service invocation fails.
+Format text will be invoked with "%d" representing the error code and then with
+"%s" prepresenting the error message. This error string is used in case if
+'errors' parameter is set to *text*. The format string will be used only in case
+of tpcall error. If no error occurs, then service answer message is returned.
+If case if asyncrhouns invocation is done to service ('async' param set to *1*),
+the format string will be used, the status code will be returned, including 0
+if *tpacall(3)* did succeed.
 
 *errfmt_json_msg* = 'JSON_BUFFER_ERROR_FORMAT_STRING_MESSAGE'::
-.
+Json error message format string. Normally this would be set to json field like
+syntax. This field is used in case if 'errors' parameter is set to *json*.
 
 *errfmt_json_code* = 'JSON_BUFFER_ERROR_FORMAT_STRING_CODE'::
 .

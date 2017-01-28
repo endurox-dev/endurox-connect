@@ -182,37 +182,49 @@ The error code can be mapped from XATMI subsystem to HTTP codes by using
 'errors_fmt_http_map' parameter in service or 'default' parameter block. The default
 mapping which is set if 'errors_fmt_http_map' is not present, is following:
 
-. atmi.TPMINVAL ()=  http.StatusOK
-. atmi.TPEABORT ()= http.StatusInternalServerError
-. atmi.TPEBADDESC ()=  http.StatusBadRequest
-. atmi.TPEBLOCK ()=  http.StatusInternalServerError
-. atmi.TPEINVAL ()=  http.StatusBadRequest
-. atmi.TPELIMIT() =  http.StatusRequestEntityTooLarge
-. atmi.TPENOENT ()=  http.StatusNotFound
-. atmi.TPEOS ()=  http.StatusInternalServerError
-. atmi.TPEPERM ()=  http.StatusUnauthorized
-. atmi.TPEPROTO ()=  http.StatusBadRequest
-. atmi.TPESVCERR ()=  http.StatusBadGateway
-. atmi.TPESVCFAIL ()=  http.StatusInternalServerError
-. atmi.TPESYSTEM ()=  http.StatusInternalServerError
-. atmi.TPETIME ()=  http.StatusGatewayTimeout
-. atmi.TPETRAN ()=  http.StatusInternalServerError
-. atmi.TPERMERR ()=  http.StatusInternalServerError
-. atmi.TPEITYPE ()=  http.StatusInternalServerError
-. atmi.TPEOTYPE ()=  http.StatusInternalServerError
-. atmi.TPERELEASE ()=  http.StatusInternalServerError
-. atmi.TPEHAZARD ()=  http.StatusInternalServerError
-. atmi.TPEHEURISTIC ()=  http.StatusInternalServerError
-. atmi.TPEEVENT ()=  http.StatusInternalServerError
-. atmi.TPEMATCH ()=  http.StatusInternalServerError
-. atmi.TPEDIAGNOSTIC ()=  http.StatusInternalServerError
-. atmi.TPEMIB ()=  http.StatusInternalServerError
-. Anything else (\*) = http.StatusInternalServerError
-
+. atmi.TPMINVAL (0) =  http.StatusOK (200)
+. atmi.TPEABORT (1) = http.StatusInternalServerError (500)
+. atmi.TPEBADDESC (2) =  http.StatusBadRequest (400)
+. atmi.TPEBLOCK (3) =  http.StatusInternalServerError (500)
+. atmi.TPEINVAL (4) =  http.StatusBadRequest (400)
+. atmi.TPELIMIT(5) =  http.StatusRequestEntityTooLarge (413)
+. atmi.TPENOENT (6) =  http.StatusNotFound (404)
+. atmi.TPEOS (7) =  http.StatusInternalServerError (500)
+. atmi.TPEPERM (8) =  http.StatusUnauthorized (401)
+. atmi.TPEPROTO (9) =  http.StatusBadRequest (400)
+. atmi.TPESVCERR (10) =  http.StatusBadGateway (502)
+. atmi.TPESVCFAIL (11) =  http.StatusInternalServerError (500)
+. atmi.TPESYSTEM (12) =  http.StatusInternalServerError (500)
+. atmi.TPETIME (13) =  http.StatusGatewayTimeout (504)
+. atmi.TPETRAN (14) =  http.StatusInternalServerError (500)
+. atmi.TPERMERR (16) =  http.StatusInternalServerError (500)
+. atmi.TPEITYPE (17) =  http.StatusInternalServerError (500)
+. atmi.TPEOTYPE (18) =  http.StatusInternalServerError (500)
+. atmi.TPERELEASE (19) =  http.StatusInternalServerError (500)
+. atmi.TPEHAZARD (20) =  http.StatusInternalServerError (500)
+. atmi.TPEHEURISTIC (21) =  http.StatusInternalServerError (500)
+. atmi.TPEEVENT (22) =  http.StatusInternalServerError (500)
+. atmi.TPEMATCH (23) =  http.StatusInternalServerError (500)
+. atmi.TPEDIAGNOSTIC (24) =  http.StatusInternalServerError (500)
+. atmi.TPEMIB (25) =  http.StatusInternalServerError (500)
+. Anything else (\*) = http.StatusInternalServerError (500)
 
 Error handling type: 'json' - response code embedded JSON response message
 --------------------------------------------------------------------------
-TODO:
+This is suitable for 'json' and 'json2ubf' buffer types. On response the JSON
+block is appended at then end with two fields. The fields are set with format
+string *%s* for error message in 'errfmt_json_msg' parameter, for example 
+*"error_message":"%s"*. The error code format is set with *%d* in 'errfmt_json_code'
+parameter, for example: *"error_code":%d*. The error codes are XATMI standard defined
+in xatmi.h. For example if calling JSON service and call times out, then response
+will be look like:
+
+--------------------------------------------------------------------------------
+
+{"error_code":13,"error_message":"13:TPETIME (last error 13: ndrx_mq_receive failed: Connection timed out)"}
+
+--------------------------------------------------------------------------------
+
 
 Error handling type: 'json2ubf' - UBF format field in JSON response message
 ---------------------------------------------------------------------------

@@ -95,7 +95,6 @@ const (
 	ERRFMT_JSON_CODE_DEFAULT   = "\"error_code\":%d"
 	ERRFMT_JSON_ONSUCC_DEFAULT = true /* generate success message in JSON */
 	ERRFMT_TEXT_DEFAULT        = "%d: %s"
-	ERRFMT_RAW_DEFAULT         = "%d: %s"
 	ASYNCCALL_DEFAULT          = false
 	WORKERS                    = 10 /* Number of worker processes */
 )

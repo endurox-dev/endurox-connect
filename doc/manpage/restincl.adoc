@@ -228,11 +228,18 @@ will be look like:
 
 Error handling type: 'json2ubf' - UBF format field in JSON response message
 ---------------------------------------------------------------------------
-TODO:
+With this error handling mechanisms, which is suitable for 'JSON2UBF' buffer 
+conversion mode, the error message is loaded into top level JSON field 'EX_IF_ECODE'
+and error message is loaded into 'EX_IF_EMSG' field. This is suitable in case if
+using *restout* on the other Enduor/X server to bridge the servers using HTTP/Rest
+method.
 
 Error handling type: 'text' - Free format text error code and message
 ---------------------------------------------------------------------
-TODO:
+The error code and message is generated in free form text which is provided by
+'errfmt_text' service parameter block field. The first parameter in format string
+must be '%d' - for XATMI error, and next parameter in format string must be '%s'-
+for error message. For example 'errfmt_text' could be set to *%d: %s*.
 
 
 CONFIGURATION

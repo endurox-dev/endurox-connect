@@ -5,7 +5,7 @@ RESTINCL(8)
 
 NAME
 ----
-restincl - EnduroX HTTP REST incoming call handler (HTTP Server, XATMI Client)
+restincl - Enduro/X HTTP REST incoming call handler (HTTP Server, XATMI Client)
 
 
 SYNOPSIS
@@ -304,19 +304,23 @@ the destination service call.
 *errfmt_text* = 'TEXT_BUFFER_ERROR_FORMAT_STRING'::
 Format string for buffer to return in case if destination service invocation fails.
 Format text will be invoked with "%d" representing the error code and then with
-"%s" prepresenting the error message. This error string is used in case if
+"%s" representing the error message. This error string is used in case if
 'errors' parameter is set to *text*. The format string will be used only in case
-of tpcall error. If no error occurs, then service answer message is returned.
-If case if asyncrhouns invocation is done to service ('async' param set to *1*),
+of tpcall(3) error. If no error occurs, then service answer message is returned.
+If case if asynchronous invocation is done to service ('async' param set to *1*),
 the format string will be used, the status code will be returned, including 0
 if *tpacall(3)* did succeed.
 
 *errfmt_json_msg* = 'JSON_BUFFER_ERROR_FORMAT_STRING_MESSAGE'::
-Json error message format string. Normally this would be set to json field like
-syntax. This field is used in case if 'errors' parameter is set to *json*.
+JSON error message field format string. Normally this would be set to JSON field 'like'
+syntax. This field is used in case if 'errors' parameter is set to *json*. The
+default value for the field is *"error_message":"%s"*. TODO: Usage!
 
 *errfmt_json_code* = 'JSON_BUFFER_ERROR_FORMAT_STRING_CODE'::
-.
+JSON message field format for presenting XATMI error code occurred while doing the
+service invocation. This field is together with 'errfmt_json_msg' field. The format
+string for the field is '%d', meaning that it is XATMI error code. The default value
+for this parameter is TODO.
 
 *errfmt_json_onsucc* = 'ADD_JSON_ERROR_FIELDS_ON_SUCCEESS'::
 .

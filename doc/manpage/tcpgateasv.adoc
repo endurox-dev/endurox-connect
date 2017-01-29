@@ -162,7 +162,19 @@ Using default message marker 'delim_start'=0x02 and default message end marker
 
 SERVICE API INTERFACE
 ---------------------
-The TCP Gateway API is done via standard *tpcall(3)* or f
+
+TCP Gateway is programmed by using UBF buffers. Buffers contains specific fields
+including CARRAY (BLOB) message that needs to be delivered or is received from
+network.
+
+In case of sending data to network standard *tpcall(3)* or *tpacall(3)* are used.
+The target service of invocation is configured in *gateway* parameter, that is
+advertised by *tpcgatewsv*. 
+
+When message is received from network, with incoming data, the 'corr_svc' will be
+invoked if configured. Finally message is delivered to 'incoming_svc', the invocation
+by tcpgatesv will be done synchronously or asynchronously depending on configuration
+parameters and message specification.
 
 CONFIGURATION
 -------------

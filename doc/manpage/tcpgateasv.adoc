@@ -1,0 +1,232 @@
+TCPGATESV(8)
+============
+:doctype: manpage
+
+
+NAME
+----
+tcpgatesv - Enduro/X user programmable tpc gateway (client/server roles, XATMI server).
+
+SYNOPSIS
+--------
+*tcpgatesv*
+
+DESCRIPTION
+-----------
+Use programmable tcp gateway. The server gives for programmer abstraction over the tcp
+sockets. This module gives programmer abstraction over of the socket to the next level - 
+XATMI services. By using tpcgateway for programmer to send network message, it is succficient
+for dong the XATMI service invocation with specific UBF buffer, containing the message to
+be sent to network. The network address now is abstracted to XATMI service name. All other
+details technical details of socket operations are covered by *tcpgatesv*.
+
+The geteway is able to handle multiple simultanious connections. The connections are identified
+by connection id, which cosists of two parts - simple connection id (started from Nr. 1) and
+by compiled connection id, where part of the number contains the actual timestamp when
+connection is established.
+
+Geteway con operate with persistent connections, so that tcpgatesv opens the number of
+connections, and callers (from both ends XATMI and network) can do the invocations synchrounsly
+or asyncrhouynsly.
+
+Geteway can operate in one request-new connection mode from both ends, it can accept the request
+from network (in this case we must be passive - wait for conn). And it can create new connection
+when doing the XATMI request to network. After receiving response from network or getting timeout,
+the connection is closed.
+
+Module allows the system to track the status of the connections.
+
+
+The administrator can configure *tcpgatesv* for different roles:
+
+. Tcp socket server - listener (passive mode)
+
+. Tcp socket client - connects  (active mode)
+
+The tcpgateway can operate in different logical modes:
+
+. Persistent connection - with each of the roles the gateway
+will do the configured actions - either listen on socket
+and accept configured number of connections. Or in case of active mode, the gateway will
+active the number of connections in order to keep the a live.
+The messsages can be sen
+
+CONFIGURATION
+-------------
+*port* = 'PORT_NUMBER'::
+Port number to listen on which http server will listen on. Mandatory option.
+
+*ip* = 'IP_ADDRESS'::
+Ip address on which http server is listening for incoming connections. Default
+*0.0.0.0*.
+
+*workers* = 'NUMBER_OF_XATMI_SESSIONS'::
+Number XATMI sessions. These sessions are use for serving the incoming calls - 
+i.e. doing the calls to XATMI sub-system. If the number is less than incoming calls,
+the calls will be suspended while there will be no XATMI session free. Once it is
+made free, then call will be served (i.e. called corresponding XATMI counterpart).
+The default value for parameter is *10*.
+
+*gencore* = 'GENERATE_CORE_FILE'::
+If set to *1*, then in case of segmentation fault, the core dump will be generated
+instead of Golang default signal handler which just prints some info in stderr.
+The default value is *0* which means use default Golang panic handling mechanisms. 
+
+*tls_enable* = 'ENABLE_HTTPS'::
+With this setting set to *1*, HTTPS will be enabled. Default value is *0*. To complete
+the HTTPS activation, configuration flags 'tls_cert_file' and 'tls_key_file' must
+be set too. Otherwise program will run in HTTP mode.
+
+*defaults* = 'SERVICE_CONFIGURATION_JSON*::
+This is JSON string (can be multiline), setting the defaults for the services. It
+is basically a service descriptor which is used as base configuration for services.
+Once the service is being setup, firstly it uses this 'defaults' config block and
+then overrides it by additional flags in service definition block. The details
+within the JSON are described in bellow section *SERVICE CONFIGURATION*.
+
+*/some/service/url* = 'SERVICE_CONFIGURATION_JSON*::
+This is the same configuration as for *default*, but describes the service route.
+The REST-IN process might have as many as needed the service mapping routes.
+
+SERVICE CONFIGURATION
+---------------------
+*svc* = 'MAPPED_XATMI_SERVICE_NAME'::
+This is the name of the target XATMI service which needs to be invoked when POST
+message is received. The invocation might be synchronous, in which case caller will
+wait for service to complete or receive XATMI time-out. If service completes, then
+response is generated back to caller in configured format (conv parameter). If
+service fails or times-out. The error is returned. Depending on error handling
+mode (*errors* parameter), the data buffer can be returned too, including the 
+erroneous buffer data, because XATMI services at application level errors *TPESVCFAIL*
+returns the data buffer from service even the error occurred. The data is returned
+with error in case of following error handling methods: *http*, *json*, *json2ubf*.
+
+*errors* = 'ERROR_HANDLING'::
+The parameter can be set to following values *http*, *json*, *json2ubf* and *text*.
+See the working modes of each of the modes in above text.
+The default value for this parameter is *json*.
+
+*notime* = 'NO_TIMEOUT'::
+Set value to *true* if service call shall be run with out XATMI sub-system tpcall()
+timeout value. Default is *0*, meaning that standard timeout settings applies on
+the destination service call.
+
+*errfmt_text* = 'TEXT_BUFFER_ERROR_FORMAT_STRING'::
+Format string for buffer to return in case if destination service invocation fails.
+Format text will be invoked with "%d" representing the error code and then with
+"%s" representing the error message. This error string is used in case if
+'errors' parameter is set to *text*. The format string will be used only in case
+of tpcall(3) error. If no error occurs, then service answer message is returned.
+If case if asynchronous invocation is done to service ('async' param set to *true*),
+the format string will be used, the status code will be returned, including 0
+if *tpacall(3)* did succeed.
+
+*errfmt_json_msg* = 'JSON_BUFFER_ERROR_FORMAT_STRING_MESSAGE'::
+JSON error message field format string. Normally this would be set to JSON field 'like'
+syntax. This field is used in case if 'errors' parameter is set to *json*.
+The field is always present
+in case of unsuccessful invocation of XATMI service. If service parameter 'errfmt_json_onsucc'
+is set to *true*, then field is present in case of successful XATMI service invocation
+too. The field is present also in case of successful async service invocation
+.e. if 'async' is set to *true*.
+The default value for the field is *"error_message":"%s"*.
+
+*errfmt_json_code* = 'JSON_BUFFER_ERROR_FORMAT_STRING_CODE'::
+JSON message field format for presenting XATMI error code occurred while doing the
+service invocation. This field is together with 'errfmt_json_msg' field. The format
+string for the field is '%d', with meaning of XATMI error code.
+The default value for this parameter is *"error_code":%d*.
+
+*errfmt_json_onsucc* = 'ADD_JSON_ERROR_FIELDS_ON_SUCCEESS'::
+If set to *true*, in case of successful synchronous service invocation, then error
+fields defined in 'errfmt_json_msg' and 'errfmt_json_code' will be added to JSON
+message ending.
+
+*async* = 'DO_ASYNC_SERVICE_INVOCATION*::
+Set to *true* if target service should be invoked asynchronously with *TPNOREPLY*
+flag set, meaning that message is enqueued to service with out waiting for response.
+Regardless of error reporting method set in 'errors' parameter, the status of the
+invocation is provided back to caller, by using the configured method.
+The default value for parameter is *false*.
+
+*asyncecho* = 'ECHO_BACK_BUFFER_DURING_ASYNC_INVOCATION'::
+Set to *true* if on successful invocation, the request buffer shall be echoed back
+to caller. In this case if service invocation was successful, the request buffer
+is sent back to HTTP caller with no error fields set. In case if failure happened,
+then corresponding error is reported back to caller with configured 'errors' mechanism.
+The default value for parameter is *false*.
+
+*conv* = 'BUFFER_CONVERTION_TYPE'::
+Request/response buffer conversion method. Available constants *json2ubf*, *json*,
+*text* and *raw*. Buffer methods are described above in manpage. Shortly: *json2ubf* - 
+converts incoming JSON formatted document (with one level key:value (including arrays))
+to Enduro/X *UBF* buffer format. *json* makes the *JSON XATMI* data buffer, *text* makes
+*STRING XATMI* data buffer. The *raw* method load the data into *CARRAY* XATMI buffer.
+The default value for this parameter is *json2ubf*.
+
+*reqlogsvc* = 'REQUEST_LOGGING_SERVICE'::
+Request logging service. If the service name is set and buffer conversion type is
+set to *json2ubf*, then when request is received and is converted to UBF XATMI
+buffer type, the service is invoked by *tplogsetreqfile(3)* XATMI function. If
+service returns 'EX_NREQLOGFILE' UBF field, then current request logging is switched
+to given request file. When service invocation is completed and data is returned
+back to caller, the *restincl* will close the request logging by invoking 
+*tplogclosereqfile(3)*. This mechanism is useful if per session or some other
+correlator (for example banking card number (PAN) hash is used for separating the logs) 
+based logging is needed. Thus to employ the functionality fully, the target services
+should use the request logging too.
+The default value for this parameter is *empty* - not set.
+
+*errors_fmt_http_map* = 'HTTP_ERROR_CODES_MAPPING'::
+Error mapping between XATMI error code and HTTP. This is optional remap string
+which will override the default mode described above. The parameter is effective
+only in case if 'errors' parameter is set to 'http'. The syntax for the string
+is following: *"errors_fmt_http_map":"<ATMI_ERROR_CODE_1>:<HTTP_STATUS_CODE_1>,...,
+<ATMI_ERROR_CODE_N>:<HTTP_STATUS_CODE_N>,\*:<HTTP_STATUS_CODE_FOR_ANY_OTHER>"*, for
+example: *"errors_fmt_http_map":"13:404,\*:200"*, means that XATMI error code 13 (time-out)
+will be mapped to HTTP status code 404. In case of any other XATMI error (\*), 
+the HTTP status code will be set to 200.
+The default value is as described *above*.
+
+*noreqfilersp* = 'DO_NOT_SEND_REQUEST_FILENAME_BACK_TO_CALLER'::
+If set to *true*, that will indicate the request logging file name shall not be
+provided back in buffer to caller in response.
+Default value for field is *false*, meaning that if conversion type is set to
+*json2ubf* and request logging is used, then field 'EX_NREQLOGFILE' will be provided
+back in response to caller.
+
+*echo* = 'ECHO_MODE'::
+In echo mode the incoming request buffer is directly sent back to caller in response
+message. This is useful for making link testing routines.
+The default value for parameter is *false*.
+
+
+EXIT STATUS
+-----------
+*0*::
+Success
+
+*1*::
+Failure
+
+EXAMPLE
+
+To see the usage different usage settings, see *tests/02_tcpgatesv/runtime/conf/tcpgate.ini'*.
+
+BUGS
+----
+Report bugs to madars.vitolins@gmail.com
+
+SEE ALSO
+--------
+*restoutsv(8)* *tcpgatesv(8)*.
+
+AUTHOR
+------
+Enduro/X is created by Madars Vitolins.
+
+
+COPYING
+-------
+(C) Mavimax SIA
+

@@ -183,30 +183,55 @@ The error code can be mapped from XATMI subsystem to HTTP codes by using
 mapping which is set if 'errors_fmt_http_map' is not present, is following:
 
 . atmi.TPMINVAL (0) =  http.StatusOK (200)
+
 . atmi.TPEABORT (1) = http.StatusInternalServerError (500)
+
 . atmi.TPEBADDESC (2) =  http.StatusBadRequest (400)
+
 . atmi.TPEBLOCK (3) =  http.StatusInternalServerError (500)
+
 . atmi.TPEINVAL (4) =  http.StatusBadRequest (400)
+
 . atmi.TPELIMIT(5) =  http.StatusRequestEntityTooLarge (413)
+
 . atmi.TPENOENT (6) =  http.StatusNotFound (404)
+
 . atmi.TPEOS (7) =  http.StatusInternalServerError (500)
+
 . atmi.TPEPERM (8) =  http.StatusUnauthorized (401)
+
 . atmi.TPEPROTO (9) =  http.StatusBadRequest (400)
+
 . atmi.TPESVCERR (10) =  http.StatusBadGateway (502)
+
 . atmi.TPESVCFAIL (11) =  http.StatusInternalServerError (500)
+
 . atmi.TPESYSTEM (12) =  http.StatusInternalServerError (500)
+
 . atmi.TPETIME (13) =  http.StatusGatewayTimeout (504)
+
 . atmi.TPETRAN (14) =  http.StatusInternalServerError (500)
+
 . atmi.TPERMERR (16) =  http.StatusInternalServerError (500)
+
 . atmi.TPEITYPE (17) =  http.StatusInternalServerError (500)
+
 . atmi.TPEOTYPE (18) =  http.StatusInternalServerError (500)
+
 . atmi.TPERELEASE (19) =  http.StatusInternalServerError (500)
+
 . atmi.TPEHAZARD (20) =  http.StatusInternalServerError (500)
+
 . atmi.TPEHEURISTIC (21) =  http.StatusInternalServerError (500)
+
 . atmi.TPEEVENT (22) =  http.StatusInternalServerError (500)
+
 . atmi.TPEMATCH (23) =  http.StatusInternalServerError (500)
+
 . atmi.TPEDIAGNOSTIC (24) =  http.StatusInternalServerError (500)
+
 . atmi.TPEMIB (25) =  http.StatusInternalServerError (500)
+
 . Anything else (\*) = http.StatusInternalServerError (500)
 
 Error handling type: 'json' - response code embedded JSON response message
@@ -295,9 +320,10 @@ with error in case of following error handling methods: *http*, *json*, *json2ub
 *errors* = 'ERROR_HANDLING'::
 The parameter can be set to following values *http*, *json*, *json2ubf* and *text*.
 See the working modes of each of the modes in above text.
+The default value for this parameter is *json*.
 
 *notime* = 'NO_TIMEOUT'::
-Set value to *1* if service call shall be run with out XATMI sub-system tpcall()
+Set value to *true* if service call shall be run with out XATMI sub-system tpcall()
 timeout value. Default is *0*, meaning that standard timeout settings applies on
 the destination service call.
 
@@ -307,44 +333,88 @@ Format text will be invoked with "%d" representing the error code and then with
 "%s" representing the error message. This error string is used in case if
 'errors' parameter is set to *text*. The format string will be used only in case
 of tpcall(3) error. If no error occurs, then service answer message is returned.
-If case if asynchronous invocation is done to service ('async' param set to *1*),
+If case if asynchronous invocation is done to service ('async' param set to *true*),
 the format string will be used, the status code will be returned, including 0
 if *tpacall(3)* did succeed.
 
 *errfmt_json_msg* = 'JSON_BUFFER_ERROR_FORMAT_STRING_MESSAGE'::
 JSON error message field format string. Normally this would be set to JSON field 'like'
-syntax. This field is used in case if 'errors' parameter is set to *json*. The
-default value for the field is *"error_message":"%s"*. TODO: Usage!
+syntax. This field is used in case if 'errors' parameter is set to *json*.
+The field is always present
+in case of unsuccessful invocation of XATMI service. If service parameter 'errfmt_json_onsucc'
+is set to *true*, then field is present in case of successful XATMI service invocation
+too. The field is present also in case of successful async service invocation
+.e. if 'async' is set to *true*.
+The default value for the field is *"error_message":"%s"*.
 
 *errfmt_json_code* = 'JSON_BUFFER_ERROR_FORMAT_STRING_CODE'::
 JSON message field format for presenting XATMI error code occurred while doing the
 service invocation. This field is together with 'errfmt_json_msg' field. The format
-string for the field is '%d', meaning that it is XATMI error code. The default value
-for this parameter is TODO.
+string for the field is '%d', with meaning of XATMI error code.
+The default value for this parameter is *"error_code":%d*.
 
 *errfmt_json_onsucc* = 'ADD_JSON_ERROR_FIELDS_ON_SUCCEESS'::
-.
+If set to *true*, in case of successful synchronous service invocation, then error
+fields defined in 'errfmt_json_msg' and 'errfmt_json_code' will be added to JSON
+message ending.
 
 *async* = 'DO_ASYNC_SERVICE_INVOCATION*::
-.
+Set to *true* if target service should be invoked asynchronously with *TPNOREPLY*
+flag set, meaning that message is enqueued to service with out waiting for response.
+Regardless of error reporting method set in 'errors' parameter, the status of the
+invocation is provided back to caller, by using the configured method.
+The default value for parameter is *false*.
 
 *asyncecho* = 'ECHO_BACK_BUFFER_DURING_ASYNC_INVOCATION'::
-.
+Set to *true* if on successful invocation, the request buffer shall be echoed back
+to caller. In this case if service invocation was successful, the request buffer
+is sent back to HTTP caller with no error fields set. In case if failure happened,
+then corresponding error is reported back to caller with configured 'errors' mechanism.
+The default value for parameter is *false*.
 
 *conv* = 'BUFFER_CONVERTION_TYPE'::
-.
+Request/response buffer conversion method. Available constants *json2ubf*, *json*,
+*text* and *raw*. Buffer methods are described above in manpage. Shortly: *json2ubf* - 
+converts incoming JSON formatted document (with one level key:value (including arrays))
+to Enduro/X *UBF* buffer format. *json* makes the *JSON XATMI* data buffer, *text* makes
+*STRING XATMI* data buffer. The *raw* method load the data into *CARRAY* XATMI buffer.
+The default value for this parameter is *json2ubf*.
 
 *reqlogsvc* = 'REQUEST_LOGGING_SERVICE'::
-.
+Request logging service. If the service name is set and buffer conversion type is
+set to *json2ubf*, then when request is received and is converted to UBF XATMI
+buffer type, the service is invoked by *tplogsetreqfile(3)* XATMI function. If
+service returns 'EX_NREQLOGFILE' UBF field, then current request logging is switched
+to given request file. When service invocation is completed and data is returned
+back to caller, the *restincl* will close the request logging by invoking 
+*tplogclosereqfile(3)*. This mechanism is useful if per session or some other
+correlator (for example banking card number (PAN) hash is used for separating the logs) 
+based logging is needed. Thus to employ the functionality fully, the target services
+should use the request logging too.
+The default value for this parameter is *empty* - not set.
 
 *errors_fmt_http_map* = 'HTTP_ERROR_CODES_MAPPING'::
-.
+Error mapping between XATMI error code and HTTP. This is optional remap string
+which will override the default mode described above. The parameter is effective
+only in case if 'errors' parameter is set to 'http'. The syntax for the string
+is following: *"errors_fmt_http_map":"<ATMI_ERROR_CODE_1>:<HTTP_STATUS_CODE_1>,...,
+<ATMI_ERROR_CODE_N>:<HTTP_STATUS_CODE_N>,\*:<HTTP_STATUS_CODE_FOR_ANY_OTHER>"*, for
+example: *"errors_fmt_http_map":"13:404,\*:200"*, means that XATMI error code 13 (time-out)
+will be mapped to HTTP status code 404. In case of any other XATMI error (\*), 
+the HTTP status code will be set to 200.
+The default value is as described *above*.
 
 *noreqfilersp* = 'DO_NOT_SEND_REQUEST_FILENAME_BACK_TO_CALLER'::
-.
+If set to *true*, that will indicate the request logging file name shall not be
+provided back in buffer to caller in response.
+Default value for field is *false*, meaning that if conversion type is set to
+*json2ubf* and request logging is used, then field 'EX_NREQLOGFILE' will be provided
+back in response to caller.
 
 *echo* = 'ECHO_MODE'::
-.
+In echo mode the incoming request buffer is directly sent back to caller in response
+message. This is useful for making link testing routines.
+The default value for parameter is *false*.
 
 
 EXIT STATUS
@@ -355,13 +425,17 @@ Success
 *1*::
 Failure
 
+EXAMPLE
+
+To see the usage different usage settings, see *tests/02_tcpgatesv/runtime/conf/tcpgate.ini'*.
+
 BUGS
 ----
 Report bugs to madars.vitolins@gmail.com
 
 SEE ALSO
 --------
-*restoutsv(8)*
+*restoutsv(8)* *tcpgatesv(8)*.
 
 AUTHOR
 ------

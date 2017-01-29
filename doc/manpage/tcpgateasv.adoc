@@ -15,19 +15,26 @@ DESCRIPTION
 -----------
 Use programmable tcp gateway. The server gives for programmer abstraction over the tcp
 sockets. This module gives programmer abstraction over of the socket to the next level - 
-XATMI services. By using tpcgateway for programmer to send network message, it is succficient
+XATMI services. By using tpcgateway for programmer to send network message, it is sufficient
 for dong the XATMI service invocation with specific UBF buffer, containing the message to
 be sent to network. The network address now is abstracted to XATMI service name. All other
 details technical details of socket operations are covered by *tcpgatesv*.
 
-The geteway is able to handle multiple simultanious connections. The connections are identified
+The getaway is able to handle multiple simultaneous connections. The connections are identified
 by connection id, which cosists of two parts - simple connection id (started from Nr. 1) and
 by compiled connection id, where part of the number contains the actual timestamp when
 connection is established.
 
-Geteway can operate with persistent connections, so that tcpgatesv opens the number of
-connections, and callers (from both ends XATMI and network) can do the invocations synchrounsly
-or asyncrhouynsly.
+Getaway can operate with persistent connections, so that tcpgatesv opens the number of
+connections, and callers (from both ends XATMI and network) can do the invocations synchronously
+or asynchronously. In async mode it is still possible to simulate synchronous service invocations,
+that is done in case if 'corr_svc' parameter is set. This parameter indicates which
+service which to invoke for sending incoming message for parsing. The correlation service
+can parse the message, and respond with parsed correlation id (in 'EX_NETCORR').
+Then by this given correlation ID, the gateway server will lookup any XATMI callers
+in progress, if found, then they are replied with buffer coming from 'corr_svc'.
+If correlation id is not parsed or no waiters in progress, then 'incoming_svc' is
+called with given incoming/'corr_svc' response buffer.
 
 Geteway can operate in one request-new connection mode from both ends, it can accept the request
 from network (in this case we must be passive - wait for conn). And it can create new connection
@@ -43,7 +50,7 @@ It is possible to configure gateway to send keep-a-live messages. The keep a liv
 is zero length. Thus can be safely ignored by network target device. The same as *tcpgatesv*
 does.
 
-Tcpgateway uses different message framing algroythms, to avoid partially read messages
+Tcpgateway uses different message framing algorithms, to avoid partially read messages
 from network, which can occur if message size is larger than message transfer unit (MTU).
 Framing mode is controlled by 'framing' parameter. Following options are supported:
 
@@ -81,43 +88,81 @@ The tcpgateway can operate in different logical modes (type param):
 . 'P' - Passive mode, our side does listen on socket (tcp server)
 
 The next sections will show samples for different framing methods, including
-settings of 'framing' and 'framing_half_swap'.
+settings of 'framing' and 'framing_half_swap'. The test message that will be
+demonstrated in bellow framing modes are: 'AHELLO WORLD\\10\\11\\12\\13TEST\\ff',
+the total number of bytes: 21.
 
 Mode: 'framing' = aa, framing_half_swap=0
 -----------------------------------------
-TODO
+
+--------------------------------------------------------------------------------
+  0000  32 31 48 45 4c 4c 4f 20 57 4f 52 4c 44 00 10 11  21HELLO WORLD...
+  0010  12 13 54 45 53 54 ff                             ..TEST.
+--------------------------------------------------------------------------------
 
 Mode: 'framing' = AAAA, framing_half_swap=0
 -------------------------------------------
-TODO
+
+--------------------------------------------------------------------------------
+  0000  30 30 32 35 48 45 4c 4c 4f 20 57 4f 52 4c 44 00  0025HELLO WORLD.
+  0010  10 11 12 13 54 45 53 54 ff                       ....TEST.
+--------------------------------------------------------------------------------
 
 Mode: 'framing' = llll, framing_half_swap=1
 -------------------------------------------
-TODO
+
+--------------------------------------------------------------------------------
+  0000  00 15 00 00 48 45 4c 4c 4f 20 57 4f 52 4c 44 00  ....HELLO WORLD.
+  0010  10 11 12 13 54 45 53 54 ff                       ....TEST.
+--------------------------------------------------------------------------------
 
 Mode: 'framing' = LLLLLL, framing_half_swap=0
 ---------------------------------------------
-TODO
+
+--------------------------------------------------------------------------------
+  0000  00 00 00 00 00 1b 48 45 4c 4c 4f 20 57 4f 52 4c  ......HELLO WORL
+  0010  44 00 10 11 12 13 54 45 53 54 ff                 D.....TEST.
+--------------------------------------------------------------------------------
 
 Mode: 'framing' = bbbb, framing_half_swap=0
 -------------------------------------------
-TODO
+
+--------------------------------------------------------------------------------
+  0000  15 00 00 00 48 45 4c 4c 4f 20 57 4f 52 4c 44 00  ....HELLO WORLD.
+  0010  10 11 12 13 54 45 53 54 ff                       ....TEST.
+--------------------------------------------------------------------------------
 
 Mode: 'framing' = BBBBBBBB, framing_half_swap=1
 -----------------------------------------------
-TODO
+
+--------------------------------------------------------------------------------
+  0000  00 00 00 00 1d 00 00 00 48 45 4c 4c 4f 20 57 4f  ........HELLO WO
+  0010  52 4c 44 00 10 11 12 13 54 45 53 54 ff           RLD.....TEST.
+--------------------------------------------------------------------------------
 
 Mode: 'framing' = d, framing_half_swap=N/A
 ------------------------------------------
-TODO
+Using default message delimiter 0x03 ('delim_stop').
+
+--------------------------------------------------------------------------------
+  0000  48 45 4c 4c 4f 20 57 4f 52 4c 44 00 10 11 12 13  HELLO WORLD.....
+  0010  54 45 53 54 ff 03                                TEST..
+--------------------------------------------------------------------------------
 
 Mode: 'framing' = D, framing_half_swap=N/A
 ------------------------------------------
-TODO
+Using default message marker 'delim_start'=0x02 and default message end marker
+'delim_stop'=*0x03*.
+
+--------------------------------------------------------------------------------
+  0000  02 48 45 4c 4c 4f 20 57 4f 52 4c 44 00 10 11 12  .HELLO WORLD....
+  0010  13 54 45 53 54 ff 03                             .TEST..
+--------------------------------------------------------------------------------
+
 
 SERVICE API INTERFACE
 ---------------------
-TODO
+The TCP Gateway API is done via standard *tpcall(3)* or f
 
 CONFIGURATION
 -------------
@@ -171,6 +216,31 @@ Default is *0*.
 *periodic_zero_msg* = 'PERIODIC_ZERO'*::
 .
 
+*status_svc* = 'STATUS_SERVICE_NAME'*::
+.
+
+*max_connections* = 'MAX_NR_OF_CONNECTIONS'*::
+.
+
+*req_reply* = 'REQUEST_MODE'*::
+.
+
+*req_reply_timeout* = 'REQUEST_TIMEOUT'*::
+.
+
+*scan_time* = 'SCAN_TIME'*::
+.
+
+*conn_wait_time* = 'CONNECTION_WAIT_TIME'*::
+.
+
+*corr_svc* = 'CORRELATION_SERVICE'*::
+.
+
+*debug* = 'DEBUG_STRING'*::
+.
+
+
 EXIT STATUS
 -----------
 *0*::
@@ -189,7 +259,7 @@ Report bugs to madars.vitolins@gmail.com
 
 SEE ALSO
 --------
-*restoutsv(8)* *tcpgatesv(8)*.
+*restincl(8)* *restoutsv(8)*.
 
 AUTHOR
 ------

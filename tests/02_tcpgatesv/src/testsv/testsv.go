@@ -138,14 +138,14 @@ func TESTSVC(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 		ac.TpLogInfo("Running test case A")
 		for i := 4; i < len(arr); i++ {
 			arr[i] = byte((int(arr[i]+1) % 256))
-            //Avoid stx/etx for later tests
-            if arr[i] == 2 {
-                arr[i] = 5
-            }
+			//Avoid stx/etx for later tests
+			if arr[i] == 2 {
+				arr[i] = 5
+			}
 
-            if arr[i] == 3 {
-                arr[i] = 6
-            }
+			if arr[i] == 3 {
+				arr[i] = 6
+			}
 		}
 
 		err = ub.BChg(u.EX_NETDATA, 0, arr)

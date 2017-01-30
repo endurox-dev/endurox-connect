@@ -466,21 +466,26 @@ func HandleConnection(con *ExCon) {
 					ac.TpLogWarn("Got correlator for incoming "+
 						"message: [%s] - looking up for reply waiter", inCorr)
 
-					//So this is answer, add some answer fields
-					buf.BChg(u.EX_NERROR_CODE, 0, 0)
-					buf.BChg(u.EX_NERROR_MSG, 0, "SUCCEED")
-
 					MCorrWaiterMutex.Lock()
 					block := MCorrWaiter[inCorr]
 
 					if nil != block {
 						MCorrWaiterMutex.Unlock()
-						ac.TpLogInfo("Reply waiter found! Waiting on corr [%s] got corr [%s]",
+
+						//So this is answer, add some answer fields
+						buf.BChg(u.EX_NERROR_CODE, 0, 0)
+						buf.BChg(u.EX_NERROR_MSG, 0, "SUCCEED")
+
+						ac.TpLogInfo("Reply waiter found! "+
+							"Waiting on corr [%s] got corr [%s]",
 							block.corr, inCorr)
 						NetDispatchCorAnswer(ac, con, block,
 							buf, &ok)
 						continue //<<< Continue!
 					} else {
+						ac.TpLogInfo("Got request with "+
+							"correlator (or waiter "+
+							"did time-out...)");
 						MCorrWaiterMutex.Unlock()
 					}
 				}

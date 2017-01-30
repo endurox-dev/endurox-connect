@@ -86,8 +86,8 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 	} else {
 		err = atmiErr
 	}
-	//Generate resposne accordingly...
-
+	
+	//Generate response accordingly...
 	ac.TpLogDebug("Conv %d errors %d", svc.Conv_int, svc.Errors_int)
 
 	switch svc.Conv_int {

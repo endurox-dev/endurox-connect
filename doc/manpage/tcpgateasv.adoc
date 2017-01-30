@@ -176,6 +176,106 @@ invoked if configured. Finally message is delivered to 'incoming_svc', the invoc
 by tcpgatesv will be done synchronously or asynchronously depending on configuration
 parameters and message specification.
 
+*Sending message to network - request*
+
+To send message to network in use following UBF buffer (tpcall(3)):
+
+'EX_NETDATA' - The BLOB/CARRAY data to delivery to target connection
+
+'EX_NETCONNID' - connection id either compiled or simple. The compiled connection
+id can be used when generating response back to network. The connection id is
+composed of 64bit integer, where first 24 bits are connection id, and oldest 40bits
+are set to UTC epoch milliseconds since start of 1970. The compiled it can be used
+for doing reply to exact connection.
+
+'EX_NETCORR' - Optional Correlator string, used for synchronous connections.
+
+*Response from gateway service*
+
+'EX_NERROR_CODE' - Error code, can be one of followings:
+
+*atmi.NEMANDATORY (6)* - Mandatory field is missing ('EX_NETDATA')
+
+*atmi.NETOUT (8)* - timeout waiting on reply
+
+*atmi.NENOCONN (9)* - Connection not found by 'EX_NETCONNID' or no connection established.
+
+*atmi.NELIMIT (10)* - Connection count limit reached
+
+'EX_NERROR_MSG' - Corresponding error message.
+
+
+*A. tpreturn(3) buffer to async service reply - example*
+
+Request/reply example (from client perspective - in this example server process
+does change the data bytes doing +1 over the data starting from position 5):
+
+--------------------------------------------------------------------------------
+$ ud < test.ud
+SENT pkt(1) is :
+EX_NETCONNID	1
+EX_NETCORR	AELL
+EX_NETDATA	AELLO WORLD\00\10\11\12\13TEST\ff
+
+RTN pkt(1) is :
+EX_NERROR_CODE	0
+EX_NETCONNID	6481138401960525826
+EX_NERROR_MSG	SUCCEED
+EX_NETGATEWAY	TCP_P_ASYNC_P
+EX_NETCORR	AELL
+EX_NETDATA	AELLP!XPSME\01\11\12\13\14UFTU\00
+--------------------------------------------------------------------------------
+
+
+Incoming request at correlation service (other end reads network and sends data to
+('corr_svc'), at the destination with no reply waiter, it will just invoke the
+incoming service (see after this dump).
+
+--------------------------------------------------------------------------------
+EX_NETCONNID    6481138401943748609
+EX_NETGATEWAY   TCP_P_ASYNC_A
+EX_NETDATA      AELLO WORLD\00\10\11\12\13TEST\ff
+--------------------------------------------------------------------------------
+
+Incoming request at server ('incoming_svc'):
+
+--------------------------------------------------------------------------------
+EX_NETCONNID    6481138401943748609
+EX_NETGATEWAY   TCP_P_ASYNC_A
+EX_NETCORR      AELL
+EX_NETDATA      AELLO WORLD\00\10\11\12\13TEST\ff
+--------------------------------------------------------------------------------
+
+Note that when message is received back from other host, it is sent for 
+correlation service so that we can match the response. For this particular case
+the invocation did look like:
+
+--------------------------------------------------------------------------------
+N:NDRX:5:26407:7f21c98357c0:000:20170131:010926331:_tplog.c:0099:CORSVC: Incoming request:
+EX_NETCONNID    6481138401960525826
+EX_NETGATEWAY   TCP_P_ASYNC_P
+EX_NETDATA      AELLP!XPSME\01\11\12\13\14UFTU\00
+t:USER:4:26407:7f21c98357c0:000:20170131:010926331:estsv.go:0081:Extracted correlator: [AELL]
+N:NDRX:5:26407:7f21c98357c0:000:20170131:010926331:_tplog.c:0099:Reply buffer afrer correl
+EX_NETCONNID    6481138401960525826
+EX_NETGATEWAY   TCP_P_ASYNC_P
+EX_NETCORR      AELL
+EX_NETDATA      AELLP!XPSME\01\11\12\13\14UFTU\00
+--------------------------------------------------------------------------------
+
+
+*C. Example connection status buffer*
+
+The connection 2 is disconnected.
+
+--------------------------------------------------------------------------------
+EX_NETCONNID    2
+EX_NETGATEWAY   TCP_P_SYNC_A
+EX_NETFLAGS     D
+--------------------------------------------------------------------------------
+
+
+
 CONFIGURATION
 -------------
 

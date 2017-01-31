@@ -283,13 +283,13 @@ The configuration is written in CCONFIG ini file. The section for
 tcp gateway is *[@tcpgate/CCTAG]*. The *CCTAG* is optional. Following
 parameters are available for tcp gateway:
 
-*gencore = 'GENERATE_OS_CORE_DUMPS'*::
+*gencore = 'GENERATE_OS_CORE_DUMPS'::
 If set to *1*, for signals 6 (abort), 11 (segmentation fault) default
 Operating System handlers will be restored instead of go handlers. This
 can be suitable when debugging cgo code.
 Default is *0*.
 
-*workers_out = 'NUMBER_OF_XATMI_SESSIONS_FOR_OUTGOING_MESSAGES'*::
+*workers_out = 'NUMBER_OF_XATMI_SESSIONS_FOR_OUTGOING_MESSAGES'::
 Number of worker sessions for dispatching message to network on doing reply back
 to XATMI service caller. This basically is how many go threads will process the
 incoming requests. If system is short of the threads, the main XATMI thread waiting
@@ -300,7 +300,7 @@ to 'max_connections'. The recommendation is to use 'max_connections' = 'workers_
 for this scenario.
 Default is *5*.
 
-*workers_in = 'NUMBER_OF_XATMI_SESSIONS_FOR_INCOMING_MESSAGES'*::
+*workers_in = 'NUMBER_OF_XATMI_SESSIONS_FOR_INCOMING_MESSAGES'::
 Number of XATMI and go thread workers processing the incoming messages. The pool
 of worker is used in case when connection receives data from network. The workers
 are used for invocation of 'incoming_svc'.
@@ -312,57 +312,74 @@ for accessing the outgoing message facility.
 Default is *TCPGATE*.
 
 *framing* = 'FRAMING_MODE'::
-Framing mode code. TODO.
+Framing mode code. This tells in what format message length is encoded.
+Described above. Shortly:
 
-*framing_half_swap* = 'SWAP_FRAMING_BYTES*::
+'l+' - little endian byte order, does not include length of it self
+
+'L+' - little endian byte order, include length of it self
+
+'b+' - big endian byte order, does not include length of it self
+
+'B+' - big endian byte order, include length of it self
+
+'a+' - ASCII text byte order, does not include length by it self
+
+'A+' - ASCII text byte order, does include length by it self
+
+'d' - Use message stop indicator
+
+'D' - Use message start & stop indicators
+
+*framing_half_swap* = 'SWAP_FRAMING_BYTES::
 .
 
-*max_msg_len* = 'MAX_MESSAGE_LENGTH*::
+*max_msg_len* = 'MAX_MESSAGE_LENGTH::
 . TODO: Does it include len bytes?
 
-*delim_start* = 'MESSAGE_START_DELIMITER*::
+*delim_start* = 'MESSAGE_START_DELIMITER::
 .
 
-*delim_stop* = 'MESSAGE_STOP_DELIMITER*::
+*delim_stop* = 'MESSAGE_STOP_DELIMITER::
 .
 
-*type* = 'ACTIVE_PASSIVE_MODE'*::
+*type* = 'ACTIVE_PASSIVE_MODE'::
 .
 
-*ip* = 'IP_ADDRESS'*::
+*ip* = 'IP_ADDRESS'::
 .
 
-*port* = 'TPC_PORT_NUMBER'*::
+*port* = 'TPC_PORT_NUMBER'::
 .
 
-*incoming_svc* = 'INCOMING_XATMI_SERVICE'*::
+*incoming_svc* = 'INCOMING_XATMI_SERVICE'::
 .
 
-*periodic_zero_msg* = 'PERIODIC_ZERO'*::
+*periodic_zero_msg* = 'PERIODIC_ZERO'::
 .
 
-*status_svc* = 'STATUS_SERVICE_NAME'*::
+*status_svc* = 'STATUS_SERVICE_NAME'::
 .
 
-*max_connections* = 'MAX_NR_OF_CONNECTIONS'*::
+*max_connections* = 'MAX_NR_OF_CONNECTIONS'::
 .
 
-*req_reply* = 'REQUEST_MODE'*::
+*req_reply* = 'REQUEST_MODE'::
 .
 
-*req_reply_timeout* = 'REQUEST_TIMEOUT'*::
+*req_reply_timeout* = 'REQUEST_TIMEOUT'::
 .
 
-*scan_time* = 'SCAN_TIME'*::
+*scan_time* = 'SCAN_TIME'::
 .
 
-*conn_wait_time* = 'CONNECTION_WAIT_TIME'*::
+*conn_wait_time* = 'CONNECTION_WAIT_TIME'::
 .
 
-*corr_svc* = 'CORRELATION_SERVICE'*::
+*corr_svc* = 'CORRELATION_SERVICE'::
 .
 
-*debug* = 'DEBUG_STRING'*::
+*debug* = 'DEBUG_STRING'::
 .
 
 

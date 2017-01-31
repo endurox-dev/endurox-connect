@@ -283,23 +283,36 @@ The configuration is written in CCONFIG ini file. The section for
 tcp gateway is *[@tcpgate/CCTAG]*. The *CCTAG* is optional. Following
 parameters are available for tcp gateway:
 
-*gencore* = 'GENERATE_OS_CORE_DUMPS'::
+*gencore = 'GENERATE_OS_CORE_DUMPS'*::
 If set to *1*, for signals 6 (abort), 11 (segmentation fault) default
 Operating System handlers will be restored instead of go handlers. This
 can be suitable when debugging cgo code.
 Default is *0*.
 
-*workers_out* = 'NUMBER_OF_XATMI_SESSIONS_FOR_OUTGOING_MESSAGES'::
-.
+*workers_out = 'NUMBER_OF_XATMI_SESSIONS_FOR_OUTGOING_MESSAGES'*::
+Number of worker sessions for dispatching message to network on doing reply back
+to XATMI service caller. This basically is how many go threads will process the
+incoming requests. If system is short of the threads, the main XATMI thread waiting
+for incoming messages, will be suspended on waiting the free worker.
+In case of 'req_reply' mode *3* (XATMI service sends to network by opening new 
+connection and then closing), the 'workers_out' must be bigger or equal number
+to 'max_connections'. The recommendation is to use 'max_connections' = 'workers_out'\*2
+for this scenario.
+Default is *5*.
 
-*workers_in* = 'NUMBER_OF_XATMI_SESSIONS_FOR_INCOMING_MESSAGES'::
-.
+*workers_in = 'NUMBER_OF_XATMI_SESSIONS_FOR_INCOMING_MESSAGES'*::
+Number of XATMI and go thread workers processing the incoming messages. The pool
+of worker is used in case when connection receives data from network. The workers
+are used for invocation of 'incoming_svc'.
+Default is *5*.
 
 *gateway* = 'TCP_GATEWAY_SERVICE_NAME'::
-.
+Gateway service name. This is service name which is advertised by the *tcpgatesv*
+for accessing the outgoing message facility.
+Default is *TCPGATE*.
 
 *framing* = 'FRAMING_MODE'::
-.
+Framing mode code. TODO.
 
 *framing_half_swap* = 'SWAP_FRAMING_BYTES*::
 .

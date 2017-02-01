@@ -327,18 +327,33 @@ Described above. Shortly:
 
 'A+' - ASCII text byte order, does include length by it self
 
-'d' - Use message stop indicator
+'d' - Use message stop indicator (set by 'delim_start')
 
-'D' - Use message start & stop indicators
+'D' - Use message start & stop indicators (set by 'delim_stop')
 
 *framing_half_swap* = 'SWAP_FRAMING_BYTES::
-.
+If set to *1*, framing length bytes will be swapped in middle.
+The framing bytes length must be even
+length. This affects l,L,b,B,a,A formats. This is suitable for connecting
+for payment networks like VISA Net. For example if we use format llll, and
+the message length in decimal is 217321, then in hex it will be
+0x00,0x03,0x50,0xe9 by applying this parameter, the bytes that will be
+sent to network will be in following order: 0x50,0xe9,0x00,0x03.
+Default is *0*
 
 *max_msg_len* = 'MAX_MESSAGE_LENGTH::
-. TODO: Does it include len bytes?
+If set above *0*, then parameter indicates 
+max message length. This does not include framing bytes. If the incoming
+message goes over this number, the message is dropped and connection is restarted,
+because there might be error in framing byte readings by corrupted data.
+The default is *0*.
 
 *delim_start* = 'MESSAGE_START_DELIMITER::
-.
+If using framing format *D*, the this paramter indicates the start
+of the incoming message. This basically is extra field which is tested
+when message is received. If the start of the message does not match
+the delimiter, the message is dropped and connection restarted.
+The default is *0x02* STX symbol
 
 *delim_stop* = 'MESSAGE_STOP_DELIMITER::
 .

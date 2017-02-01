@@ -352,14 +352,24 @@ The default is *0*.
 If using framing format *D*, the this paramter indicates the start
 of the incoming message. This basically is extra field which is tested
 when message is received. If the start of the message does not match
-the delimiter, the message is dropped and connection restarted.
-The default is *0x02* STX symbol
+the delimiter, the message is dropped and connection restarted. The
+syntac for the field is in hex format byte, e.g. "0x02".
+The default is *0x02* STX symbol.
 
 *delim_stop* = 'MESSAGE_STOP_DELIMITER::
-.
+If using framing format *d* or *D* this byte will indicate the message
+terminator symbol. The syntax for the field is in hex for .e.g "0x03".
+The default value is *0x03* ETX symbol.
 
 *type* = 'ACTIVE_PASSIVE_MODE'::
-.
+Gateway operation mode either it is passive (*P*) - waiting for incoming
+TCP connection, or it is active (*A*) - tcp client doing connection to
+network. In Case of active mode, it will try to open connections to network.
+If configured for persistent connections, then gateway will try to keep
+the max number of connections open. In case of passive mode, it will
+accept the max number of connections, set by 'max_connections' paramter.
+The default is *P* - Passive.
+
 
 *ip* = 'IP_ADDRESS'::
 .

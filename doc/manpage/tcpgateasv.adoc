@@ -367,27 +367,51 @@ TCP connection, or it is active (*A*) - tcp client doing connection to
 network. In Case of active mode, it will try to open connections to network.
 If configured for persistent connections, then gateway will try to keep
 the max number of connections open. In case of passive mode, it will
-accept the max number of connections, set by 'max_connections' paramter.
+accept the max number of connections, set by 'max_connections' parameter.
 The default is *P* - Passive.
 
-
 *ip* = 'IP_ADDRESS'::
-.
+In case of active mode ('type' = *A*), this is ip address to connect
+to remote server. In case of passive mode ('type' = *P*), this indicates
+the binding ip address - on which *tcpgatesv* binary shall listen for
+incoming connections.
+The default is *0.0.0.0*.
 
 *port* = 'TPC_PORT_NUMBER'::
-.
+In case of active mode ('type' = *A*), this is port number to connect to.
+In case of passive mode ('type' = *P*), this is port number to listen
+on for incoming connections.
+The default is *7921*.
 
 *incoming_svc* = 'INCOMING_XATMI_SERVICE'::
-.
+Incoming service name to call when there is incoming message, that does not
+correspond to any caller waiting for answer. This is incoming message for
+which there is no correlation id (the 'corr_svc' is not set or 'corr_svc'
+service did not return 'EX_NETCORR' field.
 
 *periodic_zero_msg* = 'PERIODIC_ZERO'::
-.
+Number of seconds after which send to network zero length message for keeping
+connection alive. Used if number is greater that zero. Parameter is not
+suitable for non-persistent connections. I.e. it is not possible to use
+this paramter with 'req_reply' modes *3* and *4*.
+The default is *0*.
 
 *status_svc* = 'STATUS_SERVICE_NAME'::
-.
+Name of the service which receives connection status updates. Parameter
+is optional, and if not set, then connection status updates will not be
+issued.
 
 *max_connections* = 'MAX_NR_OF_CONNECTIONS'::
-.
+Max number of simulatnious connections supported by gateway. In case of
+active mode and using persistent connections, this is the number of connects
+gateway will try to keep open (reconnect if needed). In case of non-persistent
+mode (ex-to-net, 'req_reply'=*3*), the 'max_connections' must be greater
+than 'workers_out'. Recommended is 'max_connections' twice as 'workers_out'.
+In case of passive mode, this is max number of open incoming connections. If the
+incoming connections gets bigger number that this, the incoming connection will
+be closed.
+The default is *5*.
+
 
 *req_reply* = 'REQUEST_MODE'::
 .

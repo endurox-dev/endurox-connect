@@ -429,7 +429,22 @@ by 'EX_NETCONNID', then connection is searched, if not found reject is generated
 if found the message is enqueued. At this point response is generated and send
 back to caller either success (message sent to network thread) or error.
 
-*1* - TODO
+When message is received from network, and correlator service 'corr_svc' returns
+'EX_NETCORR' field, then reply waiter (XATMI request object waiting for reply) is
+located, if found, then reply is passed back to caller. If reply is not found or
+'EX_NETCORR' does not exists in UBF buffer, then incoming message is passed to
+'incoming_svc'. The invocation is done with 'tpacall(3)', *TPNOREPLY* mode. Meaning
+that no answer is waited back from target server back to *tcpgatesv*.
+
+*1* - Persistent, sync by connection, Enduro/X sends to Network. No matter of the role
+from active or passive (both are supported in this mode). The connection will be opened
+as in 'req_reply' mode *0* (above). But the difference is that each invocation will
+be done in synchronous way, meaning that for each connection only one request can
+be be sent at the same time. When the response is received from network, the waiter
+is looked up by connection id. If waiter is found then answer is delivered to waiter
+with 'tpreturn(3)'. If waiter is not found, then target service 'incoming_svc' is called in
+synchronous way. !!! We should not send stuff to 'incoming_svc' if not defined. Or we just
+send a async message to 'incoming_svc' to let it know any late responses...
 
 *2* - TODO
 

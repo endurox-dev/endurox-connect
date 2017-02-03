@@ -414,7 +414,28 @@ The default is *5*.
 
 
 *req_reply* = 'REQUEST_MODE'::
-.
+Request reply mode. This basically tells the *tcpgatesv* role and the mode
+in which gateway will operate. Following modes are defined: 
+
+*0* - Persistent connection mode, asynchronous messages, including sync with correlation.
+Supported connection 'type' active (*A*) and passive (*P*). In active mode
+gateway will try to establish the max number of connections. In passive mode
+gateway waits for max number of incoming connections.
+
+When XATMI client invokes the gateway service, the service waits for outgoing 
+('workers_out') XATMI context object. If object is acquired, the message is submitted
+to free network connection thread for further processing. If the connection id is specified
+by 'EX_NETCONNID', then connection is searched, if not found reject is generated,
+if found the message is enqueued. At this point response is generated and send
+back to caller either success (message sent to network thread) or error.
+
+*1* - TODO
+
+*2* - TODO
+
+*3* - TODO
+
+*4* - TODO
 
 *req_reply_timeout* = 'REQUEST_TIMEOUT'::
 .

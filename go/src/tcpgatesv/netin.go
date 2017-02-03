@@ -123,8 +123,9 @@ func NetDispatchCall(pool *XATMIPool, nr int, con *ExCon,
 	buf.TpLogPrintUBF(atmi.LOG_DEBUG, "Incoming message")
 
 	//Full async mode
-	if RR_PERS_ASYNC_INCL_CORR == MReqReply {
-		ac.TpLogInfo("Calling in async mode")
+	if RR_PERS_ASYNC_INCL_CORR == MReqReply ||
+		RR_PERS_CONN_EX2NET == MReqReply {
+		ac.TpLogInfo("Calling in async mode (fully async or conn_ex2net mode)")
 		_, errA := ac.TpACall(MIncomingSvc, buf, atmi.TPNOREPLY)
 
 		if nil != errA {

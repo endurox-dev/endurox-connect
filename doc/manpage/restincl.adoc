@@ -402,13 +402,13 @@ is following:
 --------------------------------------------------------------------------------
 
 "errors_fmt_http_map":"<ATMI_ERROR_CODE_1>:<HTTP_STATUS_CODE_1>,...,
-<ATMI_ERROR_CODE_N>:<HTTP_STATUS_CODE_N>,\*:<HTTP_STATUS_CODE_FOR_ANY_OTHER>"
+<ATMI_ERROR_CODE_N>:<HTTP_STATUS_CODE_N>,*:<HTTP_STATUS_CODE_FOR_ANY_OTHER>"
 
 --------------------------------------------------------------------------------
 
 for example:
 --------------------------------------------------------------------------------
-"errors_fmt_http_map":"13:404,\*:200"
+"errors_fmt_http_map":"13:404,*:200"
 --------------------------------------------------------------------------------
 
 means that XATMI error code 13 (time-out)

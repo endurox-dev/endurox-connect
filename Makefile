@@ -7,9 +7,11 @@
 all:
 	$(MAKE) -C tests
 	$(MAKE) -C go
-	$(MAKE) -C doc
 	cd pkg && cmake .
 
+doc:
+	$(MAKE) -C doc
+	
 pkg: all
 	cd pkg && cpack
 

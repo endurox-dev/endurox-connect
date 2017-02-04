@@ -89,7 +89,13 @@ install (FILES
     ../go/src/restincl/restincl
     PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_EXECUTE GROUP_READ WORLD_EXECUTE WORLD_READ
     DESTINATION bin)
-
+    
+# Install manpages (if any
+install (FILES
+	../doc/manpage/restincl.8
+	../doc/manpage/tcpgatesv.8
+	DESTINATION share/man/man8)
+	
 ################################################################################
 # Packages
 ################################################################################

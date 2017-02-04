@@ -397,9 +397,21 @@ The default value for this parameter is *empty* - not set.
 Error mapping between XATMI error code and HTTP. This is optional remap string
 which will override the default mode described above. The parameter is effective
 only in case if 'errors' parameter is set to 'http'. The syntax for the string
-is following: *"errors_fmt_http_map":"<ATMI_ERROR_CODE_1>:<HTTP_STATUS_CODE_1>,...,
-<ATMI_ERROR_CODE_N>:<HTTP_STATUS_CODE_N>,\*:<HTTP_STATUS_CODE_FOR_ANY_OTHER>"*, for
-example: *"errors_fmt_http_map":"13:404,\*:200"*, means that XATMI error code 13 (time-out)
+is following:
+
+--------------------------------------------------------------------------------
+
+"errors_fmt_http_map":"<ATMI_ERROR_CODE_1>:<HTTP_STATUS_CODE_1>,...,
+<ATMI_ERROR_CODE_N>:<HTTP_STATUS_CODE_N>,\*:<HTTP_STATUS_CODE_FOR_ANY_OTHER>"
+
+--------------------------------------------------------------------------------
+
+for example:
+--------------------------------------------------------------------------------
+"errors_fmt_http_map":"13:404,\*:200"
+--------------------------------------------------------------------------------
+
+means that XATMI error code 13 (time-out)
 will be mapped to HTTP status code 404. In case of any other XATMI error (\*), 
 the HTTP status code will be set to 200.
 The default value is as described *above*.

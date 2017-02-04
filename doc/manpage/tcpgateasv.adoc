@@ -283,13 +283,13 @@ The configuration is written in CCONFIG ini file. The section for
 tcp gateway is *[@tcpgate/CCTAG]*. The *CCTAG* is optional. Following
 parameters are available for tcp gateway:
 
-*gencore = 'GENERATE_OS_CORE_DUMPS'::
+*gencore* = 'GENERATE_OS_CORE_DUMPS'::
 If set to *1*, for signals 6 (abort), 11 (segmentation fault) default
 Operating System handlers will be restored instead of go handlers. This
 can be suitable when debugging cgo code.
 Default is *0*.
 
-*workers_out = 'NUMBER_OF_XATMI_SESSIONS_FOR_OUTGOING_MESSAGES'::
+*workers_out* = 'NUMBER_OF_XATMI_SESSIONS_FOR_OUTGOING_MESSAGES'::
 Number of worker sessions for dispatching message to network on doing reply back
 to XATMI service caller. This basically is how many go threads will process the
 incoming requests. If system is short of the threads, the main XATMI thread waiting
@@ -300,7 +300,7 @@ to 'max_connections'. The recommendation is to use 'max_connections' = 'workers_
 for this scenario.
 Default is *5*.
 
-*workers_in = 'NUMBER_OF_XATMI_SESSIONS_FOR_INCOMING_MESSAGES'::
+*workers_in* = 'NUMBER_OF_XATMI_SESSIONS_FOR_INCOMING_MESSAGES'::
 Number of XATMI and go thread workers processing the incoming messages. The pool
 of worker is used in case when connection receives data from network. The workers
 are used for invocation of 'incoming_svc'.
@@ -436,36 +436,111 @@ located, if found, then reply is passed back to caller. If reply is not found or
 'incoming_svc'. The invocation is done with 'tpacall(3)', *TPNOREPLY* mode. Meaning
 that no answer is waited back from target server back to *tcpgatesv*.
 
+In correlated connections, the time-out waiting on network is determined by 
+'req_reply_timeout' parameter in seconds.
+
 *1* - Persistent, sync by connection, Enduro/X sends to Network. No matter of the role
 from active or passive (both are supported in this mode). The connection will be opened
 as in 'req_reply' mode *0* (above). But the difference is that each invocation will
 be done in synchronous way, meaning that for each connection only one request can
 be be sent at the same time. When the response is received from network, the waiter
 is looked up by connection id. If waiter is found then answer is delivered to waiter
-with 'tpreturn(3)'. If waiter is not found, then target service 'incoming_svc' is called in
-synchronous way. !!! We should not send stuff to 'incoming_svc' if not defined. Or we just
-send a async message to 'incoming_svc' to let it know any late responses...
+with 'tpreturn(3)'. If waiter is not found, then target service 'incoming_svc'
+is called in asynchronous way with out waiting a reply. This can be suitable for
+cases to detect any late response messages. The service name can be set to dummy
+one. If service invocation generates error, it will be logged in logfile and connection
+will continue to serve.
 
-*2* - TODO
+In correlated connections, the time-out waiting on network is determined by 
+'req_reply_timeout' parameter in seconds.
 
-*3* - TODO
+*2* - Persistent, sync by connection, Network sends to Enduro/X. The role of 
+connection type active or passive does not matter here. The connection establishment
+will be done according to 'req_reply' mode *0* and *1*. In this mode, connection
+receives request it waits for free 'workers_in' XATMI object. Once incoming object
+is got, the service 'incoming_svc' is invoked with *tpcall(3)*. If response is received
+and 'EX_NETDATA' is present, the answer is sent to network back. If service call
+did succeed, but 'EX_NETDATA' is not present, connection is restarted. If service
+invocation did not succeed, the call is ignored. The timeout for service invocation
+is standard XATMI timeout flag ('NDRX_TOUT' environment or '[@global]' section
+parameter).
 
-*4* - TODO
+*3* - Non-persistent, sync each request - new connection, Enduro/X sends to Net.
+In this mode for each of the requests, new connection is created. Once response
+is received, connection is closed. For this mode, 'type' must be *A* - active,
+in order to establish a connection.
+
+The time-out waiting on network is determined by 'req_reply_timeout'
+parameter in seconds.
+
+*4* - In this mode Enduro/X receives connection from network and invokes target
+service 'incoming_svc'. The invocation is done with *tpcall(3)*. If call does 
+not succeed, the  error is ignored. If call succeeds but 'EX_NETDATA' is not present
+connection is closed. If call did succeed and 'EX_NETDATA' is present, the response
+message is prepared and sent back to network and then connection is closed.
+
+The 'incoming_svc' service invocation timeout is governed by 'NDRX_TOUT' parameter.
+
+In this mode the gateway must be configured in passive mode (waiting for connection),
+i.e. 'type'=*P*.
 
 *req_reply_timeout* = 'REQUEST_TIMEOUT'::
-.
+Request time-out in seconds. This parameter is used for monitoring outgoing connection's
+synchronous messaging. When the incoming requester did *tpcall(3)* of
+the advertised 'gateway' service, and the 'EX_NETCORR' was present or the connection
+mode was *1* or *3*. The calls are put in waiter lists. Gateway periodically scans
+the connection waiter lists (period is set by 'scan_time' parameter). If the reply
+time is reached with no response, the caller will get back UBF response with 
+'EX_NERROR_CODE'=*8* (timeout).
+
+The default is *60* seconds.
+
 
 *scan_time* = 'SCAN_TIME'::
-.
+The number of seconds where main Enduro/X dispatcher thread is interrupted in order
+to run time-out scans. For outgoing correlated connections (either by correlator id
+or by connection).
+
+The default is *1* - every second.
+
 
 *conn_wait_time* = 'CONNECTION_WAIT_TIME'::
-.
+This is time-out time in seconds waiting for connection from connection pool (when
+connection is not identified by 'EX_NETCONNID'. The parameter is effective only form
+'req_reply' modes *0* and *1*. In case if timeout is reached, the error *NENOCONN*
+error *9* will be generated.
+
+The default is *60* seconds.
+
 
 *corr_svc* = 'CORRELATION_SERVICE'::
-.
+Correlation service to invoke for incoming requests. This parameter is optional.
+The correlation service will not be used in parameter is not. The service is must
+have in order to work in 'req_reply' mode *0* and have synchronous connections,
+because of missing correlation service, the gateway will be unable to find the
+reply waiter object. For other connection 'req_reply' modes this is informative
+service that can populate the 'EX_NETCORR' for incoming messages. *NOTE* that
+'corr_svc' have a rights to change the 'EX_NETDATA' in reply so that when request
+or reply is coming in from network, the already parsed data can be delivered to
+'incoming_svc'.
+
+The default value for this field is *unset* (i.e. empty parameter - not used).
 
 *debug* = 'DEBUG_STRING'::
-.
+Enduro/X standard debug string, see *ndrxdebug.conf(5)* manpage. The sample value
+could look like:
+
+--------------------------------------------------------------------------------
+
+[@tcpgate]
+...
+debug=ndrx=5 ubf=0 tp=5 file=/tmp/tcpgatesv.log
+
+--------------------------------------------------------------------------------
+
+Meaning that Enduro/X internal ATMI level logging ('ndrx' setting) is set to 5 - 
+debug, and user logging 'tp' (*tcpgatesv* binary) logging also is set to 5 - debug.
+Output file will be set to '/tmp/tcpgatesv.log'. UBF logging is set to none.
 
 
 EXIT STATUS
@@ -477,6 +552,7 @@ Success
 Failure
 
 EXAMPLE
+-------
 
 To see the usage different usage settings, see *tests/02_tcpgatesv/runtime/conf/tcpgate.ini'*.
 

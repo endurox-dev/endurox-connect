@@ -299,7 +299,6 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 		block.con = &con
 
 		//3. and spawn the routine...
-		//TODO: We need to pass in here channel to which reply if
 		//Connection did not succeed.
 		ac.TpLogInfo("About to Dial...")
 		go GoDial(&con, &block)

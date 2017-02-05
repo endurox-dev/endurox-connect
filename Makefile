@@ -9,6 +9,10 @@ all:
 	$(MAKE) -C go
 	cd pkg && cmake .
 
+clean:
+	$(MAKE) -C tests clean
+	$(MAKE) -C go clean
+
 doc:
 	$(MAKE) -C doc
 	

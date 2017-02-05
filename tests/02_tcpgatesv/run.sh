@@ -54,7 +54,7 @@ if [[ $RET != 0 ]]; then
 fi
 
 # Let connections to complete as we go async!
-sleep 5
+sleep 10
 
 # Check that given count of reponses are generated...
 CNT=`grep "Test case 11 OK" log/testsv.log | wc | awk '{print $1}'`

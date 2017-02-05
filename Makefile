@@ -1,6 +1,6 @@
 
 
-.PHONY: all pkg
+.PHONY: all pkg clean
 
 
 # Do recursive builds

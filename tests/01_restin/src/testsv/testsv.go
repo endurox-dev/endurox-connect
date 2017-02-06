@@ -160,7 +160,7 @@ func DATASV1(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	}
 
 	//Set request logging
-	ac.TpLogSetReqFile(&ub, "", "")
+	ac.TpLogSetReqFile(ub, "", "")
 
 	//TODO: Run your processing here, and keep the succeed or fail status in
 	//in "ret" flag.

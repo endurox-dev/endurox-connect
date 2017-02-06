@@ -17,9 +17,9 @@ func BINARYSV(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	//Return to the caller
 	defer func() {
 		if SUCCEED == ret {
-			ac.TpReturn(atmi.TPSUCCESS, 0, bb, 0)
+			ac.TpReturn(atmi.TPSUCCESS, 0, &bb, 0)
 		} else {
-			ac.TpReturn(atmi.TPFAIL, 0, bb, 0)
+			ac.TpReturn(atmi.TPFAIL, 0, &bb, 0)
 		}
 	}()
 
@@ -29,7 +29,8 @@ func BINARYSV(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 
 	bb.SetBytes([]byte{9,8,7,6,5,4,3,2,1,0})
 
-	ac.TpLogDump(atmi.LOG_INFO, "Responding with buffer", bb.GetBytes(), len(bb.GetBytes()))
+	ac.TpLogDump(atmi.LOG_INFO, "Responding with buffer", bb.GetBytes(),
+		len(bb.GetBytes()))
 
 	return
 }

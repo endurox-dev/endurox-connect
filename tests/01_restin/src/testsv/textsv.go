@@ -15,9 +15,9 @@ func TEXTSV(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	//Return to the caller
 	defer func() {
 		if SUCCEED == ret {
-			ac.TpReturn(atmi.TPSUCCESS, 0, sb, 0)
+			ac.TpReturn(atmi.TPSUCCESS, 0, &sb, 0)
 		} else {
-			ac.TpReturn(atmi.TPFAIL, 0, sb, 0)
+			ac.TpReturn(atmi.TPFAIL, 0, &sb, 0)
 		}
 	}()
 

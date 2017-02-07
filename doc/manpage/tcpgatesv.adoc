@@ -58,13 +58,13 @@ Framing mode is controlled by 'framing' parameter. Following options are support
 
 . A+ - ASCII formatted string with message length, including the length bytes
 
-. ll+ - little endian byte order (from one to 8 bytes)
+. l+ - little endian byte order (from one to 8 bytes)
 
-. LL+ - little endian byte order (from one to 8 bytes), message length includes length bytes by it self
+. L+ - little endian byte order (from one to 8 bytes), message length includes length bytes by it self
 
-. bb+ - big endian byte order (from one to 8 bytes)
+. b+ - big endian byte order (from one to 8 bytes)
 
-. BB+ - big endian byte order (from one to 8 bytes), message length includes length bytes
+. B+ - big endian byte order (from one to 8 bytes), message length includes length bytes
 
 . d - Message end delimiter byte
 

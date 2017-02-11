@@ -205,7 +205,7 @@ for doing reply to exact connection.
 'EX_NERROR_MSG' - Corresponding error message.
 
 
-*A. tpreturn(3) buffer to async service reply - example*
+*Sync service req/reply - example*
 
 Request/reply example (from client perspective - in this example server process
 does change the data bytes doing +1 over the data starting from position 5):
@@ -264,7 +264,7 @@ EX_NETDATA      AELLP!XPSME\01\11\12\13\14UFTU\00
 --------------------------------------------------------------------------------
 
 
-*C. Example connection status buffer*
+*Example connection status buffer*
 
 The connection 2 is disconnected.
 

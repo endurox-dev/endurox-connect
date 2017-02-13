@@ -88,67 +88,65 @@ const (
 //Defaults
 const (
 	ERRORS_DEFAULT             = ERRORS_JSON
-	NOTIMEOUT_DEFAULT          = false /* we will use default timeout */
-	CONV_DEFAULT               = "json2ubf"
-	CONV_INT_DEFAULT           = CONV_JSON2UBF
+	TIMEOUT_DEFAULT            = 60
 	ERRFMT_JSON_MSG_DEFAULT    = "\"error_message\":\"%s\""
 	ERRFMT_JSON_CODE_DEFAULT   = "\"error_code\":%d"
 	ERRFMT_JSON_ONSUCC_DEFAULT = true /* generate success message in JSON */
 	ERRFMT_TEXT_DEFAULT        = "%d: %s"
-	ASYNCCALL_DEFAULT          = false
-	WORKERS                    = 10 /* Number of worker processes */
+	WORKERS_DEFAULT            = 10 /* Number of worker processes */
+	NOREQFILE_DEFAULT          = true
 )
 
 //We will have most of the settings as defaults
 //And then these settings we can override with
 type ServiceMap struct {
-	Svc    string `json:"svc"`
-	Url    string
+	Svc     string
+	UrlBase string `json:"urlbase"`
+	Url     string `json:"url"`
+
+	Timeout bool `json:"timeout"`
+
 	Errors string `json:"errors"`
 	//Above converted to consntant
-	Errors_int       int
-	Notime           bool   `json:"notime"`
-	Errfmt_text      string `json:"errfmt_text"`
+	Errors_int int
+
+	//Format for error to parse
+	//for 'text'
+	Errfmt_text string `json:"errfmt_text"`
+
+	//JSON fields
+	//for 'json'
 	Errfmt_json_msg  string `json:"errfmt_json_msg"`
 	Errfmt_json_code string `json:"errfmt_json_code"`
-	//If set, then generate code/message for success too
-	Errfmt_json_onsucc bool   `json:"errfmt_json_onsucc"`
-	Asynccall          bool   `json:"async"`     //use tpacall()
-	Asyncecho          bool   `json:"asyncecho"` //echo message in async mode
-	Conv               string `json:"conv"`      //Conv mode
-	Conv_int           int    //Resolve conversion type
-	//Request logging classify service
-	Reqlogsvc string `json:"reqlogsvc"`
-	//Error mapping Enduro/X error code (including * for all):http error code
+	//Should fields be present on success
+	//If missing, then assume response is ok
+	Errfmt_json_onsucc bool `json:"errfmt_json_onsucc"`
+
+	//Error mapping between <http><Enduro/X, currently 0 or 11)
 	Errors_fmt_http_map_str string `json:"errors_fmt_http_map"`
 	Errors_fmt_http_map     map[string]int
-	Noreqfilersp            bool `json:noreqfilersp` //Do not sent request file in respones
-	Echo                    bool `json:echo`         //Echo request buffer back
+
+	//Do not sent request file request messages (for UBF2JSON)
+	Noreqfilereq bool `json:noreqfilereq`
+
+	//This is echo tester service
+	Echo        bool `json:echo`
+	EchoTime    int  `json:echo_time`
+	EchoMaxFail int  `json:echo_max_fail`
+	EchoMinOK   int  `json:echo_min_ok`
+
+	DependsOn string `json:depends_on`
+
+	//TODO: Dependies...
+
 }
 
-var M_port int = atmi.FAIL
-var M_ip string
 var M_url_map map[string]ServiceMap
 
 //map the atmi error code (numbers + *) to some http error
 //We shall provide default mappings.
 
 var M_defaults ServiceMap
-
-/* TLS Settings: */
-var M_tls_enable int16 = FALSE
-var M_tls_cert_file string
-var M_tls_key_file string
-
-//Conversion types
-var M_convs = map[string]int{
-
-	"json2ubf": CONV_JSON2UBF,
-	"text":     CONV_TEXT,
-	"json":     CONV_JSON,
-	"raw":      CONV_RAW,
-}
-
 var M_workers int
 var M_ac *atmi.ATMICtx //Mainly shared for logging....
 
@@ -176,31 +174,7 @@ func remapErrors(svc *ServiceMap) error {
 	return nil
 }
 
-//Run the listener
-func apprun(ac *atmi.ATMICtx) error {
-
-	var err error
-	//TODO: Some works needed for TLS...
-	listenOn := fmt.Sprintf("%s:%d", M_ip, M_port)
-	ac.TpLog(atmi.LOG_INFO, "About to listen on: (ip: %s, port: %d) %s",
-		M_ip, M_port, listenOn)
-	if TRUE == M_tls_enable {
-
-		/* To prepare cert (self-signed) do following steps:
-		 * - TODO
-		 */
-		err = http.ListenAndServeTLS(listenOn, M_tls_cert_file, M_tls_key_file, nil)
-		ac.TpLog(atmi.LOG_ERROR, "ListenAndServeTLS() failed: %s", err)
-	} else {
-		err = http.ListenAndServe(listenOn, nil)
-		ac.TpLog(atmi.LOG_ERROR, "ListenAndServe() failed: %s", err)
-	}
-
-	return err
-}
-
 //Init function, read config (with CCTAG)
-
 func dispatchRequest(w http.ResponseWriter, req *http.Request) {
 	M_ac.TpLog(atmi.LOG_DEBUG, "URL [%s] getting free goroutine", req.URL)
 

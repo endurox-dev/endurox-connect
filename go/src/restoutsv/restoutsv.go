@@ -60,9 +60,11 @@ const (
 )
 
 const (
-	UNSET = -1
-	FALSE = 0
-	TRUE  = 1
+	UNSET   = -1
+	FALSE   = 0
+	TRUE    = 1
+	SUCCEED = atmi.SUCCEED
+	FAIL    = atmi.FAIL
 )
 
 //Error handling type
@@ -76,6 +78,7 @@ const (
 
 //Defaults
 const (
+	ECHO_DEFAULT               = false
 	ERRORS_DEFAULT             = ERRORS_JSON2UBF
 	TIMEOUT_DEFAULT            = 60
 	ERRFMT_JSON_MSG_DEFAULT    = "\"error_message\":\"%s\""
@@ -116,15 +119,15 @@ type ServiceMap struct {
 	Errors_fmt_http_map     map[string]int
 
 	//Do not sent request file request messages (for UBF2JSON)
-	Noreqfilereq bool `json:noreqfilereq`
+	Noreqfilereq bool `json:"noreqfilereq"`
 
 	//This is echo tester service
-	Echo        bool `json:echo`
-	EchoTime    int  `json:echo_time`
-	EchoMaxFail int  `json:echo_max_fail`
-	EchoMinOK   int  `json:echo_min_ok`
+	Echo        bool `json:"echo"`
+	EchoTime    int  `json:"echo_time"`
+	EchoMaxFail int  `json:"echo_max_fail"`
+	EchoMinOK   int  `json:"echo_min_ok"`
 
-	DependsOn string `json:depends_on`
+	DependsOn string `json:"depends_on"`
 
 	//Dependies...
 	Dependies []ServiceMap
@@ -161,24 +164,6 @@ func remapErrors(svc *ServiceMap) error {
 	}
 
 	return nil
-}
-
-//Init function, read config (with CCTAG)
-func dispatchRequest(w http.ResponseWriter, req *http.Request) {
-	Mac.TpLog(atmi.LOG_DEBUG, "URL [%s] getting free goroutine", req.URL)
-
-	nr := <-Mfreechan
-
-	svc := Mservices[req.URL.String()]
-
-	Mac.TpLogInfo("Got free goroutine, nr %d", nr)
-
-	handleMessage(Mctxs[nr], &svc, w, req)
-
-	Mac.TpLogInfo("Request processing done %d... releasing the context", nr)
-
-	Mfreechan <- nr
-
 }
 
 //Map the ATMI Errors to Http errors
@@ -226,14 +211,12 @@ func parseHTTPErrorMap(ac *atmi.ATMICtx, svc *ServiceMap) error {
 
 //Print the summary of the service after init
 func printSvcSummary(ac *atmi.ATMICtx, svc *ServiceMap) {
-	ac.TpLogWarn("Service: %s, Url: %s, Async mode: %t, Log request svc: [%s], Errors:%d (%s), Async echo %t",
+	ac.TpLogWarn("Service: %s, Url: %s, [%s], Errors:%d (%s), Echo %t",
 		svc.Svc,
 		svc.Url,
-		svc.Asynccall,
-		svc.Reqlogsvc,
 		svc.Errors_int,
 		svc.Errors,
-		svc.Asyncecho)
+		svc.Echo)
 }
 
 //Un-init function
@@ -244,14 +227,14 @@ func appinit(ac *atmi.ATMICtx) error {
 
 	//Setup default configuration
 	Mdefaults.Errors_int = ERRORS_DEFAULT
-	Mdefaults.Notime = NOTIMEOUT_DEFAULT
+	Mdefaults.Echo = ECHO_DEFAULT
 	Mdefaults.Errfmt_json_msg = ERRFMT_JSON_MSG_DEFAULT
 	Mdefaults.Errfmt_json_code = ERRFMT_JSON_CODE_DEFAULT
 	Mdefaults.Errfmt_json_onsucc = ERRFMT_JSON_ONSUCC_DEFAULT
 	Mdefaults.Errfmt_text = ERRFMT_TEXT_DEFAULT
 	Mdefaults.Noreqfilereq = NOREQFILE_DEFAULT
 
-	Mworkers = WORKERS
+	Mworkers = WORKERS_DEFAULT
 
 	if err := ac.TpInit(); err != nil {
 		return errors.New(err.Error())
@@ -326,11 +309,6 @@ func appinit(ac *atmi.ATMICtx) error {
 
 			remapErrors(&Mdefaults)
 
-			Mdefaults.Conv_int = Mconvs[Mdefaults.Conv]
-			if Mdefaults.Conv_int == 0 {
-				return fmt.Errorf("Invalid conv: %s", Mdefaults.Conv)
-			}
-
 			printSvcSummary(ac, &Mdefaults)
 
 			break
@@ -349,12 +327,12 @@ func appinit(ac *atmi.ATMICtx) error {
 				cfgVal, _ := buf.BGetString(u.EX_CC_VALUE, occ)
 
 				ac.TpLogInfo("Got service route config [%s]=[%s]",
-					matchSvc, cfgVal)
+					matchSvc[0], cfgVal)
 
 				tmp := Mdefaults
 
 				//Override the stuff from current config
-				tmp.Svc = match
+				tmp.Svc = matchSvc[0]
 
 				//err := json.Unmarshal(cfgVal, &tmp)
 				decoder := json.NewDecoder(strings.NewReader(cfgVal))
@@ -383,7 +361,7 @@ func appinit(ac *atmi.ATMICtx) error {
 
 				printSvcSummary(ac, &tmp)
 
-				Mservices[match] = tmp
+				Mservices[matchSvc[0]] = tmp
 
 				//Add to HTTP listener
 				//We should add service to advertise list...
@@ -407,7 +385,7 @@ func appinit(ac *atmi.ATMICtx) error {
 		//https://golang.org/src/net/http/status.go
 		Mdefaults.Errors_fmt_http_map = make(map[string]int)
 		//Accepted
-		Mdefaults.Errors_fmt_http_map[http.StatusOK] = strconv.Itoa(atmi.TPMINVAL)
+		Mdefaults.Errors_fmt_http_map[strconv.Itoa(http.StatusOK)] = atmi.TPMINVAL
 		//Anything other goes to server error.
 		Mdefaults.Errors_fmt_http_map["*"] = atmi.TPESVCFAIL
 
@@ -418,8 +396,9 @@ func appinit(ac *atmi.ATMICtx) error {
 		if v.DependsOn == "" && v.Echo {
 			//Advertize service
 			if err := ac.TpAdvertise("TESTSV", "RESTOUT", RESTOUT); err != nil {
-				ac.TpLogError("Failed to Advertise: ATMI Error %d:[%s]\n", err.Code(), err.Message())
-				return atmi.FAIL
+				ac.TpLogError("Failed to Advertise: ATMI Error %d:[%s]\n",
+					err.Code(), err.Message())
+				return errors.New("Init failed")
 			}
 
 		}
@@ -499,13 +478,6 @@ func RESTOUT(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 //Un-init & Terminate the application
 func unInit(ac *atmi.ATMICtx) {
 
-	for i := 0; i < Mworkers; i++ {
-		nr := <-Mfreechan
-
-		ac.TpLogWarn("Terminating %d context", nr)
-		Mctxs[nr].TpTerm()
-		Mctxs[nr].FreeATMICtx()
-	}
 }
 
 //Executable main entry point

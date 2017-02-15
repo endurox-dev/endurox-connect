@@ -32,7 +32,7 @@ package main
 
 import "github.com/endurox-dev/endurox-go/tests/08_logging/src/atmi"
 
-//
-func (s *ServiceMap) Advertise() atmi.ATMIError {
-
+//Advertise service for given service definition
+func (s *ServiceMap) Advertise(ac *atmi.ATMICtx) atmi.ATMIError {
+	ac.TpAdvertise(s.Svc, "RESTOUT", RESTOUT)
 }

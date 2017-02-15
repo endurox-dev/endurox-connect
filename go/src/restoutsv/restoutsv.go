@@ -42,11 +42,9 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"os/signal"
 	"regexp"
 	"strconv"
 	"strings"
-	"syscall"
 	u "ubftab"
 
 	atmi "github.com/endurox-dev/endurox-go"
@@ -71,23 +69,14 @@ const (
 const (
 	ERRORS_HTTP = 1 //Return error code in http
 	ERRORS_TEXT = 2 //Return error as formatted text (from config)
-	ERRORS_RAW  = 3 //Use the raw formatting (just another kind for text)
-	ERRORS_JSON = 4 //Contact the json fields to main respons block.
+	ERRORS_JSON = 3 //Contact the json fields to main respons block.
 	//Return the error code as UBF response (usable only in case if CONV_JSON2UBF used)
-	ERRORS_JSON2UBF = 5
-)
-
-//Conversion types resolved
-const (
-	CONV_JSON2UBF = 1
-	CONV_TEXT     = 2
-	CONV_JSON     = 3
-	CONV_RAW      = 4
+	ERRORS_JSON2UBF = 4
 )
 
 //Defaults
 const (
-	ERRORS_DEFAULT             = ERRORS_JSON
+	ERRORS_DEFAULT             = ERRORS_JSON2UBF
 	TIMEOUT_DEFAULT            = 60
 	ERRFMT_JSON_MSG_DEFAULT    = "\"error_message\":\"%s\""
 	ERRFMT_JSON_CODE_DEFAULT   = "\"error_code\":%d"
@@ -137,18 +126,18 @@ type ServiceMap struct {
 
 	DependsOn string `json:depends_on`
 
-	//TODO: Dependies...
-
+	//Dependies...
+	Dependies []ServiceMap
 }
 
-var M_url_map map[string]ServiceMap
+var Mservices map[string]ServiceMap
 
 //map the atmi error code (numbers + *) to some http error
 //We shall provide default mappings.
 
-var M_defaults ServiceMap
-var M_workers int
-var M_ac *atmi.ATMICtx //Mainly shared for logging....
+var Mdefaults ServiceMap
+var Mworkers int
+var Mac *atmi.ATMICtx //Mainly shared for logging....
 
 //Remap the error from string to int constant
 //for better performance...
@@ -176,19 +165,19 @@ func remapErrors(svc *ServiceMap) error {
 
 //Init function, read config (with CCTAG)
 func dispatchRequest(w http.ResponseWriter, req *http.Request) {
-	M_ac.TpLog(atmi.LOG_DEBUG, "URL [%s] getting free goroutine", req.URL)
+	Mac.TpLog(atmi.LOG_DEBUG, "URL [%s] getting free goroutine", req.URL)
 
-	nr := <-M_freechan
+	nr := <-Mfreechan
 
-	svc := M_url_map[req.URL.String()]
+	svc := Mservices[req.URL.String()]
 
-	M_ac.TpLogInfo("Got free goroutine, nr %d", nr)
+	Mac.TpLogInfo("Got free goroutine, nr %d", nr)
 
-	handleMessage(M_ctxs[nr], &svc, w, req)
+	handleMessage(Mctxs[nr], &svc, w, req)
 
-	M_ac.TpLogInfo("Request processing done %d... releasing the context", nr)
+	Mac.TpLogInfo("Request processing done %d... releasing the context", nr)
 
-	M_freechan <- nr
+	Mfreechan <- nr
 
 }
 
@@ -251,20 +240,18 @@ func printSvcSummary(ac *atmi.ATMICtx, svc *ServiceMap) {
 func appinit(ac *atmi.ATMICtx) error {
 	//runtime.LockOSThread()
 
-	M_url_map = make(map[string]ServiceMap)
+	Mservices = make(map[string]ServiceMap)
 
 	//Setup default configuration
-	M_defaults.Errors_int = ERRORS_DEFAULT
-	M_defaults.Notime = NOTIMEOUT_DEFAULT
-	M_defaults.Conv = CONV_DEFAULT
-	M_defaults.Conv_int = CONV_INT_DEFAULT
-	M_defaults.Errfmt_json_msg = ERRFMT_JSON_MSG_DEFAULT
-	M_defaults.Errfmt_json_code = ERRFMT_JSON_CODE_DEFAULT
-	M_defaults.Errfmt_json_onsucc = ERRFMT_JSON_ONSUCC_DEFAULT
-	M_defaults.Errfmt_text = ERRFMT_TEXT_DEFAULT
-	M_defaults.Asynccall = ASYNCCALL_DEFAULT
+	Mdefaults.Errors_int = ERRORS_DEFAULT
+	Mdefaults.Notime = NOTIMEOUT_DEFAULT
+	Mdefaults.Errfmt_json_msg = ERRFMT_JSON_MSG_DEFAULT
+	Mdefaults.Errfmt_json_code = ERRFMT_JSON_CODE_DEFAULT
+	Mdefaults.Errfmt_json_onsucc = ERRFMT_JSON_ONSUCC_DEFAULT
+	Mdefaults.Errfmt_text = ERRFMT_TEXT_DEFAULT
+	Mdefaults.Noreqfilereq = NOREQFILE_DEFAULT
 
-	M_workers = WORKERS
+	Mworkers = WORKERS
 
 	if err := ac.TpInit(); err != nil {
 		return errors.New(err.Error())
@@ -307,7 +294,7 @@ func appinit(ac *atmi.ATMICtx) error {
 		switch fldName {
 
 		case "workers":
-			M_workers, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
+			Mworkers, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
 			break
 		case "gencore":
 			gencore, _ := buf.BGetInt(u.EX_CC_VALUE, occ)
@@ -324,27 +311,27 @@ func appinit(ac *atmi.ATMICtx) error {
 			//Override the defaults
 			jsonDefault, _ := buf.BGetByteArr(u.EX_CC_VALUE, occ)
 
-			jerr := json.Unmarshal(jsonDefault, &M_defaults)
+			jerr := json.Unmarshal(jsonDefault, &Mdefaults)
 			if jerr != nil {
 				ac.TpLog(atmi.LOG_ERROR,
 					fmt.Sprintf("Failed to parse defaults: %s", jerr))
 				return jerr
 			}
 
-			if M_defaults.Errors_fmt_http_map_str != "" {
-				if jerr := parseHTTPErrorMap(ac, &M_defaults); err != nil {
+			if Mdefaults.Errors_fmt_http_map_str != "" {
+				if jerr := parseHTTPErrorMap(ac, &Mdefaults); err != nil {
 					return jerr
 				}
 			}
 
-			remapErrors(&M_defaults)
+			remapErrors(&Mdefaults)
 
-			M_defaults.Conv_int = M_convs[M_defaults.Conv]
-			if M_defaults.Conv_int == 0 {
-				return fmt.Errorf("Invalid conv: %s", M_defaults.Conv)
+			Mdefaults.Conv_int = Mconvs[Mdefaults.Conv]
+			if Mdefaults.Conv_int == 0 {
+				return fmt.Errorf("Invalid conv: %s", Mdefaults.Conv)
 			}
 
-			printSvcSummary(ac, &M_defaults)
+			printSvcSummary(ac, &Mdefaults)
 
 			break
 		default:
@@ -364,9 +351,10 @@ func appinit(ac *atmi.ATMICtx) error {
 				ac.TpLogInfo("Got service route config [%s]=[%s]",
 					matchSvc, cfgVal)
 
-				tmp := M_defaults
+				tmp := Mdefaults
 
 				//Override the stuff from current config
+				tmp.Svc = match
 
 				//err := json.Unmarshal(cfgVal, &tmp)
 				decoder := json.NewDecoder(strings.NewReader(cfgVal))
@@ -392,165 +380,150 @@ func appinit(ac *atmi.ATMICtx) error {
 				}
 
 				remapErrors(&tmp)
-				//Map the conv
-				tmp.Conv_int = M_convs[tmp.Conv]
-
-				if tmp.Conv_int == 0 {
-					return fmt.Errorf("Invalid conv: %s", tmp.Conv)
-				}
 
 				printSvcSummary(ac, &tmp)
 
-				M_url_map[fldName] = tmp
+				Mservices[match] = tmp
 
 				//Add to HTTP listener
 				//We should add service to advertise list...
 				//And list if echo is enabled & succeeed
 				//or if echo not set, then auto advertise all
 				//http.HandleFunc(fldName, dispatchRequest)
+
+				if strings.HasPrefix(tmp.Url, "/") {
+					//This is partial URL, so use base
+					tmp.Url = tmp.UrlBase + tmp.Url
+				}
 			}
 			break
 		}
 
 	}
 
-	if atmi.FAIL == M_port || "" == M_ip {
-		ac.TpLog(atmi.LOG_ERROR, "Invalid config: missing ip (%s) or port (%d)",
-			M_ip, M_port)
-		return errors.New("Invalid config: missing ip or port")
-	}
-
-	//Check the TLS settings
-	if TRUE == M_tls_enable && (M_tls_cert_file == "" || M_tls_key_file == "") {
-
-		ac.TpLog(atmi.LOG_ERROR, "Invalid TLS settigns missing cert "+
-			"(%s) or keyfile (%s) ", M_tls_cert_file, M_tls_key_file)
-
-		return errors.New("Invalid config: missing ip or port")
-	}
-
 	//Add the default erorr mappings
-	if M_defaults.Errors_fmt_http_map_str == "" {
+	if Mdefaults.Errors_fmt_http_map_str == "" {
 
 		//https://golang.org/src/net/http/status.go
-		M_defaults.Errors_fmt_http_map = make(map[string]int)
+		Mdefaults.Errors_fmt_http_map = make(map[string]int)
 		//Accepted
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPMINVAL)] =
-			http.StatusOK
-		//Errors:
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEABORT)] =
-			http.StatusInternalServerError
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEBADDESC)] =
-			http.StatusBadRequest
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEBLOCK)] =
-			http.StatusInternalServerError
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEINVAL)] =
-			http.StatusBadRequest
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPELIMIT)] =
-			http.StatusRequestEntityTooLarge
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPENOENT)] =
-			http.StatusNotFound
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEOS)] =
-			http.StatusInternalServerError
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEPERM)] =
-			http.StatusUnauthorized
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEPROTO)] =
-			http.StatusBadRequest
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPESVCERR)] =
-			http.StatusBadGateway
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPESVCFAIL)] =
-			http.StatusInternalServerError
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPESYSTEM)] =
-			http.StatusInternalServerError
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPETIME)] =
-			http.StatusGatewayTimeout
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPETRAN)] =
-			http.StatusInternalServerError
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPERMERR)] =
-			http.StatusInternalServerError
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEITYPE)] =
-			http.StatusInternalServerError
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEOTYPE)] =
-			http.StatusInternalServerError
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPERELEASE)] =
-			http.StatusInternalServerError
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEHAZARD)] =
-			http.StatusInternalServerError
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEHEURISTIC)] =
-			http.StatusInternalServerError
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEEVENT)] =
-			http.StatusInternalServerError
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEMATCH)] =
-			http.StatusInternalServerError
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEDIAGNOSTIC)] =
-			http.StatusInternalServerError
-		M_defaults.Errors_fmt_http_map[strconv.Itoa(atmi.TPEMIB)] =
-			http.StatusInternalServerError
+		Mdefaults.Errors_fmt_http_map[http.StatusOK] = strconv.Itoa(atmi.TPMINVAL)
 		//Anything other goes to server error.
-		M_defaults.Errors_fmt_http_map["*"] = http.StatusInternalServerError
+		Mdefaults.Errors_fmt_http_map["*"] = atmi.TPESVCFAIL
 
 	}
 
-	ac.TpLogInfo("About to init woker pool, number of workers: %d", M_workers)
+	//Advertise services which are not dependent
+	for k, v := range Mservices {
+		if v.DependsOn == "" && v.Echo {
+			//Advertize service
+			if err := ac.TpAdvertise("TESTSV", "RESTOUT", RESTOUT); err != nil {
+				ac.TpLogError("Failed to Advertise: ATMI Error %d:[%s]\n", err.Code(), err.Message())
+				return atmi.FAIL
+			}
+
+		}
+	}
+
+	ac.TpLogInfo("About to init woker pool, number of workers: %d", Mworkers)
 
 	initPool(ac)
 
 	return nil
 }
 
-//Un-init & Terminate the application
-func unInit(ac *atmi.ATMICtx, retCode int) {
+//RESTOUT service - generic entry point
+//@param ac ATMI Context
+//@param svc Service call information
+func RESTOUT(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 
-	for i := 0; i < M_workers; i++ {
-		nr := <-M_freechan
+	ret := SUCCEED
+
+	//Return to the caller
+	defer func() {
+
+		ac.TpLogCloseReqFile()
+		if SUCCEED == ret {
+			/* ac.TpContinue() - No need for this
+			 * Or it have nothing todo.
+			 * as operation  must be last.
+			 */
+			ac.TpContinue()
+		} else {
+			ac.TpReturn(atmi.TPFAIL, 0, &svc.Data, 0)
+		}
+	}()
+
+	//Get UBF Handler
+	ub, _ := ac.CastToUBF(&svc.Data)
+
+	//Print the buffer to stdout
+	ub.TpLogPrintUBF(atmi.LOG_DEBUG, "Incoming request:")
+
+	//Resize buffer, to have some more space
+	buf_size, err := ub.BUsed()
+
+	if err != nil {
+		ac.TpLogError("Failed to get incoming buffer used space: %d:%s",
+			err.Code(), err.Message())
+		ret = FAIL
+		return
+	}
+
+	//Realloc to have some free space for buffer manipulations
+	if err := ub.TpRealloc(buf_size + 1024); err != nil {
+		ac.TpLogError("TpRealloc() Got error: %d:[%s]", err.Code(), err.Message())
+		ret = FAIL
+		return
+	}
+
+	//Pack the request data to pass to thread
+	ctxData, err := ac.TpSrvGetCtxData()
+	if nil != err {
+		ac.TpLogError("Failed to get context data - dropping request",
+			err.Code(), err.Message())
+		ret = FAIL
+		return
+	}
+
+	ac.TpLogInfo("Waiting for free XATMI out object")
+	nr := getFreeXChan(ac, &MoutXPool)
+	ac.TpLogInfo("Got XATMI out object")
+	go XATMIDispatchCall(&MoutXPool, nr, ctxData, ub, svc.Cd)
+
+	//runtime.GC()
+
+	return
+}
+
+//Un-init & Terminate the application
+func unInit(ac *atmi.ATMICtx) {
+
+	for i := 0; i < Mworkers; i++ {
+		nr := <-Mfreechan
 
 		ac.TpLogWarn("Terminating %d context", nr)
-		M_ctxs[nr].TpTerm()
-		M_ctxs[nr].FreeATMICtx()
+		Mctxs[nr].TpTerm()
+		Mctxs[nr].FreeATMICtx()
 	}
-
-	ac.TpTerm()
-	ac.FreeATMICtx()
-	os.Exit(retCode)
 }
 
-//Handle the shutdown
-func handleShutdown(ac *atmi.ATMICtx) {
-	signalChannel := make(chan os.Signal, 2)
-	signal.Notify(signalChannel, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		sig := <-signalChannel
-		//Shutdown all contexts...
-		ac.TpLogWarn("Got signal %d - shutting down all XATMI client contexts",
-			sig)
-		unInit(ac, atmi.SUCCEED)
-	}()
-}
-
-//Service Main
-
+//Executable main entry point
 func main() {
-
-	var err atmi.ATMIError
-	M_ac, err = atmi.NewATMICtx()
+	//Have some context
+	ac, err := atmi.NewATMICtx()
 
 	if nil != err {
-		fmt.Fprintf(os.Stderr, "Failed to allocate cotnext %s!\n", err)
+		fmt.Fprintf(os.Stderr, "Failed to allocate new context: %s", err)
 		os.Exit(atmi.FAIL)
+	} else {
+		//Run as server
+		if err = ac.TpRun(appinit, unInit); nil != err {
+			ac.TpLogError("Exit with failure")
+			os.Exit(atmi.FAIL)
+		} else {
+			ac.TpLogInfo("Exit with success")
+			os.Exit(atmi.SUCCEED)
+		}
 	}
-
-	if err := appinit(M_ac); nil != err {
-		M_ac.TpLogError("Failed to init: %s", err)
-		os.Exit(atmi.FAIL)
-	}
-
-	handleShutdown(M_ac)
-
-	M_ac.TpLogWarn("REST Outgoing init ok - serving...")
-
-	if err := apprun(M_ac); nil != err {
-		unInit(M_ac, atmi.FAIL)
-	}
-
-	unInit(M_ac, atmi.SUCCEED)
 }

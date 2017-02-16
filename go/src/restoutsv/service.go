@@ -30,9 +30,22 @@
  */
 package main
 
-import "github.com/endurox-dev/endurox-go/tests/08_logging/src/atmi"
+import (
+	atmi "github.com/endurox-dev/endurox-go"
+)
 
 //Advertise service for given service definition
+//@param ac 	Context into which run the operation
+//@return	ATMI Error
 func (s *ServiceMap) Advertise(ac *atmi.ATMICtx) atmi.ATMIError {
-	ac.TpAdvertise(s.Svc, "RESTOUT", RESTOUT)
+	ac.TpLogInfo("About to advertise: %s", s.Svc)
+	return ac.TpAdvertise(s.Svc, "RESTOUT", RESTOUT)
+}
+
+//Remove service from shared memory
+//@param ac	ATMI Context
+//@return ATMI error
+func (s *ServiceMap) Unadvertise(ac *atmi.ATMICtx) atmi.ATMIError {
+	ac.TpLogInfo("About to unadvertise: %s", s.Svc)
+	return ac.TpUnadvertise(s.Svc)
 }

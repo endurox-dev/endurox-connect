@@ -38,7 +38,6 @@ package main
 //Hmm we might need to put in channels a free ATMI contexts..
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -96,7 +95,7 @@ type ServiceMap struct {
 	UrlBase string `json:"urlbase"`
 	Url     string `json:"url"`
 
-	Timeout bool `json:"timeout"`
+	Timeout int `json:"timeout"`
 
 	Errors string `json:"errors"`
 	//Above converted to consntant
@@ -220,7 +219,7 @@ func printSvcSummary(ac *atmi.ATMICtx, svc *ServiceMap) {
 }
 
 //Un-init function
-func appinit(ac *atmi.ATMICtx) error {
+func appinit(ctx *atmi.ATMICtx) int {
 	//runtime.LockOSThread()
 
 	Mservices = make(map[string]ServiceMap)
@@ -236,24 +235,22 @@ func appinit(ac *atmi.ATMICtx) error {
 
 	Mworkers = WORKERS_DEFAULT
 
-	if err := ac.TpInit(); err != nil {
-		return errors.New(err.Error())
-	}
-
 	//Get the configuration
 
-	buf, err := ac.NewUBF(16 * 1024)
+	buf, err := ctx.NewUBF(16 * 1024)
 	if nil != err {
-		ac.TpLog(atmi.LOG_ERROR, "Failed to allocate buffer: [%s]", err.Error())
-		return errors.New(err.Error())
+		ctx.TpLog(atmi.LOG_ERROR, "Failed to allocate buffer: [%s]", err.Error())
+		return FAIL
 	}
 
 	buf.BChg(u.EX_CC_CMD, 0, "g")
-	buf.BChg(u.EX_CC_LOOKUPSECTION, 0, fmt.Sprintf("%s/%s", progsection, os.Getenv("NDRX_CCTAG")))
+	buf.BChg(u.EX_CC_LOOKUPSECTION, 0, fmt.Sprintf("%s/%s", progsection,
+		os.Getenv("NDRX_CCTAG")))
 
-	if _, err := ac.TpCall("@CCONF", buf, 0); nil != err {
-		ac.TpLog(atmi.LOG_ERROR, "ATMI Error %d:[%s]\n", err.Code(), err.Message())
-		return errors.New(err.Error())
+	if _, err := ctx.TpCall("@CCONF", buf, 0); nil != err {
+		ctx.TpLog(atmi.LOG_ERROR, "ATMI Error %d:[%s]\n", err.Code(),
+			err.Message())
+		return FAIL
 	}
 
 	buf.TpLogPrintUBF(atmi.LOG_DEBUG, "Got configuration.")
@@ -263,16 +260,16 @@ func appinit(ac *atmi.ATMICtx) error {
 	occs, _ := buf.BOccur(u.EX_CC_KEY)
 	// Load in the config...
 	for occ := 0; occ < occs; occ++ {
-		ac.TpLog(atmi.LOG_DEBUG, "occ %d", occ)
+		ctx.TpLog(atmi.LOG_DEBUG, "occ %d", occ)
 		fldName, err := buf.BGetString(u.EX_CC_KEY, occ)
 
 		if nil != err {
-			ac.TpLog(atmi.LOG_ERROR, "Failed to get field "+
+			ctx.TpLog(atmi.LOG_ERROR, "Failed to get field "+
 				"%d occ %d", u.EX_CC_KEY, occ)
-			return errors.New(err.Error())
+			return FAIL
 		}
 
-		ac.TpLog(atmi.LOG_DEBUG, "Got config field [%s]", fldName)
+		ctx.TpLog(atmi.LOG_DEBUG, "Got config field [%s]", fldName)
 
 		switch fldName {
 
@@ -284,7 +281,7 @@ func appinit(ac *atmi.ATMICtx) error {
 
 			if TRUE == gencore {
 				//Process signals by default handlers
-				ac.TpLogInfo("gencore=1 - SIGSEG signal will be " +
+				ctx.TpLogInfo("gencore=1 - SIGSEG signal will be " +
 					"processed by default OS handler")
 				// Have some core dumps...
 				C.signal(11, nil)
@@ -296,20 +293,20 @@ func appinit(ac *atmi.ATMICtx) error {
 
 			jerr := json.Unmarshal(jsonDefault, &Mdefaults)
 			if jerr != nil {
-				ac.TpLog(atmi.LOG_ERROR,
+				ctx.TpLog(atmi.LOG_ERROR,
 					fmt.Sprintf("Failed to parse defaults: %s", jerr))
-				return jerr
+				return FAIL
 			}
 
 			if Mdefaults.Errors_fmt_http_map_str != "" {
-				if jerr := parseHTTPErrorMap(ac, &Mdefaults); err != nil {
-					return jerr
+				if jerr := parseHTTPErrorMap(ctx, &Mdefaults); jerr != nil {
+					return FAIL
 				}
 			}
 
 			remapErrors(&Mdefaults)
 
-			printSvcSummary(ac, &Mdefaults)
+			printSvcSummary(ctx, &Mdefaults)
 
 			break
 		default:
@@ -326,7 +323,7 @@ func appinit(ac *atmi.ATMICtx) error {
 
 				cfgVal, _ := buf.BGetString(u.EX_CC_VALUE, occ)
 
-				ac.TpLogInfo("Got service route config [%s]=[%s]",
+				ctx.TpLogInfo("Got service route config [%s]=[%s]",
 					matchSvc[0], cfgVal)
 
 				tmp := Mdefaults
@@ -340,26 +337,26 @@ func appinit(ac *atmi.ATMICtx) error {
 				err := decoder.Decode(&tmp)
 
 				if err != nil {
-					ac.TpLog(atmi.LOG_ERROR,
-						fmt.Sprintf("Failed to parse config key %s: %s",
-							fldName, err))
-					return err
+					ctx.TpLog(atmi.LOG_ERROR,
+						"Failed to parse config key %s: %s",
+						fldName, err)
+					return FAIL
 				}
 
-				ac.TpLogDebug("Got route: URL [%s] -> Service [%s]",
+				ctx.TpLogDebug("Got route: URL [%s] -> Service [%s]",
 					fldName, tmp.Svc)
 				tmp.Url = fldName
 
 				//Parse http errors for
 				if tmp.Errors_fmt_http_map_str != "" {
-					if jerr := parseHTTPErrorMap(ac, &tmp); err != nil {
-						return jerr
+					if jerr := parseHTTPErrorMap(ctx, &tmp); jerr != nil {
+						return FAIL
 					}
 				}
 
 				remapErrors(&tmp)
 
-				printSvcSummary(ac, &tmp)
+				printSvcSummary(ctx, &tmp)
 
 				Mservices[matchSvc[0]] = tmp
 
@@ -391,24 +388,23 @@ func appinit(ac *atmi.ATMICtx) error {
 
 	}
 
+	ctx.TpLogInfo("About to init woker pool, number of workers: %d", Mworkers)
+
+	if err := initPool(ctx, &MoutXPool); nil != err {
+		return FAIL
+	}
+
 	//Advertise services which are not dependent
-	for k, v := range Mservices {
+	for _, v := range Mservices {
 		if v.DependsOn == "" && v.Echo {
 			//Advertize service
-			if err := ac.TpAdvertise("TESTSV", "RESTOUT", RESTOUT); err != nil {
-				ac.TpLogError("Failed to Advertise: ATMI Error %d:[%s]\n",
-					err.Code(), err.Message())
-				return errors.New("Init failed")
+			if errA := v.Advertise(ctx); nil != errA {
+				return FAIL
 			}
-
 		}
 	}
 
-	ac.TpLogInfo("About to init woker pool, number of workers: %d", Mworkers)
-
-	initPool(ac)
-
-	return nil
+	return SUCCEED
 }
 
 //RESTOUT service - generic entry point
@@ -468,7 +464,8 @@ func RESTOUT(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	ac.TpLogInfo("Waiting for free XATMI out object")
 	nr := getFreeXChan(ac, &MoutXPool)
 	ac.TpLogInfo("Got XATMI out object")
-	go XATMIDispatchCall(&MoutXPool, nr, ctxData, ub, svc.Cd)
+
+	go XATMIDispatchCall(&MoutXPool, nr, ctxData, &svc.Data, svc.Cd, svc.Name)
 
 	//runtime.GC()
 

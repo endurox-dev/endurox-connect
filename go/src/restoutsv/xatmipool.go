@@ -44,7 +44,6 @@ type XATMIPool struct {
 
 }
 
-var MinXPool XATMIPool  //In XATMI pool
 var MoutXPool XATMIPool //Out XATMI pool
 
 var MXDispatcher = &sync.Mutex{}
@@ -53,7 +52,7 @@ var MXDispatcher = &sync.Mutex{}
 //@param ac 	ATMI contexts
 //@param pool	XATMI pool
 //@return error in case of error or nil if ok
-func initPool(ac *atmi.ATMICtx, pool *XATMIPool) error {
+func initPool(ac *atmi.ATMICtx, pool *XATMIPool) atmi.ATMIError {
 
 	pool.freechan = make(chan int, pool.nrWorkers)
 

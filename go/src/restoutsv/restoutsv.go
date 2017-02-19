@@ -115,8 +115,12 @@ type ServiceMap struct {
 
 	//Error mapping between <http><Enduro/X, currently 0 or 11)
 	Errors_fmt_http_map_str string `json:"errors_fmt_http_map"`
-	Errors_fmt_http_map     map[string]int
+	Errors_fmt_http_map     map[string]*int
 
+	//Should we parse the response (and fill the reply buffer)
+	//in case if we got the error
+	ParseOnError bool `json:"parseonerror"`
+	
 	//Do not sent request file request messages (for UBF2JSON)
 	Noreqfilereq bool `json:"noreqfilereq"`
 
@@ -171,7 +175,7 @@ func remapErrors(svc *ServiceMap) error {
 //@param svc	Service map
 func parseHTTPErrorMap(ac *atmi.ATMICtx, svc *ServiceMap) error {
 
-	svc.Errors_fmt_http_map = make(map[string]int)
+	svc.Errors_fmt_http_map = make(map[string]*int)
 	ac.TpLogDebug("Splitting error mapping string [%s]",
 		svc.Errors_fmt_http_map_str)
 
@@ -202,7 +206,12 @@ func parseHTTPErrorMap(ac *atmi.ATMICtx, svc *ServiceMap) error {
 		}
 
 		//Add to hash
-		svc.Errors_fmt_http_map[pair[0]] = int(number)
+		n:=int(number)
+		svc.Errors_fmt_http_map[pair[0]] = &n
+	}
+
+	if nil==svc.Errors_fmt_http_map["*"] {
+		return fmt.Errorf("Missing wildcard \"*\" in error config string!")
 	}
 
 	return nil
@@ -380,11 +389,17 @@ func appinit(ctx *atmi.ATMICtx) int {
 	if Mdefaults.Errors_fmt_http_map_str == "" {
 
 		//https://golang.org/src/net/http/status.go
-		Mdefaults.Errors_fmt_http_map = make(map[string]int)
+		Mdefaults.Errors_fmt_http_map = make(map[string]*int)
 		//Accepted
-		Mdefaults.Errors_fmt_http_map[strconv.Itoa(http.StatusOK)] = atmi.TPMINVAL
+		tpeminval:=atmi.TPMINVAL
+		Mdefaults.Errors_fmt_http_map[strconv.Itoa(http.StatusOK)] = &tpeminval
+
+		tpetime:=atmi.TPETIME
+		Mdefaults.Errors_fmt_http_map[strconv.Itoa(http.StatusGatewayTimeout)] = &tpetime
+
 		//Anything other goes to server error.
-		Mdefaults.Errors_fmt_http_map["*"] = atmi.TPESVCFAIL
+		genfail:=atmi.TPESVCFAIL
+		Mdefaults.Errors_fmt_http_map["*"] = &genfail
 
 	}
 

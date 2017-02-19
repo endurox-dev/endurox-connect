@@ -31,6 +31,8 @@
 package main
 
 import (
+	"time"
+
 	atmi "github.com/endurox-dev/endurox-go"
 )
 
@@ -48,4 +50,48 @@ func (s *ServiceMap) Advertise(ac *atmi.ATMICtx) atmi.ATMIError {
 func (s *ServiceMap) Unadvertise(ac *atmi.ATMICtx) atmi.ATMIError {
 	ac.TpLogInfo("About to unadvertise: %s", s.Svc)
 	return ac.TpUnadvertise(s.Svc)
+}
+
+//Do the monitoring of the target service
+//We need to make possible to shutdown threads cleanly...
+func (s *ServiceMap) Monitor() {
+
+	ac, err := atmi.NewATMICtx()
+
+	if err != nil {
+		ac.TpLogError("Failed to create context: %s!!!!", err.Message())
+		MmonitorsShut <- true
+		return
+	}
+
+	do_run := true
+
+	for do_run {
+
+		//Have a timout object
+		ac.TpLogInfo("Service %s echo tread in sleeping: %d",
+			s.Svc, s.EchoTime)
+		wakeUp := make(chan bool, 1)
+		go func() {
+			time.Sleep(time.Second * time.Duration(s.EchoTime))
+			wakeUp <- true
+		}()
+
+		select {
+		case <-wakeUp:
+			//Send echo (we will do tpcall, right?)
+			//We will support all types of the buffer formats!
+			//To Echo services....
+
+		case <-s.shutdown:
+			// the read from ch has timed out
+			ac.TpLogWarn("%s - Monitor thread shutdown received...", s.Svc)
+			do_run = false
+			MmonitorsShut <- true
+		}
+	}
+
+	ac.TpTerm()
+
+	return
 }

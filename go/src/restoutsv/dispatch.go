@@ -35,9 +35,10 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
-	"time"
-	"strconv"
 	"regexp"
+	"strconv"
+	"time"
+
 	atmi "github.com/endurox-dev/endurox-go"
 )
 
@@ -57,7 +58,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 	returnATMIErrorCode := atmi.TPMINVAL
 	/* The error codes sent from network */
 	netCode := atmi.TPMINVAL
-	netMessage:= ""
+	netMessage := ""
 
 	//Locate our service defintion
 	svc := Mservices[svcName]
@@ -68,7 +69,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 	var bufs *atmi.TypedString
 	var bufc *atmi.TypedCarray
 
-	bufu_rsp_parsed:=false
+	bufu_rsp_parsed := false
 	var errG error
 
 	defer func() {
@@ -90,10 +91,10 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 
 	ac.TpLogInfo("Reallocating the incoming buffer for storing the RSP")
 
-	if errA:=buf.TpRealloc(atmi.ATMI_MSG_MAX_SIZE); nil!=errA {
+	if errA := buf.TpRealloc(atmi.ATMI_MSG_MAX_SIZE); nil != errA {
 		ac.TpLogError("Failed to realloc buffer to: %s",
 			atmi.ATMI_MSG_MAX_SIZE)
-		ret=FAIL;
+		ret = FAIL
 		return
 	}
 
@@ -121,8 +122,8 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 			ac.TpLogError("Failed to cast to UBF: %s", errA.Error())
 			ret = FAIL
 			return
-		}
 
+		}
 		json, errA := bufu.TpUBFToJSON()
 
 		if nil == errA {
@@ -137,13 +138,13 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 
 		if svc.Errors_int != ERRORS_HTTP || svc.Errors_int != ERRORS_JSON2UBF {
 			ac.TpLogError("Invalid configuration! Sending UBF buffer "+
-				 "with non 'http' or 'json2ubf' buffer handling methods. "+
-				 " Current method: %s",svc.Errors)
+				"with non 'http' or 'json2ubf' buffer handling methods. "+
+				" Current method: %s", svc.Errors)
 
 			ac.UserLog("Service [%s] configuration error! Processing "+
 				"buffer UBF, but errors marked as [%s]. "+
 				"Must be 'json2ubf' or 'http'. Check field 'errors' "+
-				"in service config block", svc.Errors);
+				"in service config block", svc.Errors)
 			ret = FAIL
 			return
 		}
@@ -166,13 +167,13 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 			svc.Errors_int != ERRORS_TEXT ||
 			svc.Errors_int != ERRORS_JSON {
 			ac.TpLogError("Invalid configuration! Sending STRING buffer "+
-				 "with non 'text', 'json', 'http' error handling methods. "+
-				 " Current method: %s",svc.Errors)
+				"with non 'text', 'json', 'http' error handling methods. "+
+				" Current method: %s", svc.Errors)
 
 			ac.UserLog("Service [%s] configuration error! Processing "+
 				"buffer STRING, but errors marked as [%s]. "+
 				"Must be text', 'json', 'http'. Check field 'errors' "+
-				"in service config block", svc.Errors);
+				"in service config block", svc.Errors)
 			ret = FAIL
 			return
 		}
@@ -195,13 +196,13 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 			svc.Errors_int != ERRORS_TEXT ||
 			svc.Errors_int != ERRORS_JSON {
 			ac.TpLogError("Invalid configuration! Sending JSON buffer "+
-				 "with non 'text', 'json', 'http' error handling methods. "+
-				 " Current method: %s",svc.Errors)
+				"with non 'text', 'json', 'http' error handling methods. "+
+				" Current method: %s", svc.Errors)
 
 			ac.UserLog("Service [%s] configuration error! Processing "+
 				"buffer JSON, but errors marked as [%s]. "+
 				"Must be text', 'json', 'http'. Check field 'errors' "+
-				"in service config block", svc.Errors);
+				"in service config block", svc.Errors)
 			ret = FAIL
 			return
 		}
@@ -224,13 +225,13 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 			svc.Errors_int != ERRORS_TEXT ||
 			svc.Errors_int != ERRORS_JSON {
 			ac.TpLogError("Invalid configuration! Sending CARRAY buffer "+
-				 "with non 'text', 'json', 'http' error handling methods. "+
-				 " Current method: %s",svc.Errors)
+				"with non 'text', 'json', 'http' error handling methods. "+
+				" Current method: %s", svc.Errors)
 
 			ac.UserLog("Service [%s] configuration error! Processing "+
 				"buffer CARRAY, but errors marked as [%s]. "+
 				"Must be text', 'json', 'http'. Check field 'errors' "+
-				"in service config block", svc.Errors);
+				"in service config block", svc.Errors)
 			ret = FAIL
 			return
 		}
@@ -259,11 +260,11 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 		if err, ok := err.(net.Error); ok && err.Timeout() {
 			//Respond with TPSOFTTIMEOUT
 			retFlags |= atmi.TPSOFTTIMEOUT
-			ret=FAIL
+			ret = FAIL
 			return
 		} else {
 			//Assume other error
-			ret=FAIL
+			ret = FAIL
 			return
 		}
 	}
@@ -274,31 +275,31 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 
 	body, errN := ioutil.ReadAll(resp.Body)
 
-	if nil!=errN {
+	if nil != errN {
 		ac.TpLogError("Failed to read response body - dropping the "+
 			"message and responding with tout: %s",
 			errN)
 		retFlags |= atmi.TPSOFTTIMEOUT
-		ret=FAIL
+		ret = FAIL
 		return
 	}
 
 	//If we are nont handling in http way and http is bad
 	//then return fail...
 	//Check the status now
-	if svc.Errors_int !=ERRORS_HTTP || resp.Status != strconv.Itoa(http.StatusOK) {
+	if svc.Errors_int != ERRORS_HTTP || resp.Status != strconv.Itoa(http.StatusOK) {
 
 		ac.TpLogError("Expected http status %d, but got: %s - fail",
-			http.StatusOK, resp.Status);
-		ret=FAIL
+			http.StatusOK, resp.Status)
+		ret = FAIL
 		return
 	}
 
 	ac.TpLogDump(atmi.LOG_DEBUG, "Got response back", body, len(body))
 
-	stringBody:=string(body)
+	stringBody := string(body)
 
-	ac.TpLogDebug("Got string body [%s]", stringBody);
+	ac.TpLogDebug("Got string body [%s]", stringBody)
 
 	//Process the resposne status first
 	ac.TpLogInfo("Checking status code...")
@@ -306,7 +307,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 	case ERRORS_HTTP:
 
 		ac.TpLogInfo("Error conv mode is HTTP - looking up mapping table by %s",
-			resp.Status);
+			resp.Status)
 
 		var lookup map[string]*int
 		//Map the resposne codes
@@ -316,32 +317,32 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 			lookup = Mdefaults.Errors_fmt_http_map
 		}
 
-		if nil!=lookup[resp.Status] {
+		if nil != lookup[resp.Status] {
 
 			returnATMIErrorCode = *lookup[resp.Status]
 			ac.TpLogDebug("Exact match found, converted to: %s",
-				returnATMIErrorCode);
+				returnATMIErrorCode)
 		} else {
 			//This is must have in buffer...
 			returnATMIErrorCode = *lookup["*"]
 
 			ac.TpLogDebug("Matched wildcard \"*\", converted to: %s",
-				returnATMIErrorCode);
+				returnATMIErrorCode)
 		}
 
 		break
 	case ERRORS_JSON:
 		//Try to find our fields into which we are interested
 		var jerr error
-		netCode, netMessage, jerr =JSONErrorGet(ac, &stringBody,
+		netCode, netMessage, jerr = JSONErrorGet(ac, &stringBody,
 			svc.Errfmt_json_code, svc.Errfmt_json_msg)
 
-		if nil!=jerr {
+		if nil != jerr {
 			ac.TpLogError("Failed to parse JSON message - dropping/ "+
-				"gen timeout: %s", jerr.Error());
+				"gen timeout: %s", jerr.Error())
 
 			retFlags |= atmi.TPSOFTTIMEOUT
-			ret=FAIL
+			ret = FAIL
 			return
 		}
 
@@ -349,13 +350,13 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 		ac.TpLogWarn("Got response from net, code=%d, msg=[%s]",
 			netCode, netMessage)
 
-		if netMessage=="" && svc.Errfmt_json_onsucc {
+		if netMessage == "" && svc.Errfmt_json_onsucc {
 
 			ac.TpLogError("Missing response message of [%s] in json "+
 				"- Dropping/timing out", svc.Errfmt_json_msg)
 
 			retFlags |= atmi.TPSOFTTIMEOUT
-			ret=FAIL
+			ret = FAIL
 			return
 		}
 
@@ -372,27 +373,31 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 				stringBody)
 
 			retFlags |= atmi.TPSOFTTIMEOUT
-			ret=FAIL
+			ret = FAIL
 			return
 		}
 
 		bufu_rsp_parsed = true
+
+		//TODO: Get the error fields from buffer
+		//Also we will check the flag that on succeed do we need a
+		//error fields or not
 
 		break
 	case ERRORS_TEXT:
 		//Try to scanf the string
 		erroCodeMsg := regexp.MustCompile(svc.Errfmt_text).FindStringSubmatch(stringBody)
 
-		if (len(erroCodeMsg) <2) {
+		if len(erroCodeMsg) < 2 {
 			ac.TpLogInfo("Error fields not found in text - assume succeed")
 		} else {
 
 			ac.TpLogInfo("Parsed response code [%s] message [%s]",
 				erroCodeMsg[0], erroCodeMsg[1])
 
-			netCode, errG= strconv.Atoi(erroCodeMsg[0])
+			netCode, errG = strconv.Atoi(erroCodeMsg[0])
 
-			if nil!=errG {
+			if nil != errG {
 				//Assume that is ok? Invalid format, maybe data?
 				//Well better fail with timeout...
 				//The format must be exact!!
@@ -402,7 +407,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 					erroCodeMsg[0])
 
 				retFlags |= atmi.TPSOFTTIMEOUT
-				ret=FAIL
+				ret = FAIL
 				return
 
 			}
@@ -414,45 +419,45 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 	//Fix up error codes
 	switch netCode {
 	case atmi.TPMINVAL:
-		ac.TpLogInfo("got SUCCEED");
-		break;
+		ac.TpLogInfo("got SUCCEED")
+		break
 	case atmi.TPETIME:
-		ac.TpLogInfo("got TPETIME");
+		ac.TpLogInfo("got TPETIME")
 		retFlags |= atmi.TPSOFTTIMEOUT
-		ret=FAIL
-		break;
+		ret = FAIL
+		break
 	case atmi.TPESVCERR:
-		ac.TpLogInfo("got TPESVCERR");
-		ret=FAIL
-		break;
+		ac.TpLogInfo("got TPESVCERR")
+		ret = FAIL
+		break
 	default:
-		ac.TpLogInfo("defaulting to TPESVCERR");
-		ret=FAIL
+		ac.TpLogInfo("defaulting to TPESVCERR")
+		ret = FAIL
 		netCode = atmi.TPESVCERR
-		break;
+		break
 	}
 
 	ac.TpLogInfo("Status after remap: code: %d message: [%s]",
-			netCode, netMessage)
+		netCode, netMessage)
 
 	//Should we parse content in case of error
 	//Well we could try that if we have some data returned!
 	//This should be done only in http error mapping case.
 	//Parse the message (if ok to do so...)
 
-	if !svc.ParseOnError &&  netCode != atmi.TPMINVAL{
-		ac.TpLogWarn("Request failed and 'parseonerror' is false "+
-			"- not changing buffer");
+	if !svc.ParseOnError && netCode != atmi.TPMINVAL {
+		ac.TpLogWarn("Request failed and 'parseonerror' is false " +
+			"- not changing buffer")
 		return
 	}
 
-	if SUCCEED==ret || svc.ParseOnError {
+	if SUCCEED == ret || svc.ParseOnError {
 
 		switch buftype {
 		case "UBF", "UBF32", "FML", "FML32":
 
 			//Parse response back from JSON
-			if (!bufu_rsp_parsed) {
+			if !bufu_rsp_parsed {
 				ac.TpLogDebug("Converting to UBF: [%s]", body)
 
 				if errA = bufu.TpJSONToUBF(stringBody); errA != nil {
@@ -465,7 +470,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 						errA.Code(), errA.Message())
 
 					retFlags |= atmi.TPSOFTTIMEOUT
-					ret=FAIL
+					ret = FAIL
 					return
 				}
 			}
@@ -482,7 +487,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 					errA.Code(), errA.Message())
 
 				retFlags |= atmi.TPSOFTTIMEOUT
-				ret=FAIL
+				ret = FAIL
 				return
 			}
 			break
@@ -498,7 +503,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 					errA.Message())
 
 				retFlags |= atmi.TPSOFTTIMEOUT
-				ret=FAIL
+				ret = FAIL
 				return
 			}
 
@@ -514,7 +519,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 					errA.Message())
 
 				retFlags |= atmi.TPSOFTTIMEOUT
-				ret=FAIL
+				ret = FAIL
 				return
 			}
 

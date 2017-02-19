@@ -120,7 +120,7 @@ type ServiceMap struct {
 	//Should we parse the response (and fill the reply buffer)
 	//in case if we got the error
 	ParseOnError bool `json:"parseonerror"`
-	
+
 	//Do not sent request file request messages (for UBF2JSON)
 	Noreqfilereq bool `json:"noreqfilereq"`
 
@@ -129,8 +129,13 @@ type ServiceMap struct {
 	EchoTime    int  `json:"echo_time"`
 	EchoMaxFail int  `json:"echo_max_fail"`
 	EchoMinOK   int  `json:"echo_min_ok"`
+	echoFails   int  //Number failed echos
+	echoSucc    int  //Number of ok echos
 
 	DependsOn string `json:"depends_on"`
+
+	//Wait for shutdown message
+	shutdown chan bool //This is if we get shutdown messages
 
 	//Dependies...
 	Dependies []ServiceMap
@@ -144,6 +149,10 @@ var Mservices map[string]ServiceMap
 var Mdefaults ServiceMap
 var Mworkers int
 var Mac *atmi.ATMICtx //Mainly shared for logging....
+
+var Mmonitors int //Number of monitoring threads, to wait for shutdown.
+
+var MmonitorsShut chan bool //Channel to wait for shutdown reply msgs
 
 //Remap the error from string to int constant
 //for better performance...
@@ -206,11 +215,11 @@ func parseHTTPErrorMap(ac *atmi.ATMICtx, svc *ServiceMap) error {
 		}
 
 		//Add to hash
-		n:=int(number)
+		n := int(number)
 		svc.Errors_fmt_http_map[pair[0]] = &n
 	}
 
-	if nil==svc.Errors_fmt_http_map["*"] {
+	if nil == svc.Errors_fmt_http_map["*"] {
 		return fmt.Errorf("Missing wildcard \"*\" in error config string!")
 	}
 
@@ -379,11 +388,19 @@ func appinit(ctx *atmi.ATMICtx) int {
 					//This is partial URL, so use base
 					tmp.Url = tmp.UrlBase + tmp.Url
 				}
+
+				if tmp.Echo {
+					//Make async chan
+					tmp.shutdown = make(chan bool, 2)
+					Mmonitors++
+				}
 			}
 			break
 		}
-
 	}
+
+	ctx.TpLogInfo("Number of monitor services: %s", Mmonitors)
+	MmonitorsShut = make(chan bool, Mmonitors)
 
 	//Add the default erorr mappings
 	if Mdefaults.Errors_fmt_http_map_str == "" {
@@ -391,14 +408,14 @@ func appinit(ctx *atmi.ATMICtx) int {
 		//https://golang.org/src/net/http/status.go
 		Mdefaults.Errors_fmt_http_map = make(map[string]*int)
 		//Accepted
-		tpeminval:=atmi.TPMINVAL
+		tpeminval := atmi.TPMINVAL
 		Mdefaults.Errors_fmt_http_map[strconv.Itoa(http.StatusOK)] = &tpeminval
 
-		tpetime:=atmi.TPETIME
+		tpetime := atmi.TPETIME
 		Mdefaults.Errors_fmt_http_map[strconv.Itoa(http.StatusGatewayTimeout)] = &tpetime
 
 		//Anything other goes to server error.
-		genfail:=atmi.TPESVCFAIL
+		genfail := atmi.TPESVCFAIL
 		Mdefaults.Errors_fmt_http_map["*"] = &genfail
 
 	}
@@ -411,11 +428,13 @@ func appinit(ctx *atmi.ATMICtx) int {
 
 	//Advertise services which are not dependent
 	for _, v := range Mservices {
-		if v.DependsOn == "" && v.Echo {
+		if v.DependsOn == "" || v.Echo {
 			//Advertize service
 			if errA := v.Advertise(ctx); nil != errA {
 				return FAIL
 			}
+		} else if v.DependsOn != "" {
+			//TODO: add current service to targets Dependies...
 		}
 	}
 
@@ -489,6 +508,24 @@ func RESTOUT(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 
 //Un-init & Terminate the application
 func unInit(ac *atmi.ATMICtx) {
+
+	//dispatch to monitors & wait for them to complete the shutdown
+	for _, v := range Mservices {
+
+		//Send shutdown to svc
+		if v.Echo {
+			ac.TpLogInfo("Shutting down monitor: [%s]", v.Svc)
+			v.shutdown <- true
+		}
+	}
+
+	for i := 0; i < Mmonitors; i++ {
+
+		ac.TpLogInfo("Waiting monitor %d to complete", i)
+		_ = <-MmonitorsShut
+	}
+
+	ac.TpLogInfo("Shutdown ok")
 
 }
 

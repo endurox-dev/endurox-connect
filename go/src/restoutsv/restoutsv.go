@@ -414,6 +414,9 @@ func appinit(ctx *atmi.ATMICtx) int {
 		tpetime := atmi.TPETIME
 		Mdefaults.Errors_fmt_http_map[strconv.Itoa(http.StatusGatewayTimeout)] = &tpetime
 
+		tpnoent := atmi.TPENOENT
+		Mdefaults.Errors_fmt_http_map[strconv.Itoa(http.StatusNotFound)] = &tpnoent
+
 		//Anything other goes to server error.
 		genfail := atmi.TPESVCFAIL
 		Mdefaults.Errors_fmt_http_map["*"] = &genfail

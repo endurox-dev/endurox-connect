@@ -38,6 +38,7 @@ import (
 	"regexp"
 	"strconv"
 	"time"
+	u "ubftab"
 
 	atmi "github.com/endurox-dev/endurox-go"
 )
@@ -65,9 +66,12 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 
 	//List all buffers here..
 	var bufu *atmi.TypedUBF
+	var bufuRsp *atmi.TypedUBF
 	var bufj *atmi.TypedJSON
 	var bufs *atmi.TypedString
 	var bufc *atmi.TypedCarray
+
+	retBuf := buf
 
 	bufu_rsp_parsed := false
 	var errG error
@@ -247,8 +251,6 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 	//req.Header.Set("X-Custom-Header", "myvalue")
 	req.Header.Set("Content-Type", content_type)
 
-	//TODO: How do we get back time-out?
-	//And can we report back to caller that it was timeout ATMI way?
 	var client = &http.Client{
 		Timeout: time.Second * time.Duration(svc.Timeout),
 	}
@@ -363,10 +365,13 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 		break
 	case ERRORS_JSON2UBF:
 		//Parse the buffer (will read all data right into buffer)
+		//Allocate parse buffer - it will be new (because
+		//We might not want to return data in error case...)
+		//...Depending on flags
 		ac.TpLogDebug("Converting to UBF: [%s]", body)
 
 		if errA = bufu.TpJSONToUBF(stringBody); errA != nil {
-			ac.TpLogError("Failed to conver buffer to JSON %d:[%s]\n",
+			ac.TpLogError("Failed to conver buffer to JSON %d:[%s]",
 				errA.Code(), errA.Message())
 
 			ac.TpLogError("Failed req: [%s] - dropping msg/tout",
@@ -377,11 +382,47 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 			return
 		}
 
+		bufuRsp, errA = ac.NewUBF(atmi.ATMI_MSG_MAX_SIZE)
+
+		if errA != nil {
+			ac.TpLogError("Failed to alloc UBF %d:[%s] - drop/timeout",
+				errA.Code(), errA.Message())
+
+			retFlags |= atmi.TPSOFTTIMEOUT
+			ret = FAIL
+			return
+		}
+
+		bufuRsp.TpLogPrintUBF(atmi.LOG_DEBUG, "Got UBF response from net")
+
 		bufu_rsp_parsed = true
 
-		//TODO: Get the error fields from buffer
-		//Also we will check the flag that on succeed do we need a
-		//error fields or not
+		//JSON2UBF response fields are present always
+		var errU atmi.UBFError
+
+		netCode, errU = bufuRsp.BGetInt(u.EX_IF_ECODE, 0)
+
+		if nil != errU {
+			ac.TpLogError("Missing EX_IF_ECODE: %s - assume format "+
+				"error - timeout", errU.Error())
+			retFlags |= atmi.TPSOFTTIMEOUT
+			ret = FAIL
+			return
+		}
+
+		bufuRsp.BDel(u.EX_IF_ECODE, 0)
+
+		netMessage, errU = bufuRsp.BGetString(u.EX_IF_EMSG, 0)
+
+		if nil != errU {
+			ac.TpLogError("Missing EX_IF_EMSG: %s - assume format "+
+				"error - timeout", errU.Error())
+			retFlags |= atmi.TPSOFTTIMEOUT
+			ret = FAIL
+			return
+		}
+
+		bufuRsp.BDel(u.EX_IF_EMSG, 0)
 
 		break
 	case ERRORS_TEXT:
@@ -424,6 +465,11 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 	case atmi.TPETIME:
 		ac.TpLogInfo("got TPETIME")
 		retFlags |= atmi.TPSOFTTIMEOUT
+		ret = FAIL
+		break
+	case atmi.TPENOENT:
+		ac.TpLogInfo("got TPEINVAL")
+		retFlags |= atmi.TPSOFTNOENT
 		ret = FAIL
 		break
 	case atmi.TPESVCERR:
@@ -473,6 +519,11 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 					ret = FAIL
 					return
 				}
+			} else {
+				//Response is parsed and we will answer with it
+				ac.TpLogInfo("Swapping UBF bufers...")
+				buf = bufuRsp.GetBuf()
+				ac.TpFree(bufu.GetBuf())
 			}
 			break
 		case "STRING":

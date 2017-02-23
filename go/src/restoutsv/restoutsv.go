@@ -75,9 +75,19 @@ const (
 	ERRORS_JSON2UBF = 4
 )
 
+//Conversion types resolved
+const (
+	CONV_JSON2UBF = 1
+	CONV_TEXT     = 2
+	CONV_JSON     = 3
+	CONV_RAW      = 4
+)
+
 //Defaults
 const (
 	ECHO_DEFAULT               = false
+	ECHO_CONV_DEFAULT          = "json2ubf"
+	ECHO_DATA_DEFAULT          = "{\"EX_DATA_STR\":\"Echo test\"}"
 	ERRORS_DEFAULT             = ERRORS_JSON2UBF
 	TIMEOUT_DEFAULT            = 60
 	ERRFMT_JSON_MSG_DEFAULT    = "\"error_message\":\"%s\""
@@ -125,12 +135,17 @@ type ServiceMap struct {
 	Noreqfilereq bool `json:"noreqfilereq"`
 
 	//This is echo tester service
-	Echo        bool `json:"echo"`
-	EchoTime    int  `json:"echo_time"`
-	EchoMaxFail int  `json:"echo_max_fail"`
-	EchoMinOK   int  `json:"echo_min_ok"`
-	echoFails   int  //Number failed echos
-	echoSucc    int  //Number of ok echos
+	Echo        bool   `json:"echo"`
+	EchoTime    int    `json:"echo_time"`
+	EchoMaxFail int    `json:"echo_max_fail"`
+	EchoMinOK   int    `json:"echo_min_ok"`
+	EchoConv    string `json:"echo_conv"`
+	echoConvInt int
+	EchoData    string `json:"echo_data"`
+
+	//Counters:
+	echoFails int //Number failed echos
+	echoSucc  int //Number of ok echos
 
 	DependsOn string `json:"depends_on"`
 
@@ -153,6 +168,15 @@ var Mac *atmi.ATMICtx //Mainly shared for logging....
 var Mmonitors int //Number of monitoring threads, to wait for shutdown.
 
 var MmonitorsShut chan bool //Channel to wait for shutdown reply msgs
+
+//Conversion types
+var Mconvs = map[string]int{
+
+	"json2ubf": CONV_JSON2UBF,
+	"text":     CONV_TEXT,
+	"json":     CONV_JSON,
+	"raw":      CONV_RAW,
+}
 
 //Remap the error from string to int constant
 //for better performance...
@@ -245,6 +269,8 @@ func appinit(ctx *atmi.ATMICtx) int {
 	//Setup default configuration
 	Mdefaults.Errors_int = ERRORS_DEFAULT
 	Mdefaults.Echo = ECHO_DEFAULT
+	Mdefaults.EchoConv = ECHO_CONV_DEFAULT
+	Mdefaults.EchoData = ECHO_DATA_DEFAULT
 	Mdefaults.Errfmt_json_msg = ERRFMT_JSON_MSG_DEFAULT
 	Mdefaults.Errfmt_json_code = ERRFMT_JSON_CODE_DEFAULT
 	Mdefaults.Errfmt_json_onsucc = ERRFMT_JSON_ONSUCC_DEFAULT
@@ -312,7 +338,7 @@ func appinit(ctx *atmi.ATMICtx) int {
 			jerr := json.Unmarshal(jsonDefault, &Mdefaults)
 			if jerr != nil {
 				ctx.TpLog(atmi.LOG_ERROR,
-					fmt.Sprintf("Failed to parse defaults: %s", jerr))
+					"Failed to parse defaults: %s", jerr.Error())
 				return FAIL
 			}
 
@@ -323,6 +349,15 @@ func appinit(ctx *atmi.ATMICtx) int {
 			}
 
 			remapErrors(&Mdefaults)
+
+			if Mdefaults.Echo {
+				Mdefaults.echoConvInt = Mconvs[Mdefaults.EchoConv]
+				if Mdefaults.echoConvInt == 0 {
+					ctx.TpLogError("Invalid conv: %s",
+						Mdefaults.EchoConv)
+					return FAIL
+				}
+			}
 
 			printSvcSummary(ctx, &Mdefaults)
 
@@ -373,10 +408,7 @@ func appinit(ctx *atmi.ATMICtx) int {
 				}
 
 				remapErrors(&tmp)
-
 				printSvcSummary(ctx, &tmp)
-
-				Mservices[matchSvc[0]] = tmp
 
 				//Add to HTTP listener
 				//We should add service to advertise list...
@@ -390,10 +422,18 @@ func appinit(ctx *atmi.ATMICtx) int {
 				}
 
 				if tmp.Echo {
+					tmp.echoConvInt = Mconvs[tmp.EchoConv]
+					if tmp.echoConvInt == 0 {
+						ctx.TpLogError("Invalid conv: %s",
+							tmp.EchoConv)
+						return FAIL
+					}
 					//Make async chan
 					tmp.shutdown = make(chan bool, 2)
 					Mmonitors++
 				}
+
+				Mservices[matchSvc[0]] = tmp
 			}
 			break
 		}

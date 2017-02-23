@@ -52,6 +52,62 @@ func (s *ServiceMap) Unadvertise(ac *atmi.ATMICtx) atmi.ATMIError {
 	return ac.TpUnadvertise(s.Svc)
 }
 
+//Call the echo service with JSON2UBF format data
+//@param ac	ATMI Context
+//@return nil (all ok) or ATMI error
+func (s *ServiceMap) EchoJSON2UBF(ac *atmi.ATMICtx) atmi.ATMIError {
+
+	//Allocate the buffer
+	bufu, errA := ac.NewUBF(atmi.ATMI_MSG_MAX_SIZE)
+
+	if nil != errA {
+		ac.TpLogError("failed to alloca ubf buffer %d:[%s]\n",
+			err1.Code(), err1.Message())
+
+		return errA
+	}
+
+	//Restore the data from JSON config...
+	if errU := bufu.TpJSONToUBF(); nil != errU {
+		ac.TpLogError("Failed to build UBF from JSON [%s] %d:[%s]\n",
+			s.EchoData, err1.Code(), err1.Message())
+
+		return atmi.NewCustomATMIError(atmi.TPEINVAL, "Failed to create "+
+			"UBF buffer from JSON!")
+	}
+
+	ac.TpLogDebug("About to call echo service: [%s]", s.Svc)
+	if errA = ac.TpCall(s.Svc, bufu.GetBuf(), 0); nil != errA {
+		ac.TpLogError("Failed to call echo service [%s]",
+			errA.Error())
+		return errA
+	}
+
+	ac.TpLogDebug("Echo Test to service [%s] OK", s.Svc)
+
+}
+
+//Call service with JSON buffer (directly loaded from config string)
+//@param ac	ATMI Context
+//@return nil (all ok) or ATMI error
+func (s *ServiceMap) EchoJSON(ac *atmi.ATMICtx) atmi.ATMIError {
+
+}
+
+//Call service with TEXT/STRING buffer (directly loaded from config string)
+//@param ac	ATMI Context
+//@return nil (all ok) or ATMI error
+func (s *ServiceMap) EchoText(ac *atmi.ATMICtx) atmi.ATMIError {
+
+}
+
+//Call service with RAW/CARRAY buffer (directly loaded from config string)
+//@param ac	ATMI Context
+//@return nil (all ok) or ATMI error
+func (s *ServiceMap) EchoRaw(ac *atmi.ATMICtx) atmi.ATMIError {
+
+}
+
 //Do the monitoring of the target service
 //We need to make possible to shutdown threads cleanly...
 func (s *ServiceMap) Monitor() {

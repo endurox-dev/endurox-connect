@@ -80,10 +80,10 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 
 		if SUCCEED == ret {
 			ac.TpLogInfo("Dispatch returns SUCCEED")
-			ac.TpReturn(atmi.TPSUCCESS, 0, buf, retFlags)
+			ac.TpReturn(atmi.TPSUCCESS, 0, retBuf, retFlags)
 		} else {
 			ac.TpLogWarn("Dispatch returns FAIL")
-			ac.TpReturn(atmi.TPFAIL, 0, buf, retFlags)
+			ac.TpReturn(atmi.TPFAIL, 0, retBuf, retFlags)
 		}
 
 		//Put back the channel

@@ -112,11 +112,11 @@ type ServiceMap struct {
 	Errfmt_json_msg  string `json:"errfmt_json_msg"`
 	Errfmt_json_code string `json:"errfmt_json_code"`
 	//If set, then generate code/message for success too
-	Errfmt_json_onsucc bool        `json:"errfmt_json_onsucc"`
-	Asynccall          bool        `json:"async"` //use tpacall()
-	Asyncecho	   bool		`json:"asyncecho"`//echo message in async mode
-	Conv               string      `json:"conv"`  //Conv mode
-	Conv_int           int         //Resolve conversion type
+	Errfmt_json_onsucc bool   `json:"errfmt_json_onsucc"`
+	Asynccall          bool   `json:"async"`     //use tpacall()
+	Asyncecho          bool   `json:"asyncecho"` //echo message in async mode
+	Conv               string `json:"conv"`      //Conv mode
+	Conv_int           int    //Resolve conversion type
 	//Request logging classify service
 	Reqlogsvc string `json:"reqlogsvc"`
 	//Error mapping Enduro/X error code (including * for all):http error code
@@ -571,7 +571,7 @@ func main() {
 	}
 
 	if err := appinit(M_ac); nil != err {
-                M_ac.TpLogError("Failed to init: %s", err)
+		M_ac.TpLogError("Failed to init: %s", err)
 		os.Exit(atmi.FAIL)
 	}
 

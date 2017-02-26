@@ -61,36 +61,57 @@ func (s *ServiceMap) EchoJSON2UBF(ac *atmi.ATMICtx) atmi.ATMIError {
 	bufu, errA := ac.NewUBF(atmi.ATMI_MSG_MAX_SIZE)
 
 	if nil != errA {
-		ac.TpLogError("failed to alloca ubf buffer %d:[%s]\n",
-			err1.Code(), err1.Message())
+		ac.TpLogError("failed to alloca ubf buffer %d:[%s]",
+			errA.Code(), errA.Message())
 
 		return errA
 	}
 
 	//Restore the data from JSON config...
-	if errU := bufu.TpJSONToUBF(); nil != errU {
-		ac.TpLogError("Failed to build UBF from JSON [%s] %d:[%s]\n",
-			s.EchoData, err1.Code(), err1.Message())
+	if errU := bufu.TpJSONToUBF(s.EchoData); nil != errU {
+		ac.TpLogError("Failed to build UBF from JSON [%s] %d:[%s]",
+			s.EchoData, errU.Code(), errU.Message())
 
 		return atmi.NewCustomATMIError(atmi.TPEINVAL, "Failed to create "+
 			"UBF buffer from JSON!")
 	}
 
 	ac.TpLogDebug("About to call echo service: [%s]", s.Svc)
-	if errA = ac.TpCall(s.Svc, bufu.GetBuf(), 0); nil != errA {
+	if _, errA = ac.TpCall(s.Svc, bufu.GetBuf(), 0); nil != errA {
 		ac.TpLogError("Failed to call echo service [%s]",
 			errA.Error())
 		return errA
 	}
 
-	ac.TpLogDebug("Echo Test to service [%s] OK", s.Svc)
+	ac.TpLogDebug("JSON2UBF: Echo Test to service [%s] OK", s.Svc)
 
+	return nil
 }
 
 //Call service with JSON buffer (directly loaded from config string)
 //@param ac	ATMI Context
 //@return nil (all ok) or ATMI error
 func (s *ServiceMap) EchoJSON(ac *atmi.ATMICtx) atmi.ATMIError {
+	//Allocate the buffer
+	buf, errA := ac.NewJSON([]byte(s.EchoData))
+
+	if nil != errA {
+		ac.TpLogError("failed to set/alloc buffer: %s",
+			errA.Error())
+
+		return errA
+	}
+
+	ac.TpLogDebug("About to call echo service: [%s]", s.Svc)
+	if _, errA = ac.TpCall(s.Svc, buf.GetBuf(), 0); nil != errA {
+		ac.TpLogError("Failed to call echo service [%s]",
+			errA.Error())
+		return errA
+	}
+
+	ac.TpLogDebug("JSON: Echo Test to service [%s] OK", s.Svc)
+
+	return nil
 
 }
 
@@ -98,13 +119,53 @@ func (s *ServiceMap) EchoJSON(ac *atmi.ATMICtx) atmi.ATMIError {
 //@param ac	ATMI Context
 //@return nil (all ok) or ATMI error
 func (s *ServiceMap) EchoText(ac *atmi.ATMICtx) atmi.ATMIError {
+	//Allocate the buffer
+	buf, errA := ac.NewString(s.EchoData)
 
+	if nil != errA {
+		ac.TpLogError("failed to alloca ubf buffer: %s",
+			errA.Error())
+
+		return errA
+	}
+
+	ac.TpLogDebug("About to call echo service: [%s]", s.Svc)
+	if _, errA = ac.TpCall(s.Svc, buf.GetBuf(), 0); nil != errA {
+		ac.TpLogError("Failed to call echo service [%s]",
+			errA.Error())
+		return errA
+	}
+
+	ac.TpLogDebug("STRING: Echo Test to service [%s] OK", s.Svc)
+
+	return nil
 }
 
 //Call service with RAW/CARRAY buffer (directly loaded from config string)
 //@param ac	ATMI Context
 //@return nil (all ok) or ATMI error
 func (s *ServiceMap) EchoRaw(ac *atmi.ATMICtx) atmi.ATMIError {
+	//Allocate the buffer
+	//TODO: Convert to CARRAY
+	buf, errA := ac.NewString(s.EchoData)
+
+	if nil != errA {
+		ac.TpLogError("failed to alloca ubf buffer: %s",
+			errA.Error())
+
+		return errA
+	}
+
+	ac.TpLogDebug("About to call echo service: [%s]", s.Svc)
+	if _, errA = ac.TpCall(s.Svc, buf.GetBuf(), 0); nil != errA {
+		ac.TpLogError("Failed to call echo service [%s]",
+			errA.Error())
+		return errA
+	}
+
+	ac.TpLogDebug("STRING: Echo Test to service [%s] OK", s.Svc)
+
+	return nil
 
 }
 

@@ -122,8 +122,8 @@ type ServiceMap struct {
 	//Error mapping Enduro/X error code (including * for all):http error code
 	Errors_fmt_http_map_str string `json:"errors_fmt_http_map"`
 	Errors_fmt_http_map     map[string]int
-	Noreqfilersp            bool `json:noreqfilersp` //Do not sent request file in respones
-	Echo                    bool `json:echo`         //Echo request buffer back
+	Noreqfilersp            bool `json:"noreqfilersp"` //Do not sent request file in respones
+	Echo                    bool `json:"echo"`         //Echo request buffer back
 }
 
 var M_port int = atmi.FAIL

@@ -31,6 +31,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"time"
 
 	atmi "github.com/endurox-dev/endurox-go"
@@ -52,12 +53,67 @@ func (s *ServiceMap) Unadvertise(ac *atmi.ATMICtx) atmi.ATMIError {
 	return ac.TpUnadvertise(s.Svc)
 }
 
+//Preparese echo buffers
+//@param ac	ATMI Context
+//@return ATMI error
+func (s *ServiceMap) PreparseEchoBuffers(ac *atmi.ATMICtx) atmi.ATMIError {
+
+	var errA atmi.ATMIError = nil
+	if s.Echo {
+		switch s.echoConvInt {
+
+		case CONV_JSON2UBF:
+			//Allocate the buffer
+			s.echoUBF, errA = ac.NewUBF(atmi.ATMI_MSG_MAX_SIZE)
+
+			if nil != errA {
+				ac.TpLogError("failed to alloca ubf buffer %d:[%s]",
+					errA.Code(), errA.Message())
+
+				return errA
+			}
+
+			//Restore the data from JSON config...
+			if errU := s.echoUBF.TpJSONToUBF(s.EchoData); nil != errU {
+				ac.TpLogError("Failed to build UBF from JSON [%s] %d:[%s]",
+					s.EchoData, errU.Code(), errU.Message())
+
+				return atmi.NewCustomATMIError(atmi.TPEINVAL, "Failed to create "+
+					"UBF buffer from JSON!")
+			}
+			break
+		case CONV_RAW:
+			data, err := base64.StdEncoding.DecodeString(s.EchoData)
+			if err != nil {
+				ac.TpLogError("Failed to decode json data [%s]: %s",
+					s.EchoData, err.Error())
+				return atmi.NewCustomATMIError(atmi.TPEINVAL,
+					"Invalid echo_data for ["+s.Svc+"")
+			}
+
+			s.echoCARRAY, errA = ac.NewCarray(data)
+
+			if nil != errA {
+				ac.TpLogError("failed to alloca ubf buffer: %s",
+					errA.Error())
+
+				return errA
+			}
+			break
+
+		}
+	}
+
+	return nil
+}
+
 //Call the echo service with JSON2UBF format data
 //@param ac	ATMI Context
 //@return nil (all ok) or ATMI error
 func (s *ServiceMap) EchoJSON2UBF(ac *atmi.ATMICtx) atmi.ATMIError {
 
 	//Allocate the buffer
+	//TODO: Copyu buf
 	bufu, errA := ac.NewUBF(atmi.ATMI_MSG_MAX_SIZE)
 
 	if nil != errA {
@@ -145,9 +201,18 @@ func (s *ServiceMap) EchoText(ac *atmi.ATMICtx) atmi.ATMIError {
 //@param ac	ATMI Context
 //@return nil (all ok) or ATMI error
 func (s *ServiceMap) EchoRaw(ac *atmi.ATMICtx) atmi.ATMIError {
+
 	//Allocate the buffer
-	//TODO: Convert to CARRAY
-	buf, errA := ac.NewString(s.EchoData)
+	//TODO: Move to init...
+	data, err := base64.StdEncoding.DecodeString(s.EchoData)
+	if err != nil {
+		ac.TpLogError("Failed to decode json data [%s]: %s",
+			s.EchoData, err.Error())
+		return atmi.NewCustomATMIError(atmi.TPEINVAL,
+			"Invalid echo_data for ["+s.Svc+"")
+	}
+
+	buf, errA := ac.NewCarray(data)
 
 	if nil != errA {
 		ac.TpLogError("failed to alloca ubf buffer: %s",

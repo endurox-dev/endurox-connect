@@ -152,6 +152,10 @@ type ServiceMap struct {
 	//Wait for shutdown message
 	shutdown chan bool //This is if we get shutdown messages
 
+	//Preparsed buffers
+	echoUBF    *atmi.TypedUBF
+	echoCARRAY *atmi.TypedCarray
+
 	//Dependies...
 	Dependies []ServiceMap
 }
@@ -428,6 +432,14 @@ func appinit(ctx *atmi.ATMICtx) int {
 							tmp.EchoConv)
 						return FAIL
 					}
+
+					if errA := tmp.PreparseEchoBuffers(ac); nil != arrA {
+						ctx.TpLogError("Failed to parse "+
+							"echo buffers: %s",
+							errA.Error())
+						return FAIL
+					}
+
 					//Make async chan
 					tmp.shutdown = make(chan bool, 2)
 					Mmonitors++

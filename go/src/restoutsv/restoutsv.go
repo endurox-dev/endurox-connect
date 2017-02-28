@@ -44,6 +44,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	u "ubftab"
 
 	atmi "github.com/endurox-dev/endurox-go"
@@ -144,8 +145,13 @@ type ServiceMap struct {
 	EchoData    string `json:"echo_data"`
 
 	//Counters:
-	echoFails int //Number failed echos
-	echoSucc  int //Number of ok echos
+	echoFails      int  //Number failed echos
+	echoSchedUnAdv bool //Should we schedule advertise
+
+	echoSucceeds int  //Number of ok echos
+	echoSchedAdv bool //Should we schedule advertise
+
+	echoIsAdvertised bool //Are we advertised?
 
 	DependsOn string `json:"depends_on"`
 
@@ -157,7 +163,7 @@ type ServiceMap struct {
 	echoCARRAY *atmi.TypedCarray
 
 	//Dependies...
-	Dependies []ServiceMap
+	Dependies []*ServiceMap
 }
 
 var Mservices map[string]ServiceMap
@@ -172,6 +178,13 @@ var Mac *atmi.ATMICtx //Mainly shared for logging....
 var Mmonitors int //Number of monitoring threads, to wait for shutdown.
 
 var MmonitorsShut chan bool //Channel to wait for shutdown reply msgs
+
+//Lock the advertise operations
+//So that we do not get advertise twice
+//and so on...
+var MadvertiseLock = &sync.Mutex{}
+
+var MScanTime = 1 //In seconds
 
 //Conversion types
 var Mconvs = map[string]int{
@@ -335,6 +348,10 @@ func appinit(ctx *atmi.ATMICtx) int {
 				C.signal(11, nil)
 			}
 			break
+		case "scan_time":
+			MScanTime, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
+			ctx.TpLogDebug("Got [%s] = [%d] ", fldName, MScanTime)
+			break
 		case "defaults":
 			//Override the defaults
 			jsonDefault, _ := buf.BGetByteArr(u.EX_CC_VALUE, occ)
@@ -433,7 +450,19 @@ func appinit(ctx *atmi.ATMICtx) int {
 						return FAIL
 					}
 
-					if errA := tmp.PreparseEchoBuffers(ac); nil != arrA {
+					if tmp.EchoMaxFail < 1 {
+						ctx.TpLogError("Invalid 'echo_max_fail' "+
+							"setting: %d, must be >=1",
+							tmp.EchoMaxFail)
+					}
+
+					if tmp.EchoMinOK < 1 {
+						ctx.TpLogError("Invalid 'echo_min_ok' "+
+							"setting: %d, must be >=1",
+							tmp.EchoMaxFail)
+					}
+
+					if errA := tmp.PreparseEchoBuffers(ctx); nil != errA {
 						ctx.TpLogError("Failed to parse "+
 							"echo buffers: %s",
 							errA.Error())
@@ -481,16 +510,33 @@ func appinit(ctx *atmi.ATMICtx) int {
 		return FAIL
 	}
 
+	haveEcho := false
 	//Advertise services which are not dependent
 	for _, v := range Mservices {
+
+		if v.Echo {
+			haveEcho = true
+		}
+
 		if v.DependsOn == "" || v.Echo {
 			//Advertize service
 			if errA := v.Advertise(ctx); nil != errA {
 				return FAIL
 			}
+			v.echoIsAdvertised = true
 		} else if v.DependsOn != "" {
 			//TODO: add current service to targets Dependies...
 		}
+	}
+
+	if haveEcho {
+		ctx.TpLogWarn("Echo services present - installing periodic callback")
+		if err := ctx.TpExtAddPeriodCB(MScanTime, Periodic); err != nil {
+			ctx.TpLogError("Advertise failed %d: %s",
+				err.Code(), err.Message())
+			return FAIL
+		}
+
 	}
 
 	return SUCCEED

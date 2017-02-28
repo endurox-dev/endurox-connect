@@ -114,7 +114,7 @@ func (s *ServiceMap) EchoJSON2UBF(ac *atmi.ATMICtx) atmi.ATMIError {
 
 	//Allocate the buffer
 	//TODO: Copyu buf
-	bufu, errA := ac.NewUBF(atmi.ATMI_MSG_MAX_SIZE)
+	buf, errA := ac.NewUBF(atmi.ATMI_MSG_MAX_SIZE)
 
 	if nil != errA {
 		ac.TpLogError("failed to alloca ubf buffer %d:[%s]",
@@ -123,17 +123,14 @@ func (s *ServiceMap) EchoJSON2UBF(ac *atmi.ATMICtx) atmi.ATMIError {
 		return errA
 	}
 
-	//Restore the data from JSON config...
-	if errU := bufu.TpJSONToUBF(s.EchoData); nil != errU {
-		ac.TpLogError("Failed to build UBF from JSON [%s] %d:[%s]",
-			s.EchoData, errU.Code(), errU.Message())
-
-		return atmi.NewCustomATMIError(atmi.TPEINVAL, "Failed to create "+
-			"UBF buffer from JSON!")
+	if errB := ac.BCpy(buf, s.echoUBF); nil != errB {
+		ac.TpLogError("Failed to copy echo buffer:%s ",
+			errB.Error())
+		return atmi.NewCustomATMIError(atmi.TPESYSTEM, errB.Error())
 	}
 
 	ac.TpLogDebug("About to call echo service: [%s]", s.Svc)
-	if _, errA = ac.TpCall(s.Svc, bufu.GetBuf(), 0); nil != errA {
+	if _, errA = ac.TpCall(s.Svc, buf.GetBuf(), 0); nil != errA {
 		ac.TpLogError("Failed to call echo service [%s]",
 			errA.Error())
 		return errA
@@ -203,19 +200,10 @@ func (s *ServiceMap) EchoText(ac *atmi.ATMICtx) atmi.ATMIError {
 func (s *ServiceMap) EchoRaw(ac *atmi.ATMICtx) atmi.ATMIError {
 
 	//Allocate the buffer
-	//TODO: Move to init...
-	data, err := base64.StdEncoding.DecodeString(s.EchoData)
-	if err != nil {
-		ac.TpLogError("Failed to decode json data [%s]: %s",
-			s.EchoData, err.Error())
-		return atmi.NewCustomATMIError(atmi.TPEINVAL,
-			"Invalid echo_data for ["+s.Svc+"")
-	}
-
-	buf, errA := ac.NewCarray(data)
+	buf, errA := ac.NewCarray(s.echoCARRAY.GetBytes())
 
 	if nil != errA {
-		ac.TpLogError("failed to alloca ubf buffer: %s",
+		ac.TpLogError("failed to allocate carray buffer: %s",
 			errA.Error())
 
 		return errA
@@ -228,7 +216,7 @@ func (s *ServiceMap) EchoRaw(ac *atmi.ATMICtx) atmi.ATMIError {
 		return errA
 	}
 
-	ac.TpLogDebug("STRING: Echo Test to service [%s] OK", s.Svc)
+	ac.TpLogDebug("CARRAY/RAW: Echo Test to service [%s] OK", s.Svc)
 
 	return nil
 
@@ -264,10 +252,78 @@ func (s *ServiceMap) Monitor() {
 			//Send echo (we will do tpcall, right?)
 			//We will support all types of the buffer formats!
 			//To Echo services....
+			var result atmi.ATMIError = nil
+
+			switch s.echoConvInt {
+
+			case CONV_JSON2UBF:
+				result = s.EchoJSON2UBF(ac)
+				break
+			case CONV_JSON:
+				result = s.EchoJSON(ac)
+				break
+			case CONV_TEXT:
+				result = s.EchoText(ac)
+				break
+			case CONV_RAW:
+				result = s.EchoRaw(ac)
+				break
+			}
+
+			if nil == result {
+				// Echo is OK
+				if s.echoSucceeds <= s.EchoMinOK {
+					s.echoSucceeds++
+				}
+				s.echoFails = 0
+			} else {
+				//Echo failed
+				if s.EchoMaxFail <= s.EchoMaxFail {
+					s.echoFails++
+				}
+				s.echoSucceeds = 0
+			}
+
+			ac.TpLogInfo("Consecutive stats: succeed: %d (min OK: %d), "+
+				"fail: %d (max Fail: %d)",
+				s.echoSucceeds, s.EchoMinOK,
+				s.echoFails, s.EchoMaxFail)
+
+			MadvertiseLock.Lock()
+
+			if s.echoSucceeds == s.EchoMinOK {
+				ac.TpLogWarn("Scheduling services to advertise")
+
+				for _, ds := range s.Dependies {
+					if !ds.echoIsAdvertised && !ds.echoSchedAdv {
+						ac.TpLogWarn("Scheduling [%s] by "+
+							"[%s] to advertise!",
+							ds.Svc, s.Svc)
+						ds.echoSchedAdv = true
+						ds.echoSchedUnAdv = false
+					}
+				}
+
+			} else if s.echoFails == s.EchoMaxFail {
+				ac.TpLogWarn("Scheduling services to unadvertise")
+
+				for _, ds := range s.Dependies {
+					if ds.echoIsAdvertised && !ds.echoSchedUnAdv {
+						ac.TpLogWarn("Scheduling [%s] by "+
+							"[%s] to unadvertise!",
+							ds.Svc, s.Svc)
+						ds.echoSchedAdv = true
+						ds.echoSchedUnAdv = false
+					}
+				}
+			}
+
+			MadvertiseLock.Unlock()
 
 		case <-s.shutdown:
 			// the read from ch has timed out
-			ac.TpLogWarn("%s - Monitor thread shutdown received...", s.Svc)
+			ac.TpLogWarn("%s - Monitor thread shutdown received...",
+				s.Svc)
 			do_run = false
 			MmonitorsShut <- true
 		}

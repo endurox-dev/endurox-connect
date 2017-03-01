@@ -41,5 +41,39 @@ func Periodic(ac *atmi.ATMICtx) int {
 
 	ret := atmi.SUCCEED
 
+	ac.TpLogDebug("Periodic()")
+
+	MadvertiseLock.Lock()
+
+	//Loop over the all services and check the required actions
+	for _, v := range Mservices {
+
+		if v.echoSchedAdv {
+
+			ac.TpLogInfo("periodic: [%s] needs to be advertised",
+				v.Svc)
+
+			if errA := v.Advertise(ac); errA != nil {
+
+				ac.TpLogError("Failed to advertise [%s]: %s",
+					v.Svc, errA.Error())
+
+				return FAIL
+			}
+
+		} else if v.echoSchedUnAdv {
+
+			if errA := v.Unadvertise(ac); errA != nil {
+
+				ac.TpLogError("Failed to unadvertise [%s]: %s",
+					v.Svc, errA.Error())
+
+				return FAIL
+			}
+		}
+	}
+
+	MadvertiseLock.Unlock()
+
 	return ret
 }

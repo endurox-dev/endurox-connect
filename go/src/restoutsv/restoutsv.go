@@ -166,7 +166,7 @@ type ServiceMap struct {
 	Dependies []*ServiceMap
 }
 
-var Mservices map[string]ServiceMap
+var Mservices map[string]*ServiceMap
 
 //map the atmi error code (numbers + *) to some http error
 //We shall provide default mappings.
@@ -281,7 +281,7 @@ func printSvcSummary(ac *atmi.ATMICtx, svc *ServiceMap) {
 func appinit(ctx *atmi.ATMICtx) int {
 	//runtime.LockOSThread()
 
-	Mservices = make(map[string]ServiceMap)
+	Mservices = make(map[string]*ServiceMap)
 
 	//Setup default configuration
 	Mdefaults.Errors_int = ERRORS_DEFAULT
@@ -474,7 +474,7 @@ func appinit(ctx *atmi.ATMICtx) int {
 					Mmonitors++
 				}
 
-				Mservices[matchSvc[0]] = tmp
+				Mservices[matchSvc[0]] = &tmp
 			}
 			break
 		}
@@ -525,7 +525,19 @@ func appinit(ctx *atmi.ATMICtx) int {
 			}
 			v.echoIsAdvertised = true
 		} else if v.DependsOn != "" {
-			//TODO: add current service to targets Dependies...
+
+			echoSvc := Mservices[v.DependsOn]
+
+			if nil != echoSvc {
+				ctx.TpLogInfo("Adding [%s] to [%s] as dependie",
+					v.Svc, echoSvc.Svc)
+				echoSvc.Dependies = append(echoSvc.Dependies, v)
+			} else {
+				ctx.TpLogError("Invalid echo service "+
+					"('depends_on') [%s] for [%s]",
+					v.DependsOn, echoSvc.Svc)
+				return FAIL
+			}
 		}
 	}
 
@@ -536,7 +548,6 @@ func appinit(ctx *atmi.ATMICtx) int {
 				err.Code(), err.Message())
 			return FAIL
 		}
-
 	}
 
 	return SUCCEED

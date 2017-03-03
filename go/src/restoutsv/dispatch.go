@@ -93,6 +93,15 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 		pool.freechan <- nr
 	}()
 
+	ac.TpLogWarn("Dispatching: [%s] -> %p", svcName, svc)
+
+	if nil == svc {
+		ac.TpLogError("Invalid service name [%s] - cannot resolve",
+			svcName)
+		ret = FAIL
+		return
+	}
+
 	ac.TpLogInfo("Reallocating the incoming buffer for storing the RSP")
 
 	if errA := buf.TpRealloc(atmi.ATMI_MSG_MAX_SIZE); nil != errA {
@@ -131,7 +140,8 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 		json, errA := bufu.TpUBFToJSON()
 
 		if nil == errA {
-			//Generate the resposne buffer...
+			ac.TpLogDebug("Got json to send: [%s]", json)
+			//Set content to send
 			content_to_send = []byte(json)
 		} else {
 
@@ -140,7 +150,8 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 			return
 		}
 
-		if svc.Errors_int != ERRORS_HTTP || svc.Errors_int != ERRORS_JSON2UBF {
+		if svc.Errors_int != ERRORS_HTTP && svc.Errors_int != ERRORS_JSON2UBF {
+
 			ac.TpLogError("Invalid configuration! Sending UBF buffer "+
 				"with non 'http' or 'json2ubf' buffer handling methods. "+
 				" Current method: %s", svc.Errors)
@@ -167,8 +178,8 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 
 		content_to_send = []byte(bufs.GetString())
 
-		if svc.Errors_int != ERRORS_HTTP ||
-			svc.Errors_int != ERRORS_TEXT ||
+		if svc.Errors_int != ERRORS_HTTP &&
+			svc.Errors_int != ERRORS_TEXT &&
 			svc.Errors_int != ERRORS_JSON {
 			ac.TpLogError("Invalid configuration! Sending STRING buffer "+
 				"with non 'text', 'json', 'http' error handling methods. "+
@@ -196,8 +207,8 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 
 		content_to_send = bufj.GetJSON()
 
-		if svc.Errors_int != ERRORS_HTTP ||
-			svc.Errors_int != ERRORS_TEXT ||
+		if svc.Errors_int != ERRORS_HTTP &&
+			svc.Errors_int != ERRORS_TEXT &&
 			svc.Errors_int != ERRORS_JSON {
 			ac.TpLogError("Invalid configuration! Sending JSON buffer "+
 				"with non 'text', 'json', 'http' error handling methods. "+
@@ -225,8 +236,8 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 
 		content_to_send = bufc.GetBytes()
 
-		if svc.Errors_int != ERRORS_HTTP ||
-			svc.Errors_int != ERRORS_TEXT ||
+		if svc.Errors_int != ERRORS_HTTP &&
+			svc.Errors_int != ERRORS_TEXT &&
 			svc.Errors_int != ERRORS_JSON {
 			ac.TpLogError("Invalid configuration! Sending CARRAY buffer "+
 				"with non 'text', 'json', 'http' error handling methods. "+
@@ -258,6 +269,8 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 	resp, err := client.Do(req)
 
 	if err != nil {
+
+		ac.TpLogError("Got error: %s", err.Error())
 
 		if err, ok := err.(net.Error); ok && err.Timeout() {
 			//Respond with TPSOFTTIMEOUT
@@ -522,6 +535,8 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 			} else {
 				//Response is parsed and we will answer with it
 				ac.TpLogInfo("Swapping UBF bufers...")
+
+				//TODO: We need to set "auto" mark for the buffer
 				buf = bufuRsp.GetBuf()
 				ac.TpFree(bufu.GetBuf())
 			}

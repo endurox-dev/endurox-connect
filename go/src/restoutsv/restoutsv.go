@@ -269,7 +269,7 @@ func parseHTTPErrorMap(ac *atmi.ATMICtx, svc *ServiceMap) error {
 
 //Print the summary of the service after init
 func printSvcSummary(ac *atmi.ATMICtx, svc *ServiceMap) {
-	ac.TpLogWarn("Service: %s, Url: %s, [%s], Errors:%d (%s), Echo %t",
+	ac.TpLogWarn("Service: [%s], Url: [%s], Errors:%d (%s), Echo %t",
 		svc.Svc,
 		svc.Url,
 		svc.Errors_int,
@@ -333,7 +333,18 @@ func appinit(ctx *atmi.ATMICtx) int {
 		ctx.TpLog(atmi.LOG_DEBUG, "Got config field [%s]", fldName)
 
 		switch fldName {
+		case "debug":
+			//Set debug configuration string
+			debug, _ := buf.BGetString(u.EX_CC_VALUE, occ)
+			ctx.TpLogDebug("Got [%s] = [%s] ", fldName, debug)
+			if err := ctx.TpLogConfig((atmi.LOG_FACILITY_NDRX | atmi.LOG_FACILITY_UBF | atmi.LOG_FACILITY_TP),
+				-1, debug, "ROUT", ""); nil != err {
+				ctx.TpLogError("Invalid debug config [%s] %d:[%s]\n",
+					debug, err.Code(), err.Message())
+				return FAIL
+			}
 
+			break
 		case "workers":
 			Mworkers, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
 			break
@@ -369,8 +380,6 @@ func appinit(ctx *atmi.ATMICtx) int {
 				}
 			}
 
-			remapErrors(&Mdefaults)
-
 			if Mdefaults.Echo {
 				Mdefaults.echoConvInt = Mconvs[Mdefaults.EchoConv]
 				if Mdefaults.echoConvInt == 0 {
@@ -380,7 +389,7 @@ func appinit(ctx *atmi.ATMICtx) int {
 				}
 			}
 
-			printSvcSummary(ctx, &Mdefaults)
+			//printSvcSummary(ctx, &Mdefaults)
 
 			break
 		default:
@@ -398,12 +407,12 @@ func appinit(ctx *atmi.ATMICtx) int {
 				cfgVal, _ := buf.BGetString(u.EX_CC_VALUE, occ)
 
 				ctx.TpLogInfo("Got service route config [%s]=[%s]",
-					matchSvc[0], cfgVal)
+					matchSvc[1], cfgVal)
 
 				tmp := Mdefaults
 
 				//Override the stuff from current config
-				tmp.Svc = matchSvc[0]
+				tmp.Svc = matchSvc[1]
 
 				//err := json.Unmarshal(cfgVal, &tmp)
 				decoder := json.NewDecoder(strings.NewReader(cfgVal))
@@ -417,9 +426,8 @@ func appinit(ctx *atmi.ATMICtx) int {
 					return FAIL
 				}
 
-				ctx.TpLogDebug("Got route: URL [%s] -> Service [%s]",
+				ctx.TpLogDebug("Got config block [%s] -> Service [%s]",
 					fldName, tmp.Svc)
-				tmp.Url = fldName
 
 				//Parse http errors for
 				if tmp.Errors_fmt_http_map_str != "" {
@@ -429,7 +437,8 @@ func appinit(ctx *atmi.ATMICtx) int {
 				}
 
 				remapErrors(&tmp)
-				printSvcSummary(ctx, &tmp)
+
+				ctx.TpLogInfo("Errors mapped to: %d", tmp.Errors_int)
 
 				//Add to HTTP listener
 				//We should add service to advertise list...
@@ -440,6 +449,14 @@ func appinit(ctx *atmi.ATMICtx) int {
 				if strings.HasPrefix(tmp.Url, "/") {
 					//This is partial URL, so use base
 					tmp.Url = tmp.UrlBase + tmp.Url
+
+					ctx.TpLogInfo("Have / prefix => building"+
+						" URL, got: [%s]",
+						tmp.Url)
+				} else {
+					ctx.TpLogInfo("No / prefix => assuming"+
+						"full url [%s]",
+						tmp.Url)
 				}
 
 				if tmp.Echo {
@@ -474,13 +491,15 @@ func appinit(ctx *atmi.ATMICtx) int {
 					Mmonitors++
 				}
 
-				Mservices[matchSvc[0]] = &tmp
+				Mservices[matchSvc[1]] = &tmp
+
+				printSvcSummary(ctx, &tmp)
 			}
 			break
 		}
 	}
 
-	ctx.TpLogInfo("Number of monitor services: %s", Mmonitors)
+	ctx.TpLogInfo("Number of monitor services: %d", Mmonitors)
 	MmonitorsShut = make(chan bool, Mmonitors)
 
 	//Add the default erorr mappings
@@ -506,6 +525,7 @@ func appinit(ctx *atmi.ATMICtx) int {
 
 	ctx.TpLogInfo("About to init woker pool, number of workers: %d", Mworkers)
 
+	MoutXPool.nrWorkers = Mworkers
 	if err := initPool(ctx, &MoutXPool); nil != err {
 		return FAIL
 	}

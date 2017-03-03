@@ -19,14 +19,7 @@ cd runtime
 # We need to add server process here + we need to register ubftab (test.fd)
 #
 xadmin provision -d \
-        -vusv1_name=testsv \
-        -vusv1=y \
-        -vusv1_sysopt='-e ${NDRX_APPHOME}/log/testsv.log -r' \
         -vaddubf=test.fd \
-        -vucl1=y \
-        -vusv1_cmdline=restoutcl \
-        -vusv1_tag=RESTOUT \
-        -vusv1_log='${NDRX_APPHOME}/log/restout.log' \
         -vtimeout=2
 
 cd conf

@@ -536,9 +536,9 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 				//Response is parsed and we will answer with it
 				ac.TpLogInfo("Swapping UBF bufers...")
 
-				//TODO: We need to set "auto" mark for the buffer
+				//Original buffer will be automatically
+				//deallocated
 				buf = bufuRsp.GetBuf()
-				ac.TpFree(bufu.GetBuf())
 			}
 			break
 		case "STRING":

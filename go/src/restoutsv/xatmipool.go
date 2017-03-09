@@ -67,6 +67,12 @@ func initPool(ac *atmi.ATMICtx, pool *XATMIPool) atmi.ATMIError {
 			return err
 		}
 
+		//Causes auto-init to kill the last-call object
+		if err := ctx.TpInit(); nil != err {
+			ac.TpLogError("Failed to tpinit: %s", err.Error())
+			return err
+		}
+
 		pool.ctxs = append(pool.ctxs, ctx)
 
 		//Submit the free ATMI context

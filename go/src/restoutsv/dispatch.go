@@ -78,6 +78,8 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 
 	defer func() {
 
+		ac.TpSrvFreeCtxData(ctxData)
+
 		if SUCCEED == ret {
 			ac.TpLogInfo("Dispatch returns SUCCEED")
 			ac.TpReturn(atmi.TPSUCCESS, 0, retBuf, retFlags)
@@ -92,6 +94,16 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 		//Corrpuption !!!!
 		pool.freechan <- nr
 	}()
+
+	if errA := ac.TpSrvSetCtxData(ctxData, 0); nil != errA {
+		ac.TpLogError("Failed to restore context data: %s",
+			errA.Error())
+		ret = FAIL
+		return
+	}
+
+	//Change the buffer owning context
+	buf.GetBuf().TpSetCtxt(ac)
 
 	ac.TpLogWarn("Dispatching: [%s] -> %p", svcName, svc)
 
@@ -274,6 +286,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 
 		if err, ok := err.(net.Error); ok && err.Timeout() {
 			//Respond with TPSOFTTIMEOUT
+			ac.TpLogError("TPSOFTTIMEOUT")
 			retFlags |= atmi.TPSOFTTIMEOUT
 			ret = FAIL
 			return
@@ -302,9 +315,9 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 	//If we are nont handling in http way and http is bad
 	//then return fail...
 	//Check the status now
-	if svc.Errors_int != ERRORS_HTTP || resp.Status != strconv.Itoa(http.StatusOK) {
+	if svc.Errors_int != ERRORS_HTTP && resp.StatusCode != http.StatusOK {
 
-		ac.TpLogError("Expected http status %d, but got: %s - fail",
+		ac.TpLogError("Expected http status [%d], but got: [%s] - fail",
 			http.StatusOK, resp.Status)
 		ret = FAIL
 		return
@@ -383,23 +396,23 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 		//...Depending on flags
 		ac.TpLogDebug("Converting to UBF: [%s]", body)
 
-		if errA = bufu.TpJSONToUBF(stringBody); errA != nil {
-			ac.TpLogError("Failed to conver buffer to JSON %d:[%s]",
-				errA.Code(), errA.Message())
+		bufuRsp, errA = ac.NewUBF(atmi.ATMI_MSG_MAX_SIZE)
 
-			ac.TpLogError("Failed req: [%s] - dropping msg/tout",
-				stringBody)
+		if errA != nil {
+			ac.TpLogError("Failed to alloc UBF %d:[%s] - drop/timeout",
+				errA.Code(), errA.Message())
 
 			retFlags |= atmi.TPSOFTTIMEOUT
 			ret = FAIL
 			return
 		}
 
-		bufuRsp, errA = ac.NewUBF(atmi.ATMI_MSG_MAX_SIZE)
-
-		if errA != nil {
-			ac.TpLogError("Failed to alloc UBF %d:[%s] - drop/timeout",
+		if errA = bufuRsp.TpJSONToUBF(stringBody); errA != nil {
+			ac.TpLogError("Failed to conver buffer to JSON %d:[%s]",
 				errA.Code(), errA.Message())
+
+			ac.TpLogError("Failed req: [%s] - dropping msg/tout",
+				stringBody)
 
 			retFlags |= atmi.TPSOFTTIMEOUT
 			ret = FAIL
@@ -532,13 +545,16 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 					ret = FAIL
 					return
 				}
+
+				retBuf = bufu.GetBuf()
 			} else {
-				//Response is parsed and we will answer with it
+				//Response is parbufused and we will answer with it
 				ac.TpLogInfo("Swapping UBF bufers...")
 
 				//Original buffer will be automatically
-				//deallocated
-				buf = bufuRsp.GetBuf()
+				//is it auto
+				//Also
+				retBuf = bufuRsp.GetBuf()
 			}
 			break
 		case "STRING":
@@ -556,6 +572,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 				ret = FAIL
 				return
 			}
+			retBuf = bufs.GetBuf()
 			break
 		case "JSON":
 			//Load response into JSON buffer
@@ -573,6 +590,8 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 				return
 			}
 
+			retBuf = bufj.GetBuf()
+
 			break
 		case "CARRAY":
 			//Load response into CARRAY buffer
@@ -588,6 +607,8 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 				ret = FAIL
 				return
 			}
+
+			retBuf = bufc.GetBuf()
 
 			break
 		}

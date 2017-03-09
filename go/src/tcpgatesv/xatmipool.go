@@ -68,6 +68,11 @@ func initPool(ac *atmi.ATMICtx, pool *XATMIPool) error {
 			return err
 		}
 
+		if err := ctx.TpInit(); nil != err {
+			ac.TpLogError("Failed to tpinit: %s", err.Error())
+			return err
+		}
+
 		pool.ctxs = append(pool.ctxs, ctx)
 
 		//Submit the free ATMI context

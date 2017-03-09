@@ -113,7 +113,6 @@ func (s *ServiceMap) PreparseEchoBuffers(ac *atmi.ATMICtx) atmi.ATMIError {
 func (s *ServiceMap) EchoJSON2UBF(ac *atmi.ATMICtx) atmi.ATMIError {
 
 	//Allocate the buffer
-	//TODO: Copyu buf
 	buf, errA := ac.NewUBF(atmi.ATMI_MSG_MAX_SIZE)
 
 	if nil != errA {

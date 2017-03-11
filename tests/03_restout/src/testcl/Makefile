@@ -2,7 +2,7 @@
 SOURCEDIR=.
 SOURCES := $(shell find $(SOURCEDIR) -name '*.go')
 
-BINARY=testsv
+BINARY=testcl
 LDFLAGS=
 
 VERSION=1.0.0

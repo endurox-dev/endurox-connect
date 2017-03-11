@@ -54,10 +54,19 @@ function go_out {
 }
 
 ###############################################################################
-echo "Some case"
+echo "JSON2UBF test case - juerrors"
 ###############################################################################
 
-echo "TODO..."
+COMMAND="juerrors"
+
+testcl $COMMAND 
+RET=$?
+
+if [[ $RET != 0 ]]; then
+        echo "testcl $COMMAND: failed"
+        go_out 1
+fi
+
 
 ###############################################################################
 echo "Done"

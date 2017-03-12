@@ -43,6 +43,34 @@ import (
 	atmi "github.com/endurox-dev/endurox-go"
 )
 
+//Map HTTP Error
+func MapHttpError(ac *atmi.ATMICtx, svc *ServiceMap, statusCode int) int {
+
+	var netCode int = atmi.TPEINVAL
+	var lookup map[string]*int
+	//Map the resposne codes
+	if len(svc.Errors_fmt_http_map) > 0 {
+		lookup = svc.Errors_fmt_http_map
+	} else {
+		lookup = Mdefaults.Errors_fmt_http_map
+	}
+
+	if nil != lookup[strconv.Itoa(statusCode)] {
+
+		netCode = *lookup[strconv.Itoa(statusCode)]
+		ac.TpLogDebug("Exact match found, converted to: %d",
+			netCode)
+	} else {
+		//This is must have in buffer...
+		netCode = *lookup["*"]
+
+		ac.TpLogDebug("Matched wildcard \"*\", converted to: %d",
+			netCode)
+	}
+
+	return netCode
+}
+
 //Dispatch service call
 //@param pool     XATMI context pool
 //@param nr     Number our object in pool
@@ -316,9 +344,23 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 	//Check the status now
 	if svc.Errors_int != ERRORS_HTTP && resp.StatusCode != http.StatusOK {
 
-		ac.TpLogError("Expected http status [%d], but got: [%s] - fail",
-			http.StatusOK, resp.Status)
+		netCode = MapHttpError(ac, svc, resp.StatusCode)
+		ac.TpLogError("Expected http status [%d], but got: [%s] - fail "+
+			"(apply default http error mapping: %d)",
+			http.StatusOK, resp.Status, netCode)
+
 		ret = FAIL
+		//Extra flags...
+		switch netCode {
+		case atmi.TPETIME:
+			ac.TpLogInfo("got TPETIME")
+			retFlags |= atmi.TPSOFTTIMEOUT
+			break
+		case atmi.TPENOENT:
+			ac.TpLogInfo("got TPENOENT")
+			retFlags |= atmi.TPSOFTNOENT
+			break
+		}
 		return
 	}
 
@@ -336,26 +378,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 		ac.TpLogInfo("Error conv mode is HTTP - looking up mapping table by %s",
 			resp.Status)
 
-		var lookup map[string]*int
-		//Map the resposne codes
-		if len(svc.Errors_fmt_http_map) > 0 {
-			lookup = svc.Errors_fmt_http_map
-		} else {
-			lookup = Mdefaults.Errors_fmt_http_map
-		}
-
-		if nil != lookup[strconv.Itoa(resp.StatusCode)] {
-
-			netCode = *lookup[strconv.Itoa(resp.StatusCode)]
-			ac.TpLogDebug("Exact match found, converted to: %s",
-				netCode)
-		} else {
-			//This is must have in buffer...
-			netCode = *lookup["*"]
-
-			ac.TpLogDebug("Matched wildcard \"*\", converted to: %d",
-				netCode)
-		}
+		netCode = MapHttpError(ac, svc, resp.StatusCode)
 
 		break
 	case ERRORS_JSON:
@@ -493,7 +516,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 		ret = FAIL
 		break
 	case atmi.TPENOENT:
-		ac.TpLogInfo("got TPEINVAL")
+		ac.TpLogInfo("got TPENOENT")
 		retFlags |= atmi.TPSOFTNOENT
 		ret = FAIL
 		break

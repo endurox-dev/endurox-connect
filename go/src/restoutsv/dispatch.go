@@ -56,7 +56,6 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 	ac := pool.ctxs[nr]
 	buftype := ""
 	var retFlags int64 = 0
-	returnATMIErrorCode := atmi.TPMINVAL
 	/* The error codes sent from network */
 	netCode := atmi.TPMINVAL
 	netMessage := ""
@@ -345,17 +344,17 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 			lookup = Mdefaults.Errors_fmt_http_map
 		}
 
-		if nil != lookup[resp.Status] {
+		if nil != lookup[strconv.Itoa(resp.StatusCode)] {
 
-			returnATMIErrorCode = *lookup[resp.Status]
+			netCode = *lookup[strconv.Itoa(resp.StatusCode)]
 			ac.TpLogDebug("Exact match found, converted to: %s",
-				returnATMIErrorCode)
+				netCode)
 		} else {
 			//This is must have in buffer...
-			returnATMIErrorCode = *lookup["*"]
+			netCode = *lookup["*"]
 
-			ac.TpLogDebug("Matched wildcard \"*\", converted to: %s",
-				returnATMIErrorCode)
+			ac.TpLogDebug("Matched wildcard \"*\", converted to: %d",
+				netCode)
 		}
 
 		break

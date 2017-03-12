@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 	u "ubftab"
 
 	atmi "github.com/endurox-dev/endurox-go"
@@ -20,10 +21,14 @@ const (
 
 var MSomeConfigFlag string = ""
 var MSomeOtherConfigFlag int = 0
+var MErrorCode int = atmi.TPMINVAL
 
-func juerrors(ac *atmi.ATMICtx) error {
+//Do the service call with UBF buffer
+func UBFCall(ac *atmi.ATMICtx, cmd string, svc string, times string) error {
 
-	for i := 0; i < 10000; i++ {
+	nrTimes, _ := strconv.Atoi(times)
+
+	for i := 0; i < nrTimes; i++ {
 
 		buf, err := ac.NewUBF(1024)
 
@@ -41,7 +46,8 @@ func juerrors(ac *atmi.ATMICtx) error {
 		buf.BChg(u.T_CARRAY_FLD, 0, "WORLD")
 
 		//Call the server
-		if _, err := ac.TpCall("JUERRORS", buf, 0); nil != err {
+		if _, err := ac.TpCall(svc, buf, 0); nil != err {
+			MErrorCode = err.Code()
 			return errors.New(err.Error())
 		}
 
@@ -72,19 +78,21 @@ func apprun(ac *atmi.ATMICtx) error {
 
 	//Do some work here
 
-	if len(os.Args) != 2 {
-		return errors.New(fmt.Sprintf("usage: %s <command>",
+	if len(os.Args) != 4 {
+		return errors.New(fmt.Sprintf("usage: %s <command> <service> <times>",
 			os.Args[0]))
 	}
 
 	cmd := os.Args[1]
+	svc := os.Args[2]
+	times := os.Args[3]
 
-	ac.TpLogInfo("Got command: [%s]", cmd)
+	ac.TpLogInfo("Got command: [%s], service: [%s], times: [%s]", cmd, svc, times)
 
 	//These are projection on 01_restin/runtime/conf/restin.ini cases
 	switch cmd {
-	case "juerrors":
-		return juerrors(ac)
+	case "ubfcall":
+		return UBFCall(ac, cmd, svc, times)
 	default:
 		return errors.New(fmt.Sprintf("Invalid test case: [%s]", cmd))
 	}
@@ -133,7 +141,7 @@ func main() {
 
 	if err := apprun(ac); nil != err {
 		ac.TpLogError("Got error: [%s]", err.Error())
-		unInit(ac, atmi.FAIL)
+		unInit(ac, MErrorCode)
 	}
 
 	unInit(ac, atmi.SUCCEED)

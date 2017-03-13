@@ -94,7 +94,7 @@ const (
 	ERRFMT_JSON_MSG_DEFAULT    = "\"error_message\":\"%s\""
 	ERRFMT_JSON_CODE_DEFAULT   = "\"error_code\":%d"
 	ERRFMT_JSON_ONSUCC_DEFAULT = true /* generate success message in JSON */
-	ERRFMT_TEXT_DEFAULT        = "%d: %s"
+	ERRFMT_TEXT_DEFAULT        = "^([0-9]+): (.*)$"
 	WORKERS_DEFAULT            = 10 /* Number of worker processes */
 	NOREQFILE_DEFAULT          = true
 )
@@ -197,7 +197,7 @@ var Mconvs = map[string]int{
 
 //Remap the error from string to int constant
 //for better performance...
-func remapErrors(svc *ServiceMap) error {
+func remapErrors(ac *atmi.ATMICtx, svc *ServiceMap) error {
 
 	switch svc.Errors {
 	case "http":
@@ -216,12 +216,23 @@ func remapErrors(svc *ServiceMap) error {
 		return fmt.Errorf("Unsupported error type [%s]", svc.Errors)
 	}
 
+	//Try to compile the text errors
+
+	if _, err := regexp.Compile(svc.Errfmt_text); err != nil {
+
+		ac.TpLogError("Failed to comiple errfmt_text [%s] for svc [%s]: %s",
+			svc.Errfmt_text, svc.Svc, err.Error())
+
+		return err
+
+	}
+
 	return nil
 }
 
-//Map the ATMI Errors to Http errors
-//Format: <atmi_err>:<http_err>,<*>:<http_err>
-//* - means any other unmapped ATMI error
+//Map the Http errors to ATMI errors
+//Format: <http_err_1>:<atmi_err_1>,<http_err_N>:<atmi_err_N>,<*>:<atmi_err_N>
+//* - means any other unmapped HTTP error
 //@param svc	Service map
 func parseHTTPErrorMap(ac *atmi.ATMICtx, svc *ServiceMap) error {
 
@@ -436,7 +447,12 @@ func appinit(ctx *atmi.ATMICtx) int {
 					}
 				}
 
-				remapErrors(&tmp)
+				//Remap the error codes and regexps...
+				if err := remapErrors(ctx, &tmp); err != nil {
+					ctx.TpLogError("remapErrors failed: %s",
+						err.Error())
+					return FAIL
+				}
 
 				ctx.TpLogInfo("Errors mapped to: %d", tmp.Errors_int)
 

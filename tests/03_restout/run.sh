@@ -161,16 +161,57 @@ if [[ $RET != 6 ]]; then
 fi
 
 ###############################################################################
+echo "JSON2UBF, HTTP errors, NENT, custom error mapping"
+###############################################################################
+COMMAND="ubfcall"
+
+testcl $COMMAND JUBFHTE_NENT_13 1
+RET=$?
+
+if [[ $RET != 13 ]]; then
+	echo "testcl $COMMAND: failed (ret must be 13, but got: $RET) - custom mapping fail"
+	go_out 9
+fi
+
+###############################################################################
 echo "STRING test case - TEXT errors, OK"
 ###############################################################################
+COMMAND="stringcall"
+
+testcl $COMMAND TEXTTE_OK 100
+RET=$?
+
+if [[ $RET != 0 ]]; then
+	echo "testcl $COMMAND: failed"
+	go_out 10
+fi
 
 ###############################################################################
 echo "STRING test case - TEXT error, failure"
 ###############################################################################
+COMMAND="stringcall"
+
+testcl $COMMAND TEXTTE_FAIL 1
+RET=$?
+
+if [[ $RET != 11 ]]; then
+	echo "testcl $COMMAND: failed"
+	go_out 11
+fi
 
 ###############################################################################
 echo "STRING test case - TEXT errors, timeout"
 ###############################################################################
+COMMAND="stringcall"
+
+testcl $COMMAND TEXTTE_TOUT 1
+RET=$?
+
+if [[ $RET != 13 ]]; then
+	echo "testcl $COMMAND: failed"
+	go_out 12
+fi
+
 
 ###############################################################################
 echo "JSON test case - JSON errors, OK"

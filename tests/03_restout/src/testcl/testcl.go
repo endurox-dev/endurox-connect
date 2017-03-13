@@ -73,6 +73,40 @@ func UBFCall(ac *atmi.ATMICtx, cmd string, svc string, times string) error {
 	return nil
 }
 
+//Call the service with string buffer
+func STRINGCall(ac *atmi.ATMICtx, cmd string, svc string, times string) error {
+
+	nrTimes, _ := strconv.Atoi(times)
+
+	for i := 0; i < nrTimes; i++ {
+
+		buf, err := ac.NewString("Hi there!")
+
+		if err != nil {
+			return errors.New(err.Error())
+		}
+
+		//Call the server
+		if _, err := ac.TpCall(svc, buf, 0); nil != err {
+			MErrorCode = err.Code()
+			return errors.New(err.Error())
+		}
+
+		//Test the response...
+		s := buf.GetString()
+		exp := "Hello from EnduroX"
+
+		if s != exp {
+			ac.TpLogError("Expected: [%s] got [%s]", exp, s)
+			return errors.New(fmt.Sprintf("Expected: [%s] got [%s]",
+				exp, s))
+		}
+
+	}
+
+	return nil
+}
+
 //Run the listener
 func apprun(ac *atmi.ATMICtx) error {
 
@@ -93,6 +127,8 @@ func apprun(ac *atmi.ATMICtx) error {
 	switch cmd {
 	case "ubfcall":
 		return UBFCall(ac, cmd, svc, times)
+	case "stringcall":
+		return STRINGCall(ac, cmd, svc, times)
 	default:
 		return errors.New(fmt.Sprintf("Invalid test case: [%s]", cmd))
 	}
@@ -141,6 +177,9 @@ func main() {
 
 	if err := apprun(ac); nil != err {
 		ac.TpLogError("Got error: [%s]", err.Error())
+		if 0 == MErrorCode {
+			MErrorCode = atmi.TPESYSTEM
+		}
 		unInit(ac, MErrorCode)
 	}
 

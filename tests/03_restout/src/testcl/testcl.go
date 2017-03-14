@@ -23,6 +23,15 @@ var MSomeConfigFlag string = ""
 var MSomeOtherConfigFlag int = 0
 var MErrorCode int = atmi.TPMINVAL
 
+type TestJSONMsg struct {
+	StringField  string `json:"StringField"`
+	StringField2 string `json:"StringField2"`
+	NumField     int    `json:"NumField"`
+	NumField2    int    `json:"NumField2"`
+	BoolField    bool   `json:"BoolField"`
+	BoolField2   bool   `json:"BoolField2"`
+}
+
 //Do the service call with UBF buffer
 func UBFCall(ac *atmi.ATMICtx, cmd string, svc string, times string) error {
 
@@ -107,6 +116,34 @@ func STRINGCall(ac *atmi.ATMICtx, cmd string, svc string, times string) error {
 	return nil
 }
 
+//Call the sever with JSON buffer
+func JSONCall(ac *atmi.ATMICtx, cmd string, svc string, times string) error {
+
+	nrTimes, _ := strconv.Atoi(times)
+
+	call := "{\"StringField\":\"Hello\", \"NumField\":12345, \"BoolField\":true}"
+
+	for i := 0; i < nrTimes; i++ {
+
+		buf, err := ac.NewJSON([]byte(call))
+
+		if err != nil {
+			return errors.New(err.Error())
+		}
+
+		//Call the server
+		if _, err := ac.TpCall(svc, buf, 0); nil != err {
+			MErrorCode = err.Code()
+			return errors.New(err.Error())
+		}
+
+		//Test the response...
+		//TODO:
+	}
+
+	return nil
+}
+
 //Run the listener
 func apprun(ac *atmi.ATMICtx) error {
 
@@ -129,6 +166,8 @@ func apprun(ac *atmi.ATMICtx) error {
 		return UBFCall(ac, cmd, svc, times)
 	case "stringcall":
 		return STRINGCall(ac, cmd, svc, times)
+	case "jsoncall":
+		return JSONCall(ac, cmd, svc, times)
 	default:
 		return errors.New(fmt.Sprintf("Invalid test case: [%s]", cmd))
 	}

@@ -115,6 +115,8 @@ type ServiceMap struct {
 	//Format for error to parse
 	//for 'text'
 	Errfmt_text string `json:"errfmt_text"`
+	//Have a hanlder too for compiled regex
+	Errfmt_text_Regexp *regexp.Regexp
 
 	//JSON fields
 	//for 'json'
@@ -217,8 +219,9 @@ func remapErrors(ac *atmi.ATMICtx, svc *ServiceMap) error {
 	}
 
 	//Try to compile the text errors
-
-	if _, err := regexp.Compile(svc.Errfmt_text); err != nil {
+	var err error
+	ac.TpLogInfo("Compiling text error parser: [%s]", svc.Errfmt_text)
+	if svc.Errfmt_text_Regexp, err = regexp.Compile(svc.Errfmt_text); err != nil {
 
 		ac.TpLogError("Failed to comiple errfmt_text [%s] for svc [%s]: %s",
 			svc.Errfmt_text, svc.Svc, err.Error())

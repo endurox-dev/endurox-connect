@@ -35,7 +35,6 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
-	"regexp"
 	"strconv"
 	"time"
 	u "ubftab"
@@ -475,16 +474,16 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 		break
 	case ERRORS_TEXT:
 		//Try to scanf the string
-		erroCodeMsg := regexp.MustCompile(svc.Errfmt_text).FindStringSubmatch(stringBody)
+		erroCodeMsg := svc.Errfmt_text_Regexp.FindStringSubmatch(stringBody)
+		if len(erroCodeMsg) < 3 {
 
-		if len(erroCodeMsg) < 2 {
 			ac.TpLogInfo("Error fields not found in text - assume succeed")
 		} else {
 
 			ac.TpLogInfo("Parsed response code [%s] message [%s]",
-				erroCodeMsg[0], erroCodeMsg[1])
+				erroCodeMsg[1], erroCodeMsg[2])
 
-			netCode, errG = strconv.Atoi(erroCodeMsg[0])
+			netCode, errG = strconv.Atoi(erroCodeMsg[1])
 
 			if nil != errG {
 				//Assume that is ok? Invalid format, maybe data?
@@ -493,14 +492,14 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 
 				ac.TpLogError("Invalid message code %d for text!!! "+
 					"- Dropping/timeout",
-					erroCodeMsg[0])
+					erroCodeMsg[1])
 
 				retFlags |= atmi.TPSOFTTIMEOUT
 				ret = FAIL
 				return
 
 			}
-			netMessage = erroCodeMsg[1]
+			netMessage = erroCodeMsg[2]
 		}
 		break
 	}

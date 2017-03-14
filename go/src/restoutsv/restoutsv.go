@@ -91,8 +91,8 @@ const (
 	ECHO_DATA_DEFAULT          = "{\"EX_DATA_STR\":\"Echo test\"}"
 	ERRORS_DEFAULT             = ERRORS_JSON2UBF
 	TIMEOUT_DEFAULT            = 60
-	ERRFMT_JSON_MSG_DEFAULT    = "\"error_message\":\"%s\""
-	ERRFMT_JSON_CODE_DEFAULT   = "\"error_code\":%d"
+	ERRFMT_JSON_MSG_DEFAULT    = "error_message"
+	ERRFMT_JSON_CODE_DEFAULT   = "error_code"
 	ERRFMT_JSON_ONSUCC_DEFAULT = true /* generate success message in JSON */
 	ERRFMT_TEXT_DEFAULT        = "^([0-9]+): (.*)$"
 	WORKERS_DEFAULT            = 10 /* Number of worker processes */
@@ -353,7 +353,7 @@ func appinit(ctx *atmi.ATMICtx) int {
 			ctx.TpLogDebug("Got [%s] = [%s] ", fldName, debug)
 			if err := ctx.TpLogConfig((atmi.LOG_FACILITY_NDRX | atmi.LOG_FACILITY_UBF | atmi.LOG_FACILITY_TP),
 				-1, debug, "ROUT", ""); nil != err {
-				ctx.TpLogError("Invalid debug config [%s] %d:[%s]\n",
+				ctx.TpLogError("Invalid debug config [%s] %d:[%s]",
 					debug, err.Code(), err.Message())
 				return FAIL
 			}
@@ -586,6 +586,13 @@ func appinit(ctx *atmi.ATMICtx) int {
 			ctx.TpLogError("Advertise failed %d: %s",
 				err.Code(), err.Message())
 			return FAIL
+		}
+
+		//Boot the monitor threads..
+		for _, v := range Mservices {
+			if v.Echo {
+				go v.Monitor()
+			}
 		}
 	}
 

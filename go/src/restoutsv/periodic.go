@@ -63,6 +63,8 @@ func Periodic(ac *atmi.ATMICtx) int {
 
 		} else if v.echoSchedUnAdv {
 
+			ac.TpLogInfo("periodic: [%s] needs to be unadvertised",
+				v.Svc)
 			if errA := v.Unadvertise(ac); errA != nil {
 
 				ac.TpLogError("Failed to unadvertise [%s]: %s",

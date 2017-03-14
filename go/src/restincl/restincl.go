@@ -331,7 +331,19 @@ func appinit(ac *atmi.ATMICtx) error {
 		ac.TpLog(atmi.LOG_DEBUG, "Got config field [%s]", fldName)
 
 		switch fldName {
+		case "debug":
+			//Set debug configuration string
+			debug, _ := buf.BGetString(u.EX_CC_VALUE, occ)
+			ac.TpLogDebug("Got [%s] = [%s] ", fldName, debug)
+			if err := ac.TpLogConfig((atmi.LOG_FACILITY_NDRX | atmi.LOG_FACILITY_UBF | atmi.LOG_FACILITY_TP),
+				-1, debug, "ROUT", ""); nil != err {
+				ac.TpLogError("Invalid debug config [%s] %d:[%s]",
+					debug, err.Code(), err.Message())
+				return fmt.Errorf("Invalid debug config [%s] %d:[%s]",
+					debug, err.Code(), err.Message())
+			}
 
+			break
 		case "workers":
 			M_workers, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
 			break

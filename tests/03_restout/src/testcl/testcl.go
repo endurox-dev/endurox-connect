@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -125,6 +126,7 @@ func JSONCall(ac *atmi.ATMICtx, cmd string, svc string, times string) error {
 
 	for i := 0; i < nrTimes; i++ {
 
+		var msg TestJSONMsg
 		buf, err := ac.NewJSON([]byte(call))
 
 		if err != nil {
@@ -137,8 +139,71 @@ func JSONCall(ac *atmi.ATMICtx, cmd string, svc string, times string) error {
 			return errors.New(err.Error())
 		}
 
+		jerr := json.Unmarshal(buf.GetJSON(), &msg)
+		if jerr != nil {
+			return fmt.Errorf("Unmarshal: %s", jerr.Error())
+		}
+
 		//Test the response...
-		//TODO:
+		if svc == "JSONJE_OK" || svc == "JSONJE_OKNS" {
+			//Check the normal rsp...
+
+			if msg.StringField2 != "Hello" {
+				return fmt.Errorf("StringField2 expted [Hello],"+
+					" got [%s]", msg.StringField2)
+			}
+
+			if !msg.BoolField2 {
+				return errors.New("BoolField2 = true")
+			}
+
+			if msg.NumField2 != 12345 {
+
+				return fmt.Errorf("NumField2 expected [12345],"+
+					" got [%d]", msg.NumField)
+			}
+		}
+	}
+
+	return nil
+}
+
+func CmpArrays(a []byte, b []byte) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i, v := range a {
+		if v != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+//Carray/RAW/BINARY tests...
+//Call the sever with JSON buffer
+func CARRAYCall(ac *atmi.ATMICtx, cmd string, svc string, times string) error {
+
+	nrTimes, _ := strconv.Atoi(times)
+
+	for i := 0; i < nrTimes; i++ {
+
+		buf, err := ac.NewCarray([]byte{9, 8, 7, 6, 5, 4, 3, 2, 1, 0})
+
+		if err != nil {
+			return errors.New(err.Error())
+		}
+
+		//Call the server
+		if _, err := ac.TpCall(svc, buf, 0); nil != err {
+			MErrorCode = err.Code()
+			return errors.New(err.Error())
+		}
+		//Test the response...
+		if !CmpArrays(buf.GetBytes(), []byte{9, 8, 7, 6, 5, 4, 3, 2, 1, 0}) {
+			return fmt.Errorf("Carray fail: expected [[]byte{9, 8, 7, 6, 5, 4, 3, 2, 1, 0}],"+
+				" got [%x]", buf.GetBytes())
+		}
 	}
 
 	return nil
@@ -168,6 +233,8 @@ func apprun(ac *atmi.ATMICtx) error {
 		return STRINGCall(ac, cmd, svc, times)
 	case "jsoncall":
 		return JSONCall(ac, cmd, svc, times)
+	case "carraycall":
+		return CARRAYCall(ac, cmd, svc, times)
 	default:
 		return errors.New(fmt.Sprintf("Invalid test case: [%s]", cmd))
 	}

@@ -519,14 +519,10 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 		retFlags |= atmi.TPSOFTNOENT
 		ret = FAIL
 		break
-	case atmi.TPESVCERR:
-		ac.TpLogInfo("got TPESVCERR")
-		ret = FAIL
-		break
 	default:
-		ac.TpLogInfo("defaulting to TPESVCERR")
+		ac.TpLogInfo("defaulting to TPESVCFAIL")
 		ret = FAIL
-		netCode = atmi.TPESVCERR
+		netCode = atmi.TPESVCFAIL
 		break
 	}
 

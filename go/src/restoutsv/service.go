@@ -311,8 +311,8 @@ func (s *ServiceMap) Monitor() {
 						ac.TpLogWarn("Scheduling [%s] by "+
 							"[%s] to unadvertise!",
 							ds.Svc, s.Svc)
-						ds.echoSchedAdv = true
-						ds.echoSchedUnAdv = false
+						ds.echoSchedAdv = false
+						ds.echoSchedUnAdv = true
 					}
 				}
 			}

@@ -4,6 +4,8 @@
 # @(#) Test 03 - Rest-OUT interface tests...
 #
 
+TIMES=200
+
 pushd .
 
 rm runtime/log/* 2>/dev/null
@@ -59,7 +61,7 @@ echo "JSON2UBF test case - jue (json2ubf err), OK"
 
 COMMAND="ubfcall"
 
-testcl $COMMAND JUBFJUE_OK 100
+testcl $COMMAND JUBFJUE_OK $TIMES
 RET=$?
 
 if [[ $RET != 0 ]]; then
@@ -113,7 +115,7 @@ echo "JSON2UBF, HTTP errors, OK"
 ################################################################################
 COMMAND="ubfcall"
 
-testcl $COMMAND JUBFHTE_OK 100
+testcl $COMMAND JUBFHTE_OK $TIMES
 RET=$?
 
 if [[ $RET != 0 ]]; then
@@ -178,7 +180,7 @@ echo "STRING test case - TEXT errors, OK"
 ###############################################################################
 COMMAND="stringcall"
 
-testcl $COMMAND TEXTTE_OK 100
+testcl $COMMAND TEXTTE_OK $TIMES
 RET=$?
 
 if [[ $RET != 0 ]]; then
@@ -200,46 +202,70 @@ if [[ $RET != 11 ]]; then
 fi
 
 ###############################################################################
-echo "STRING test case - TEXT errors, timeout"
+echo "JSON test case - JSON errors, OK"
 ###############################################################################
-COMMAND="stringcall"
+COMMAND="jsoncall"
 
-testcl $COMMAND TEXTTE_TOUT 1
+testcl $COMMAND JSONJE_OK $TIMES
 RET=$?
 
-if [[ $RET != 13 ]]; then
+if [[ $RET != 0 ]]; then
 	echo "testcl $COMMAND: failed"
-	go_out 12
+	go_out 13
 fi
 
 
 ###############################################################################
-echo "JSON test case - JSON errors, OK"
+echo "JSON test case - JSON error, no status in OK rsp"
 ###############################################################################
+COMMAND="jsoncall"
+
+testcl $COMMAND JSONJE_OKNS $TIMES
+RET=$?
+
+if [[ $RET != 0 ]]; then
+	echo "testcl $COMMAND: failed"
+	go_out 14
+fi
 
 ###############################################################################
-echo "JSON test case - JSON error, failure"
+echo "JSON test case - JSON error, no status in OK rsp"
 ###############################################################################
+COMMAND="jsoncall"
 
-###############################################################################
-echo "JSON test case - JSON errors, timeout"
-###############################################################################
+testcl $COMMAND JSONJE_OKASYNC $TIMES
+RET=$?
+
+if [[ $RET != 0 ]]; then
+	echo "testcl $COMMAND: failed"
+	go_out 15
+fi
 
 ###############################################################################
 echo "RAW test case - TEXT errors, OK"
 ###############################################################################
+COMMAND="carraycall"
+
+testcl $COMMAND RAWTE_OK $TIMES
+RET=$?
+
+if [[ $RET != 0 ]]; then
+	echo "testcl $COMMAND: failed"
+	go_out 16
+fi
 
 ###############################################################################
 echo "RAW test case - TEXT error, failure"
 ###############################################################################
+COMMAND="carraycall"
 
-###############################################################################
-echo "RAW test case - TEXT errors, timeout"
-###############################################################################
+testcl $COMMAND RAWTE_FAIL $TIMES
+RET=$?
 
-###############################################################################
-echo "ECHO FAIL, no SVC"
-###############################################################################
+if [[ $RET != 11 ]]; then
+	echo "testcl $COMMAND: failed"
+	go_out 17
+fi
 
 ###############################################################################
 echo "JSON2UBF echo OK"
@@ -253,6 +279,9 @@ echo "JSON echo OK"
 echo "RAW echo OK"
 ###############################################################################
 
+###############################################################################
+echo "ECHO FAIL, no SVC"
+###############################################################################
 
 ###############################################################################
 echo "Done"

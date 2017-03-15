@@ -42,7 +42,15 @@ import (
 //@return	ATMI Error
 func (s *ServiceMap) Advertise(ac *atmi.ATMICtx) atmi.ATMIError {
 	ac.TpLogInfo("About to advertise: %s", s.Svc)
-	return ac.TpAdvertise(s.Svc, "RESTOUT", RESTOUT)
+
+	errA:=ac.TpAdvertise(s.Svc, "RESTOUT", RESTOUT)
+
+        if nil==errA {
+                s.echoIsAdvertised = true
+                s.echoSchedAdv = false
+        }
+
+        return errA
 }
 
 //Remove service from shared memory
@@ -50,7 +58,14 @@ func (s *ServiceMap) Advertise(ac *atmi.ATMICtx) atmi.ATMIError {
 //@return ATMI error
 func (s *ServiceMap) Unadvertise(ac *atmi.ATMICtx) atmi.ATMIError {
 	ac.TpLogInfo("About to unadvertise: %s", s.Svc)
-	return ac.TpUnadvertise(s.Svc)
+	errA:=ac.TpUnadvertise(s.Svc)
+
+        if nil==errA {
+                s.echoIsAdvertised = false
+                s.echoSchedUnAdv = false
+        }
+
+        return errA
 }
 
 //Preparese echo buffers
@@ -269,24 +284,30 @@ func (s *ServiceMap) Monitor() {
 				break
 			}
 
+                        trendSucc:=" "
+                        trendFail:=" "
 			if nil == result {
 				// Echo is OK
 				if s.echoSucceeds <= s.EchoMinOK {
 					s.echoSucceeds++
-				}
+				} else {
+                                        trendSucc="+ "
+                                }
 				s.echoFails = 0
 			} else {
 				//Echo failed
-				if s.EchoMaxFail <= s.EchoMaxFail {
+				if s.echoFails <= s.EchoMaxFail {
 					s.echoFails++
-				}
+				} else {
+                                        trendFail="+ "
+                                }
 				s.echoSucceeds = 0
 			}
 
-			ac.TpLogInfo("Consecutive stats: succeed: %d (min OK: %d), "+
-				"fail: %d (max Fail: %d)",
-				s.echoSucceeds, s.EchoMinOK,
-				s.echoFails, s.EchoMaxFail)
+			ac.TpLogInfo("Consecutive stats: succeed: %d%s(min OK: %d), "+
+				"fail: %d%s(max Fail: %d)",
+				s.echoSucceeds, trendSucc, s.EchoMinOK,
+				s.echoFails, trendFail, s.EchoMaxFail)
 
 			MadvertiseLock.Lock()
 

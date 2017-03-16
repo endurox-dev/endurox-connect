@@ -102,9 +102,10 @@ const (
 //We will have most of the settings as defaults
 //And then these settings we can override with
 type ServiceMap struct {
-	Svc     string
-	UrlBase string `json:"urlbase"`
-	Url     string `json:"url"`
+	Svc         string
+	UrlBase     string `json:"urlbase"`
+	Url         string `json:"url"`
+	SSLInsecure bool   `json:"sslinsecure"`
 
 	Timeout int `json:"timeout"`
 
@@ -682,8 +683,8 @@ func unInit(ac *atmi.ATMICtx) {
 		ac.TpLogInfo("Waiting monitor %d to complete", i)
 		_ = <-MmonitorsShut
 	}
-	
-	deInitPoll(ac, &MoutXPool);
+
+	deInitPoll(ac, &MoutXPool)
 
 	ac.TpLogInfo("Shutdown ok")
 

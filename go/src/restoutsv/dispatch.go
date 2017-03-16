@@ -32,6 +32,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/tls"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -292,7 +293,8 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 		break
 	}
 
-	ac.TpLogInfo("Sending POST request to: [%s]", svc.Url)
+	ac.TpLogInfo("Sending POST request to: [%s] skip HTTPS cert check: %t",
+		svc.Url, svc.SSLInsecure)
 
 	ac.TpLogDump(atmi.LOG_DEBUG, "Data To send", content_to_send, len(content_to_send))
 	req, err := http.NewRequest("POST", svc.Url, bytes.NewBuffer(content_to_send))
@@ -300,9 +302,12 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 	//req.Header.Set("X-Custom-Header", "myvalue")
 	req.Header.Set("Content-Type", content_type)
 
-	var client = &http.Client{
-		Timeout: time.Second * time.Duration(svc.Timeout),
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: svc.SSLInsecure},
 	}
+	client := &http.Client{
+		Timeout:   time.Second * time.Duration(svc.Timeout),
+		Transport: tr}
 
 	resp, err := client.Do(req)
 

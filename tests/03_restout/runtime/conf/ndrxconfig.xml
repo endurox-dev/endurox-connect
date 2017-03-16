@@ -150,7 +150,7 @@
 	-->
 	<clients>
 		<client cmdline="restincl">
-			<exec tag="RESTIN" autostart="Y" subsect="" log="${NDRX_APPHOME}/log/restin.log"/>
+			<exec tag="RESTIN" autostart="Y" cctag="TLS" subsect="" log="${NDRX_APPHOME}/log/restin.log"/>
 		</client>
 	</clients>
 </endurox>

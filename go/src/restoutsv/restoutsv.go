@@ -682,6 +682,8 @@ func unInit(ac *atmi.ATMICtx) {
 		ac.TpLogInfo("Waiting monitor %d to complete", i)
 		_ = <-MmonitorsShut
 	}
+	
+	deInitPoll(ac, &MoutXPool);
 
 	ac.TpLogInfo("Shutdown ok")
 

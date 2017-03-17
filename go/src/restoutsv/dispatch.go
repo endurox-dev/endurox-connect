@@ -34,6 +34,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"io/ioutil"
+//	"io"
 	"net"
 	"net/http"
 	"strconv"
@@ -297,25 +298,39 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 		svc.Url, svc.SSLInsecure)
 
 	ac.TpLogDump(atmi.LOG_DEBUG, "Data To send", content_to_send, len(content_to_send))
-	req, err := http.NewRequest("POST", svc.Url, bytes.NewBuffer(content_to_send))
+	req, errReq := http.NewRequest("POST", svc.Url, bytes.NewBuffer(content_to_send))
+        if nil!=errReq {
+                ac.TpLogError("Failed to make request object: %s", errReq.Error());
+                ret = FAIL
+                return
+        }
 
 	//req.Header.Set("X-Custom-Header", "myvalue")
 	req.Header.Set("Content-Type", content_type)
 
 	tr := &http.Transport{
+                DisableKeepAlives: true,
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: svc.SSLInsecure},
 	}
 	client := &http.Client{
 		Timeout:   time.Second * time.Duration(svc.Timeout),
 		Transport: tr}
 
-	resp, err := client.Do(req)
+	resp, errClt := client.Do(req)
+        
+        //Avoid file descriptor leak...
+        if nil!=resp {
+	        defer resp.Body.Close()
+        }
 
-	if err != nil {
+	if errClt != nil {
 
-		ac.TpLogError("Got error: %s", err.Error())
+          //      if nil!=resp {
+         //               io.Copy(ioutil.Discard, resp.Body) 
+           //     }
+		ac.TpLogError("Got error: %s", errClt.Error())
 
-		if err, ok := err.(net.Error); ok && err.Timeout() {
+		if err, ok := errClt.(net.Error); ok && err.Timeout() {
 			//Respond with TPSOFTTIMEOUT
 			ac.TpLogError("TPSOFTTIMEOUT")
 			retFlags |= atmi.TPSOFTTIMEOUT
@@ -328,11 +343,11 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 		}
 	}
 
-	defer resp.Body.Close()
-
 	ac.TpLogInfo("response Status: %s", resp.Status)
 
 	body, errN := ioutil.ReadAll(resp.Body)
+        //Allow to return connection to pool
+        //io.Copy(ioutil.Discard, resp.Body) 
 
 	if nil != errN {
 		ac.TpLogError("Failed to read response body - dropping the "+

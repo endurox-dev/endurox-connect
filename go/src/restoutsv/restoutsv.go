@@ -621,29 +621,7 @@ func RESTOUT(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 			ac.TpReturn(atmi.TPFAIL, 0, &svc.Data, 0)
 		}
 	}()
-
-	//Get UBF Handler
-	ub, _ := ac.CastToUBF(&svc.Data)
-
-	//Print the buffer to stdout
-	ub.TpLogPrintUBF(atmi.LOG_DEBUG, "Incoming request:")
-
-	//Resize buffer, to have some more space
-	buf_size, err := ub.BUsed()
-
-	if err != nil {
-		ac.TpLogError("Failed to get incoming buffer used space: %d:%s",
-			err.Code(), err.Message())
-		ret = FAIL
-		return
-	}
-
-	//Realloc to have some free space for buffer manipulations
-	if err := ub.TpRealloc(buf_size + 1024); err != nil {
-		ac.TpLogError("TpRealloc() Got error: %d:[%s]", err.Code(), err.Message())
-		ret = FAIL
-		return
-	}
+        ac.TpLogInfo("RESTOUT got request...");
 
 	//Pack the request data to pass to thread
 	ctxData, err := ac.TpSrvGetCtxData()

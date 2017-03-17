@@ -270,18 +270,124 @@ fi
 ###############################################################################
 echo "JSON2UBF echo OK"
 ###############################################################################
+COMMAND="ubfcall"
+
+testcl $COMMAND DEP_JSON2UBF $TIMES
+RET=$?
+
+if [[ $RET != 0 ]]; then
+	echo "testcl $COMMAND: failed"
+	go_out 18
+fi
 
 ###############################################################################
 echo "JSON echo OK"
 ###############################################################################
+COMMAND="jsoncall"
+
+testcl $COMMAND DEP_JSON $TIMES
+RET=$?
+
+if [[ $RET != 0 ]]; then
+	echo "testcl $COMMAND: failed"
+	go_out 19
+fi
+
+###############################################################################
+echo "String/Text echo OK"
+###############################################################################
+COMMAND="stringcall"
+
+testcl $COMMAND DEP_STRING $TIMES
+RET=$?
+
+if [[ $RET != 0 ]]; then
+	echo "testcl $COMMAND: failed"
+	go_out 20
+fi
 
 ###############################################################################
 echo "RAW echo OK"
 ###############################################################################
+COMMAND="carraycall"
+
+testcl $COMMAND DEP_RAW $TIMES
+RET=$?
+
+if [[ $RET != 0 ]]; then
+	echo "testcl $COMMAND: failed"
+	go_out 21
+fi
 
 ###############################################################################
 echo "ECHO FAIL, no SVC"
 ###############################################################################
+# stop the restin client
+xadmin sc -t RESTIN || exit 22
+
+# Wait some time for unadvertise
+sleep 10
+
+
+###############################################################################
+echo "JSON2UBF echo NOENT"
+###############################################################################
+COMMAND="ubfcall"
+
+testcl $COMMAND DEP_JSON2UBF 1
+RET=$?
+
+if [[ $RET != 6 ]]; then
+	echo "testcl $COMMAND: failed"
+	go_out 23
+fi
+
+###############################################################################
+echo "JSON echo NOENT"
+###############################################################################
+COMMAND="jsoncall"
+
+testcl $COMMAND DEP_JSON 1
+RET=$?
+
+if [[ $RET != 6 ]]; then
+	echo "testcl $COMMAND: failed"
+	go_out 24
+fi
+
+# No need to test other logic is simular... Now get back echo
+
+# stop the restin client
+xadmin bc -t RESTIN || exit 25
+
+# Wait some time for unadvertise
+sleep 10
+
+###############################################################################
+echo "JSON2UBF echo back on track"
+###############################################################################
+COMMAND="ubfcall"
+
+testcl $COMMAND DEP_JSON2UBF $TIMES
+RET=$?
+
+if [[ $RET != 0 ]]; then
+	echo "testcl $COMMAND: failed"
+	go_out 26
+fi
+
+###############################################################################
+echo "JSON echo back on track"
+###############################################################################
+COMMAND="jsoncall"
+
+testcl $COMMAND DEP_JSON $TIMES
+RET=$?
+
+if [[ $RET != 0 ]]; then
+	echo "testcl $COMMAND: failed"
+	go_out 27
+fi
 
 ###############################################################################
 echo "Done"

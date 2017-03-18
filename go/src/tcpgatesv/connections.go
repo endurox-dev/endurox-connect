@@ -483,9 +483,9 @@ func HandleConnection(con *ExCon) {
 							buf, &ok)
 						continue //<<< Continue!
 					} else {
-						ac.TpLogInfo("Got request with "+
-							"correlator (or waiter "+
-							"did time-out...)");
+						ac.TpLogInfo("Got request with " +
+							"correlator (or waiter " +
+							"did time-out...)")
 						MCorrWaiterMutex.Unlock()
 					}
 				}
@@ -550,13 +550,14 @@ func HandleConnection(con *ExCon) {
 	MConnMutex.Lock()
 	delete(MConnectionsSimple, con.id)
 	delete(MConnectionsComp, con.id_comp)
+
+	//Connection closed...
+	NotifyStatus(ac, con.id, FLAG_CON_DISCON)
+
 	MConnMutex.Unlock()
 
 	//Remove from channel
 	MarkConnAsBusy(ac, con)
-
-	//Connection closed...
-	NotifyStatus(ac, con.id, FLAG_CON_DISCON)
 
 }
 
@@ -687,7 +688,7 @@ func NotifyStatus(ac *atmi.ATMICtx, id int64, flags string) {
 	buf.TpLogPrintUBF(atmi.LOG_DEBUG, "Sending notification")
 
 	//Call the service for status notification
-	if _, err = ac.TpACall(MStatussvc, buf, atmi.TPNOREPLY); nil != err {
+	if _, err = ac.TpACall(MStatussvc, buf, atmi.TPNOREPLY|atmi.TPNOBLOCK); nil != err {
 		ac.TpLogError("Failed to call [%s]: %s", MStatussvc, err.Error())
 		return
 	}

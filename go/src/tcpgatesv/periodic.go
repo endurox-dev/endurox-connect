@@ -38,6 +38,7 @@ import (
 
 //Zero sending periodic stopwatch
 var MZeroStopwatch exutil.StopWatch
+var MStatusRefreshStopWatch exutil.StopWatch
 
 //Send zero length messages over the channels
 func RunZeroOverOpenCons(ac *atmi.ATMICtx) {
@@ -61,6 +62,28 @@ func RunZeroOverOpenCons(ac *atmi.ATMICtx) {
 		} else {
 			ac.TpLogInfo("conn %d/%d is not yet open - not sending zero msg",
 				v.id, v.id_comp)
+		}
+	}
+
+	MConnMutex.Unlock()
+
+}
+
+//Send zero length messages over the channels
+func RunStatusRefresh(ac *atmi.ATMICtx) {
+
+	//Lock all connections
+	MConnMutex.Lock()
+	var i int64
+
+	for i = 1; i <= MMaxConnections; i++ {
+
+		if nil != MConnectionsSimple[i] {
+			ac.TpLogInfo("REFRESH: Notify connection %d UP", i)
+			NotifyStatus(ac, i, FLAG_CON_ESTABLISHED)
+		} else {
+			ac.TpLogInfo("REFRESH: Notify connection %d DOWN", i)
+			NotifyStatus(ac, i, FLAG_CON_DISCON)
 		}
 	}
 
@@ -95,9 +118,9 @@ func CheckDial(ac *atmi.ATMICtx) {
 
 		//2. Add to hash
 		/*
-		mvitolin 2017/01/25 do it when connection is established in GoDial
-		MConnectionsSimple[con.id] = &con
-		MConnectionsComp[con.id_comp] = &con
+			mvitolin 2017/01/25 do it when connection is established in GoDial
+			MConnectionsSimple[con.id] = &con
+			MConnectionsComp[con.id_comp] = &con
 		*/
 		MConnMutex.Unlock()
 
@@ -196,11 +219,11 @@ func CheckTimeouts(ac *atmi.ATMICtx) atmi.ATMIError {
 					//Kill the connection, if non persistent
 					if MReqReply == RR_NONPERS_EX2NET ||
 						MReqReply == RR_PERS_CONN_EX2NET {
-					ac.TpLogInfo("Killing connection")
-					ac.TpLogDebug("v=%p", v)
-					ac.TpLogDebug("v.con=%p", v.con)
-					v.con.shutdown <- true
-					ac.TpLogInfo("Killing connection, done")
+						ac.TpLogInfo("Killing connection")
+						ac.TpLogDebug("v=%p", v)
+						ac.TpLogDebug("v.con=%p", v.con)
+						v.con.shutdown <- true
+						ac.TpLogInfo("Killing connection, done")
 					}
 
 				} else {
@@ -243,6 +266,15 @@ func Periodic(ac *atmi.ATMICtx) int {
 		RunZeroOverOpenCons(ac)
 
 		MZeroStopwatch.Reset()
+	}
+
+	if MStatusRefresh > 0 && MStatusRefreshStopWatch.GetDetlaSec() > int64(MStatusRefresh) {
+		ac.TpLogInfo("Time for status refresh messages to be sent...")
+
+		RunStatusRefresh(ac)
+
+		MStatusRefreshStopWatch.Reset()
+
 	}
 
 	//TODO: Check for any outstanding network calls...

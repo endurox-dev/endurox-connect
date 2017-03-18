@@ -33,6 +33,7 @@ package main
 import (
 	"exutil"
 	u "ubftab"
+
 	atmi "github.com/endurox-dev/endurox-go"
 )
 
@@ -204,11 +205,6 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 				//So it looks like GO does not track
 				//pointer in the channel...
 
-				//Well before that we shall kill the current
-				//buffer it is auto, and not allocated by go
-				//Thus we might get possible memleak here.
-				ac.TpFree(buf.GetBuf())
-
 				buf = <-block.atmi_chan
 
 				//Change the context of the buf back to ours...
@@ -314,8 +310,6 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 		con.outgoing <- &block
 
 		//6. Wait for reply
-		ac.TpFree(buf.GetBuf())
-
 		ac.TpLogInfo("Waiting for reply...")
 		buf = <-block.atmi_chan
 

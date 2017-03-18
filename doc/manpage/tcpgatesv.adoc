@@ -401,6 +401,14 @@ Name of the service which receives connection status updates. Parameter
 is optional, and if not set, then connection status updates will not be
 issued.
 
+*status_refresh* = 'STATUS_REFRESH_SECONDS'::
+Number of seconds to periodically send full connection status 
+(disconnected/connected) to 'status_svc'. Enabled if number is greater that 0.
+Parameter > 0 is valid only for persistent connection modes, i.e. 'req_reply' values
+*0*, *1*, *2*. And the 'status_svc' must be defined. If condition is not met then
+*tcpgatesv* will not boot and print error in logfile.
+The default is *0*.
+
 *max_connections* = 'MAX_NR_OF_CONNECTIONS'::
 Max number of simulatnious connections supported by gateway. In case of
 active mode and using persistent connections, this is the number of connects
@@ -411,7 +419,6 @@ In case of passive mode, this is max number of open incoming connections. If the
 incoming connections gets bigger number that this, the incoming connection will
 be closed.
 The default is *5*.
-
 
 *req_reply* = 'REQUEST_MODE'::
 Request reply mode. This basically tells the *tcpgatesv* role and the mode

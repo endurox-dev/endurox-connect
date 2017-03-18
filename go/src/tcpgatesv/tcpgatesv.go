@@ -68,6 +68,7 @@ var MAddr string = ""        //Compiled ip:port
 var MIncomingSvc string = "" //Incomding service to send to incoming async traffic
 var MPerZero int = 0         //Period by witch to which send zero length message to all channels...
 var MStatussvc string = ""   //Status service to which send connection information
+var MStatusRefresh int = 0   //Send periodic status refreshes, seconds
 //Max number to connection to connect to server, or allow max incomings in the same time.
 var MMaxConnections int64 = 5
 
@@ -79,7 +80,7 @@ var MReqReply int = RR_PERS_ASYNC_INCL_CORR
 //Timeout for req-reply model
 var MReqReplyTimeout int64 = 60
 var MConnWaitTime int64 = 60 //Max time to wait for connection in pool
-var MScanTime = 1 //Seconds for housekeeping
+var MScanTime = 1            //Seconds for housekeeping
 
 //Correlator service for incoming messages
 //This is used case if driver operates in sync mode over the persistently conneced lines
@@ -143,9 +144,9 @@ func TCPGATE(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 		return
 	}
 
-        ac.TpLogInfo("Waiting for free XATMI out object")
+	ac.TpLogInfo("Waiting for free XATMI out object")
 	nr := getFreeXChan(ac, &MoutXPool)
-        ac.TpLogInfo("Got XATMI out object")
+	ac.TpLogInfo("Got XATMI out object")
 	go XATMIDispatchCall(&MoutXPool, nr, ctxData, ub, svc.Cd)
 
 	//runtime.GC()
@@ -300,6 +301,10 @@ func Init(ac *atmi.ATMICtx) int {
 			MStatussvc, _ = buf.BGetString(u.EX_CC_VALUE, occ)
 			ac.TpLogDebug("Got [%s] = [%s] ", fldName, MStatussvc)
 			break
+		case "status_refresh":
+			MStatusRefresh, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
+			ac.TpLogDebug("Got [%s] = [%d] ", fldName, MStatusRefresh)
+			break
 		case "max_connections":
 			MMaxConnections, _ = buf.BGetInt64(u.EX_CC_VALUE, occ)
 			ac.TpLogDebug("Got [%s] = [%d] ", fldName, MMaxConnections)
@@ -432,7 +437,31 @@ func Init(ac *atmi.ATMICtx) int {
 		}
 	}
 
+	//mvitolin 18/03/2017 #97
+	if MStatusRefresh > 0 {
+
+		if MReqReply != RR_PERS_ASYNC_INCL_CORR && MReqReply != RR_PERS_CONN_EX2NET &&
+			MReqReply != RR_PERS_CONN_NET2EX {
+
+			ac.TpLogError("`status_refresh' valid only for persistent connections, "+
+				"`req_reply' modes: %d/%d/%d",
+				RR_PERS_ASYNC_INCL_CORR,
+				RR_PERS_CONN_EX2NET,
+				RR_PERS_CONN_NET2EX)
+
+			return FAIL
+		}
+
+		if MStatussvc == "" {
+			ac.TpLogError("For `status_refresh' `status_svc' must be defined!")
+			return FAIL
+		}
+	}
+
+	ac.TpLogInfo("Periodic status broadcast: %d", MStatusRefresh)
+
 	MZeroStopwatch.Reset()
+	MStatusRefreshStopWatch.Reset()
 
 	//Init the maps...
 	MConnectionsSimple = make(map[int64]*ExCon)

@@ -43,7 +43,8 @@ sleep 2
 ################################################################################
 # Run async calls
 ################################################################################
-NROFCALLS=$NUMCALL
+NROFCALLS=$(($NUMCALL+5))
+NROFCALLS_CMP=$NUMCALL
 COMMAND="async_call"
 testcl async_call $NROFCALLS TCP_P_ASYNC_A
 RET=$?
@@ -59,7 +60,9 @@ sleep 10
 # Check that given count of reponses are generated...
 CNT=`grep "Test case 11 OK" log/testsv.log | wc | awk '{print $1}'`
 
-if [[ $CNT !=  $NROFCALLS ]]; then
+# We might have some buffered logs, thus have some more calls
+# This give +5 for logs to flush
+if [[ $CNT -lt  $NROFCALLS_CMP ]]; then
 	echo "Expected $NROFCALLS but got $CNT from server traces!"
 	go_out 2
 fi

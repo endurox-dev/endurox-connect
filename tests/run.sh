@@ -31,6 +31,7 @@ run_test () {
 
 run_test "01_restin"
 run_test "02_tcpgatesv"
+run_test "03_restout"
 
 echo "*** SUMMARY $M_tests tests executed. $M_ok passes, $M_fail failures"
 

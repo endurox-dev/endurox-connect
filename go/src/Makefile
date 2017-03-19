@@ -13,4 +13,4 @@ clean:
 	$(MAKE) -C restincl clean
 	$(MAKE) -C restoutsv clean
 	$(MAKE) -C tcpgatesv clean
-	cd github.com/endurox-dev/endurox-go && git pull
+	- cd github.com/endurox-dev/endurox-go && git pull

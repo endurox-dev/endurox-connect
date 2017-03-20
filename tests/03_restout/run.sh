@@ -326,7 +326,7 @@ echo "ECHO FAIL, no SVC"
 xadmin sc -t RESTIN || exit 22
 
 # Wait some time for unadvertise
-sleep 10
+sleep 20
 
 
 ###############################################################################
@@ -361,7 +361,7 @@ fi
 xadmin bc -t RESTIN || exit 25
 
 # Wait some time for unadvertise
-sleep 10
+sleep 20
 
 ###############################################################################
 echo "JSON2UBF echo back on track"

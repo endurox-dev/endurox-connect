@@ -32,7 +32,7 @@
 
 cmake_minimum_required (VERSION 2.6) 
 project (ENDUROXCONNECT) 
-set(VERSION "1.0.2")
+set(VERSION "2.0.0")
 set(PROJ_NAME "Enduro/X Connectivity Module")
 set(RELEASE "1")
 
@@ -87,6 +87,7 @@ MESSAGE( STATUS "INSTALL_LIB_DIR: " ${INSTALL_LIB_DIR} )
 install (FILES
     ../go/src/tcpgatesv/tcpgatesv
     ../go/src/restincl/restincl
+    ../go/src/restoutsv/restoutsv
     PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_EXECUTE GROUP_READ WORLD_EXECUTE WORLD_READ
     DESTINATION bin)
     

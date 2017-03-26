@@ -130,6 +130,15 @@ message("CPack:Debug: LSB_RELEASE VER = ${LSB_RELEASE_OUTPUT_VER}")
 # Support only for Linux
 MESSAGE( "CPack:Debug: CMAKE_SYSTEM_NAME: " ${CMAKE_SYSTEM_NAME} )
 MESSAGE( "CPack:Debug: CMAKE_SYSTEM_PROCESSOR: " ${CMAKE_SYSTEM_PROCESSOR} )
+
+# have some issues with folders
+set(CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION /usr/share/man
+		/usr/share/man/man3
+		/usr/share/man/man5
+		/usr/share/man/man8
+		/usr/lib64/pkgconfig
+		/usr/lib/pkgconfig)
+
 set(CPACK_MONOLITHIC_INSTALL 1)
 set(CPACK_GENERATOR "DEB;RPM;TGZ")
 set(CPACK_PACKAGE_CONTACT "madars.vitolins@gmail.com")

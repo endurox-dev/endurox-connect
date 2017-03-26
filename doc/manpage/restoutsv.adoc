@@ -1,0 +1,360 @@
+RESTINCL(8)
+===========
+:doctype: manpage
+
+
+NAME
+----
+restousv - Enduro/X HTTP REST outgoing request server
+
+
+SYNOPSIS
+--------
+*restousv*
+
+
+DESCRIPTION
+-----------
+This is XATMI server which provides external REST service mappings for XATMI
+sub-system. The 'restoutsv' can be started with in multiple copies in order to
+gain better system performance and have higher stability (so that administrator
+can reload the configuration, e.g. adding some new service mapping). The data
+to HTTP REST services are send in POST format.
+
+This is XATMI REST gateway server can send requests in HTTP/HTTPS format. Different
+content types (say XATMI buffer types are supported). The output format which is
+sent to network is mapped from input XATMI buffer type. All Enduro/X buffers are
+supported:
+
+- *UBF*/*FML* buffer is converted to JSON message and send as mime type *application/json*.
+The buffer format it self is one level key:value json with possible array elements
+(UBF occurrences). The buffer is converted by *tpubftojson(3)* C function. The error
+handling is made via two fields defined in 'Exfields' UBF field definition file.
+The field names are 'EX_IF_ECODE' for XATMI error code and 'EX_IF_EMSG' for error
+message. The other option is to use HTTP standard error codes.
+
+- *JSON* with this XATMI buffer the message with mime type *application/json* is
+directly sent to network. The error fields can be provided in configuration. Other
+option is to use HTTP standard error codes.
+
+- *STRING* with this XATMI buffer the string message is directly printed to HTTP
+request stream. the mime type is set to 'text/plain'. The errors are matched in
+response message by regular expressions or HTTP error code.
+
+- *CARRAY* with this buffer type the received message is sent to HTTP server in
+binary format as mime type 'application/octet-stream'. The errors are match in 
+response message by regular expressions or HTTP error code.
+
+The *restincl* and *restoutsv* can be combined so that it would make a HTTP bridge
+between the systems.
+
+*restousv* supports service monitoring and setting the services to be depend on
+echo server. For echo server there could be set max failures to remove services
+from shared memory (service board) and min echo OK messages, to advertise
+services back to shared memory.
+
+Internally the *restoutsv* is multi-threaded XATMI server, where main thread consumes
+the service requests and then it they are dispatched to XATMI client sessions 
+associated go routine (workers). The number is configured by 'workers' configuration
+parameter (default 5). When all workers are busy the main thread will wait for free
+worker. During this time if any other *restoustsv* is started, it they can handle
+the traffic.
+
+The error handling supports for following error types:
+
+- Service error
+
+- No entry (no service)
+
+- Timeout
+
+Whenever format error is occurred (the response cannot be parsed), the XATMI error
+type 13 (TPETIME) is generated.
+
+The typical *restousv* configuration looks like:
+
+--------------------------------------------------------------------------------
+
+[@restout]
+# Enduro/X debug string
+debug = tp=5 ndrx=5 iflags=detailed file=
+gencore=0
+workers=5
+scan_time=7
+defaults={"urlbase":"https://example.com"
+           ,"errors":"http"
+           ,"noreqfilersp": true
+           ,"sslinsecure": true
+        }
+        
+# this will post to: https://example.com/svc1
+service XATMISERVICE1={
+        "url":"/svc1"
+        ,"errors":"json2ubf"
+        ,"timeout":5
+        }
+
+# this will post to: https://example.com/svc2
+service XATMISERVICE2={
+        "url":"/svc2"
+        ,"errors":"json2ubf"
+        ,"timeout":5
+        }
+
+--------------------------------------------------------------------------------
+
+
+Error handling type: 'http' - return error codes in HTTP protocol
+-----------------------------------------------------------------
+With this error handling method, the error codes are directly used from HTTP protocol.
+and mapped to XATMI return codes. The error code can be mapped from XATMI subsystem 
+to HTTP codes manually by using 'errors_fmt_http_map' parameter in service or 
+'default' parameter block. The default mapping which is set if 
+'errors_fmt_http_map' is not present, is following:
+
+. http.StatusOK (200) = atmi.TPMINVAL(0)
+
+. http.StatusGatewayTimeout (504) =  atmi.TPETIME(13)
+
+. http.StatusNotFound (404) = atmi.TPENOENT(6)
+
+. Anything else (\*)  = atmi.TPESVCFAIL(11)
+
+This method is suitable for all buffer formats. Also in case if using other error
+handling method and the HTTP error code is not http.StatusOK(200), then default
+http error mapping is used or the one set by 'errors_fmt_http_map'.
+
+
+Error handling type: 'json2ubf' - UBF request buffer error handling method
+---------------------------------------------------------------------------
+This error handling mechanism is suitable for XATMI 'UBF' buffer type. 
+The error message by server must be loaded into top level JSON field 'EX_IF_ECODE'
+and error message is loaded into 'EX_IF_EMSG' field. This is suitable in case if
+using *restincl* on the other Enduor/X server to bridge the servers using HTTP/Rest
+method and sending data over UBF buffers. The response fields
+
+
+Error handling type: 'json' - response code embedded JSON response message
+--------------------------------------------------------------------------
+This is suitable for 'json' buffer type. It is expected that at root level of 
+json message there are two fields: One for XATMI error code and another for 
+error message. The default value for configuration parameter 'errfmt_json_code' 
+is set to *error_message* and the default value for parameter 'errfmt_json_msg'
+is set to *errfmt_json_msg*.
+
+For example:
+--------------------------------------------------------------------------------
+
+{"error_code":13,"error_message":"13:TPETIME (last error 13: ndrx_mq_receive failed: Connection timed out)"}
+
+--------------------------------------------------------------------------------
+
+
+Error handling type: 'text' - Free format text error code and message
+---------------------------------------------------------------------
+This is free format text field provided back by server. The *restoutsv* can parse
+the response and if parse is ok (got 2x arguments) then it is treated as response
+and error code and value is extracted. If error format is not matched, then it
+is assumed that there is no error and data is loaded back into original request
+buffer (either *STRING* or *CARRAY*). The regular expression for parsing the error
+is defined by 'errfmt_text' parameter and default is set to "^([0-9]+):(.\*)$",
+the first group must match the number and second part is the string containing
+the error.
+
+For example if response will be:???
+
+--------------------------------------------------------------------------------
+
+13:??TPETIME (last error 13: ndrx_mq_receive failed: Connection timed out)
+
+--------------------------------------------------------------------------------
+
+Then error code is extracted as 13 and error
+
+
+CONFIGURATION
+-------------
+*port* = 'PORT_NUMBER'::
+Port number to listen on which http server will listen on. Mandatory option.
+
+*ip* = 'IP_ADDRESS'::
+Ip address on which http server is listening for incoming connections. Default
+*0.0.0.0*.
+
+*workers* = 'NUMBER_OF_XATMI_SESSIONS'::
+Number XATMI sessions. These sessions are use for serving the incoming calls - 
+i.e. doing the calls to XATMI sub-system. If the number is less than incoming calls,
+the calls will be suspended while there will be no XATMI session free. Once it is
+made free, then call will be served (i.e. called corresponding XATMI counterpart).
+The default value for parameter is *10*.
+
+*gencore* = 'GENERATE_CORE_FILE'::
+If set to *1*, then in case of segmentation fault, the core dump will be generated
+instead of Golang default signal handler which just prints some info in stderr.
+The default value is *0* which means use default Golang panic handling mechanisms. 
+
+*defaults* = 'SERVICE_CONFIGURATION_JSON*::
+This is JSON string (can be multiline), setting the defaults for the services. It
+is basically a service descriptor which is used as base configuration for services.
+Once the service is being setup, firstly it uses this 'defaults' config block and
+then overrides it by additional flags in service definition block. The details
+within the JSON are described in bellow section *SERVICE CONFIGURATION*.
+
+*service <SERVICE_NAME>* = 'SERVICE_CONFIGURATION_JSON*::
+This is the same configuration as for *default*, but describes the service route.
+The REST-IN process might have as many as needed the service mapping routes.
+
+SERVICE CONFIGURATION
+---------------------
+*svc* = 'MAPPED_XATMI_SERVICE_NAME'::
+This is the name of the target XATMI service which needs to be invoked when POST
+message is received. The invocation might be synchronous, in which case caller will
+wait for service to complete or receive XATMI time-out. If service completes, then
+response is generated back to caller in configured format (conv parameter). If
+service fails or times-out. The error is returned. Depending on error handling
+mode (*errors* parameter), the data buffer can be returned too, including the 
+erroneous buffer data, because XATMI services at application level errors *TPESVCFAIL*
+returns the data buffer from service even the error occurred. The data is returned
+with error in case of following error handling methods: *http*, *json*, *json2ubf*.
+
+*errors* = 'ERROR_HANDLING'::
+The parameter can be set to following values *http*, *json*, *json2ubf* and *text*.
+See the working modes of each of the modes in above text.
+The default value for this parameter is *json*.
+
+*notime* = 'NO_TIMEOUT'::
+Set value to *true* if service call shall be run with out XATMI sub-system tpcall()
+timeout value. Default is *0*, meaning that standard timeout settings applies on
+the destination service call.
+
+*errfmt_text* = 'TEXT_BUFFER_ERROR_FORMAT_STRING'::
+Format string for buffer to return in case if destination service invocation fails.
+Format text will be invoked with "%d" representing the error code and then with
+"%s" representing the error message. This error string is used in case if
+'errors' parameter is set to *text*. The format string will be used only in case
+of tpcall(3) error. If no error occurs, then service answer message is returned.
+If case if asynchronous invocation is done to service ('async' param set to *true*),
+the format string will be used, the status code will be returned, including 0
+if *tpacall(3)* did succeed.
+
+*errfmt_json_msg* = 'JSON_BUFFER_ERROR_FORMAT_STRING_MESSAGE'::
+JSON error message field format string. Normally this would be set to JSON field 'like'
+syntax. This field is used in case if 'errors' parameter is set to *json*.
+The field is always present
+in case of unsuccessful invocation of XATMI service. If service parameter 'errfmt_json_onsucc'
+is set to *true*, then field is present in case of successful XATMI service invocation
+too. The field is present also in case of successful async service invocation
+.e. if 'async' is set to *true*.
+The default value for the field is *"error_message":"%s"*.
+
+*errfmt_json_code* = 'JSON_BUFFER_ERROR_FORMAT_STRING_CODE'::
+JSON message field format for presenting XATMI error code occurred while doing the
+service invocation. This field is together with 'errfmt_json_msg' field. The format
+string for the field is '%d', with meaning of XATMI error code.
+The default value for this parameter is *"error_code":%d*.
+
+*errfmt_json_onsucc* = 'ADD_JSON_ERROR_FIELDS_ON_SUCCEESS'::
+If set to *true*, in case of successful synchronous service invocation, then error
+fields defined in 'errfmt_json_msg' and 'errfmt_json_code' will be added to JSON
+message ending.
+
+*async* = 'DO_ASYNC_SERVICE_INVOCATION*::
+Set to *true* if target service should be invoked asynchronously with *TPNOREPLY*
+flag set, meaning that message is enqueued to service with out waiting for response.
+Regardless of error reporting method set in 'errors' parameter, the status of the
+invocation is provided back to caller, by using the configured method.
+The default value for parameter is *false*.
+
+*asyncecho* = 'ECHO_BACK_BUFFER_DURING_ASYNC_INVOCATION'::
+Set to *true* if on successful invocation, the request buffer shall be echoed back
+to caller. In this case if service invocation was successful, the request buffer
+is sent back to HTTP caller with no error fields set. In case if failure happened,
+then corresponding error is reported back to caller with configured 'errors' mechanism.
+The default value for parameter is *false*.
+
+*conv* = 'BUFFER_CONVERTION_TYPE'::
+Request/response buffer conversion method. Available constants *json2ubf*, *json*,
+*text* and *raw*. Buffer methods are described above in manpage. Shortly: *json2ubf* - 
+converts incoming JSON formatted document (with one level key:value (including arrays))
+to Enduro/X *UBF* buffer format. *json* makes the *JSON XATMI* data buffer, *text* makes
+*STRING XATMI* data buffer. The *raw* method load the data into *CARRAY* XATMI buffer.
+The default value for this parameter is *json2ubf*.
+
+*reqlogsvc* = 'REQUEST_LOGGING_SERVICE'::
+Request logging service. If the service name is set and buffer conversion type is
+set to *json2ubf*, then when request is received and is converted to UBF XATMI
+buffer type, the service is invoked by *tplogsetreqfile(3)* XATMI function. If
+service returns 'EX_NREQLOGFILE' UBF field, then current request logging is switched
+to given request file. When service invocation is completed and data is returned
+back to caller, the *restousv* will close the request logging by invoking 
+*tplogclosereqfile(3)*. This mechanism is useful if per session or some other
+correlator (for example banking card number (PAN) hash is used for separating the logs) 
+based logging is needed. Thus to employ the functionality fully, the target services
+should use the request logging too.
+The default value for this parameter is *empty* - not set.
+
+*errors_fmt_http_map* = 'HTTP_ERROR_CODES_MAPPING'::
+Error mapping between XATMI error code and HTTP. This is optional remap string
+which will override the default mode described above. The parameter is effective
+only in case if 'errors' parameter is set to 'http'. The syntax for the string
+is following:
+
+--------------------------------------------------------------------------------
+
+"errors_fmt_http_map":"<ATMI_ERROR_CODE_1>:<HTTP_STATUS_CODE_1>,...,
+<ATMI_ERROR_CODE_N>:<HTTP_STATUS_CODE_N>,*:<HTTP_STATUS_CODE_FOR_ANY_OTHER>"
+
+--------------------------------------------------------------------------------
+
+for example:
+--------------------------------------------------------------------------------
+"errors_fmt_http_map":"13:404,*:200"
+--------------------------------------------------------------------------------
+
+means that XATMI error code 13 (time-out)
+will be mapped to HTTP status code 404. In case of any other XATMI error (\*), 
+the HTTP status code will be set to 200.
+The default value is as described *above*.
+
+*noreqfilersp* = 'DO_NOT_SEND_REQUEST_FILENAME_BACK_TO_CALLER'::
+If set to *true*, that will indicate the request logging file name shall not be
+provided back in buffer to caller in response.
+Default value for field is *false*, meaning that if conversion type is set to
+*json2ubf* and request logging is used, then field 'EX_NREQLOGFILE' will be provided
+back in response to caller.
+
+*echo* = 'ECHO_MODE'::
+In echo mode the incoming request buffer is directly sent back to caller in response
+message. This is useful for making link testing routines.
+The default value for parameter is *false*.
+
+
+EXIT STATUS
+-----------
+*0*::
+Success
+
+*1*::
+Failure
+
+EXAMPLE
+
+To see the usage different usage settings, see *tests/01_restin/runtime/conf/restin.ini'*.
+
+BUGS
+----
+Report bugs to madars.vitolins@gmail.com
+
+SEE ALSO
+--------
+*restincl(8)* *tcpgatesv(8)*.
+
+AUTHOR
+------
+Enduro/X is created by Madars Vitolins.
+
+
+COPYING
+-------
+(C) Mavimax SIA
+

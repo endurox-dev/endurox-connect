@@ -60,6 +60,10 @@ parameter (default 5). When all workers are busy the main thread will wait for f
 worker. During this time if any other *restoustsv* is started, it they can handle
 the traffic.
 
+The *restoustsv* does not keep the http connections open between multiple requests,
+this is linked with fact that with go version 1.7, the open connections was leaking
+thus this functionality is disabled.
+
 The error handling supports for following error types:
 
 - Service error
@@ -161,32 +165,26 @@ is defined by 'errfmt_text' parameter and default is set to "^([0-9]+):(.\*)$",
 the first group must match the number and second part is the string containing
 the error.
 
-For example if response will be:???
+For example if response will be:
 
 --------------------------------------------------------------------------------
 
-13:??TPETIME (last error 13: ndrx_mq_receive failed: Connection timed out)
+13:TPETIME (last error 13: ndrx_mq_receive failed: Connection timed out)
 
 --------------------------------------------------------------------------------
 
 Then error code is extracted as 13 and error
 
-
 CONFIGURATION
 -------------
-*port* = 'PORT_NUMBER'::
-Port number to listen on which http server will listen on. Mandatory option.
-
-*ip* = 'IP_ADDRESS'::
-Ip address on which http server is listening for incoming connections. Default
-*0.0.0.0*.
-
 *workers* = 'NUMBER_OF_XATMI_SESSIONS'::
-Number XATMI sessions. These sessions are use for serving the incoming calls - 
-i.e. doing the calls to XATMI sub-system. If the number is less than incoming calls,
-the calls will be suspended while there will be no XATMI session free. Once it is
-made free, then call will be served (i.e. called corresponding XATMI counterpart).
-The default value for parameter is *10*.
+Number XATMI sessions. These sessions are use for serving the outgoing calls - 
+i.e. doing the calls to HTTP server and responding back to XATMI caller. 
+If the number is less than outgoing calls, the calls will be suspended while 
+there will be no XATMI session free. Once it is XATMI session is found free, 
+then call will be served (i.e. called HTTP counterpart). So meanwhile this parameter
+means max number of concurrent outgoing HTTP calls.
+The default value for parameter is *5*.
 
 *gencore* = 'GENERATE_CORE_FILE'::
 If set to *1*, then in case of segmentation fault, the core dump will be generated
@@ -194,69 +192,63 @@ instead of Golang default signal handler which just prints some info in stderr.
 The default value is *0* which means use default Golang panic handling mechanisms. 
 
 *defaults* = 'SERVICE_CONFIGURATION_JSON*::
-This is JSON string (can be multiline), setting the defaults for the services. It
+This is JSON string (can be multi-line) with defaults setting for the services. It
 is basically a service descriptor which is used as base configuration for services.
 Once the service is being setup, firstly it uses this 'defaults' config block and
 then overrides it by additional flags in service definition block. The details
 within the JSON are described in bellow section *SERVICE CONFIGURATION*.
 
 *service <SERVICE_NAME>* = 'SERVICE_CONFIGURATION_JSON*::
-This is the same configuration as for *default*, but describes the service route.
-The REST-IN process might have as many as needed the service mapping routes.
+This is the same configuration as for *default*, but describes the service routes.
+The REST-OUT process can have as many as needed the service mapping routes. Then
+<SERVICE_NAME>is XATMI service name to be advertised as outgoing for given 
+configuration.
 
 SERVICE CONFIGURATION
 ---------------------
-*svc* = 'MAPPED_XATMI_SERVICE_NAME'::
-This is the name of the target XATMI service which needs to be invoked when POST
-message is received. The invocation might be synchronous, in which case caller will
-wait for service to complete or receive XATMI time-out. If service completes, then
-response is generated back to caller in configured format (conv parameter). If
-service fails or times-out. The error is returned. Depending on error handling
-mode (*errors* parameter), the data buffer can be returned too, including the 
-erroneous buffer data, because XATMI services at application level errors *TPESVCFAIL*
-returns the data buffer from service even the error occurred. The data is returned
-with error in case of following error handling methods: *http*, *json*, *json2ubf*.
+*urlbase* = 'URL_BASE'::
+This is first part of the URL to be used when compiling the final url to make
+requests to. 'urlbase' is used in case if 'url' parameter starts with leading slash
+symbol ('/'), then 'urlbase' is contacted with 'url' to get the final destination.
+If 'url' starts with any other symbol (like "http..."), then it is assumed
+that  URL is full and not partial. Schemes supported are: HTTP and HTTPS.
+
+*url* = 'URL'::
+Full or partial HTTP/HTTPS url to do the postings to. If the parameter starts with
+leading '/' symbol, then *urlbase* from given definition or from defaults are used
+as the start of the request address.
+
+*sslinsecure* = 'SSL_INSECURE'::
+If set to *true* the work with self-signed certificates on HTTPS server side are
+accepted. The default is *false*, meaning that requests to self signed hosts will
+be rejected with error.
+
+*timeout* = 'REQUEST_TIMEOUT_SECONDS'::
+Number of seconds in which HTTP/HTTPS server must respond. If the request goes out
+of the scope of the given seconds, then time-out error TPETIME is returned to caller
+process.
 
 *errors* = 'ERROR_HANDLING'::
 The parameter can be set to following values *http*, *json*, *json2ubf* and *text*.
 See the working modes of each of the modes in above text.
-The default value for this parameter is *json*.
+The default value for this parameter is *json2ubf*.
 
-*notime* = 'NO_TIMEOUT'::
-Set value to *true* if service call shall be run with out XATMI sub-system tpcall()
-timeout value. Default is *0*, meaning that standard timeout settings applies on
-the destination service call.
+*errfmt_json_code* = 'JSON_ERRORS_CODE'::
+In case if errors handling mechanism is set *json*, then this field indicates
+the top level JSON field which is expected in response. The codes used here are
+XATMI error codes.
+The default value is *error_code*.
 
-*errfmt_text* = 'TEXT_BUFFER_ERROR_FORMAT_STRING'::
-Format string for buffer to return in case if destination service invocation fails.
-Format text will be invoked with "%d" representing the error code and then with
-"%s" representing the error message. This error string is used in case if
-'errors' parameter is set to *text*. The format string will be used only in case
-of tpcall(3) error. If no error occurs, then service answer message is returned.
-If case if asynchronous invocation is done to service ('async' param set to *true*),
-the format string will be used, the status code will be returned, including 0
-if *tpacall(3)* did succeed.
+*errfmt_json_msg* = 'JSON_ERRORS_MESSAGE'::
+In case if error handling mechanism is selected in parameter 'errors' to *json*,
+then this field is used to indicate top level JSON field to store the response
+message.
+The default value is *errfmt_json_msg*.
 
-*errfmt_json_msg* = 'JSON_BUFFER_ERROR_FORMAT_STRING_MESSAGE'::
-JSON error message field format string. Normally this would be set to JSON field 'like'
-syntax. This field is used in case if 'errors' parameter is set to *json*.
-The field is always present
-in case of unsuccessful invocation of XATMI service. If service parameter 'errfmt_json_onsucc'
-is set to *true*, then field is present in case of successful XATMI service invocation
-too. The field is present also in case of successful async service invocation
-.e. if 'async' is set to *true*.
-The default value for the field is *"error_message":"%s"*.
-
-*errfmt_json_code* = 'JSON_BUFFER_ERROR_FORMAT_STRING_CODE'::
-JSON message field format for presenting XATMI error code occurred while doing the
-service invocation. This field is together with 'errfmt_json_msg' field. The format
-string for the field is '%d', with meaning of XATMI error code.
-The default value for this parameter is *"error_code":%d*.
-
-*errfmt_json_onsucc* = 'ADD_JSON_ERROR_FIELDS_ON_SUCCEESS'::
-If set to *true*, in case of successful synchronous service invocation, then error
-fields defined in 'errfmt_json_msg' and 'errfmt_json_code' will be added to JSON
-message ending.
+*errfmt_json_onsucc* = 'EXPECT_JSON_ERROR_FIELDS_ON_SUCCEESS'::
+If set to *true* in case of 'errors' driving by *json* errors, then system will
+expect to have the 'errfmt_json_code' and 'errfmt_json_msg' fields to be present
+in response even the service invocation did succeed.
 
 *async* = 'DO_ASYNC_SERVICE_INVOCATION*::
 Set to *true* if target service should be invoked asynchronously with *TPNOREPLY*

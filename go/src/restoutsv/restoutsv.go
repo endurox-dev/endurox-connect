@@ -135,9 +135,6 @@ type ServiceMap struct {
 	//in case if we got the error
 	ParseOnError bool `json:"parseonerror"`
 
-	//Do not sent request file request messages (for UBF2JSON)
-	Noreqfilereq bool `json:"noreqfilereq"`
-
 	//This is echo tester service
 	Echo        bool   `json:"echo"`
 	EchoTime    int    `json:"echo_time"`
@@ -307,7 +304,6 @@ func appinit(ctx *atmi.ATMICtx) int {
 	Mdefaults.Errfmt_json_code = ERRFMT_JSON_CODE_DEFAULT
 	Mdefaults.Errfmt_json_onsucc = ERRFMT_JSON_ONSUCC_DEFAULT
 	Mdefaults.Errfmt_text = ERRFMT_TEXT_DEFAULT
-	Mdefaults.Noreqfilereq = NOREQFILE_DEFAULT
 
 	Mworkers = WORKERS_DEFAULT
 

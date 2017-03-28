@@ -108,6 +108,59 @@ service XATMISERVICE2={
 --------------------------------------------------------------------------------
 
 
+Services with dependency on echo example
+----------------------------------------
+
+This section list the example where JSON echo service is defined and once there
+is enough succeed messages, the dependent services are advertised to service board.
+
+--------------------------------------------------------------------------------
+
+[@restout]
+# Enduro/X debug string
+debug = tp=5 ndrx=5 iflags=detailed file=
+gencore=0
+workers=5
+scan_time=7
+defaults={"urlbase":"https://example.com"
+           ,"errors":"http"
+           ,"noreqfilersp": true
+           ,"sslinsecure": true
+        }
+        
+# This echo host
+service ECHO_JSON={
+        "url":"/echo_json"
+        ,"errors":"json"
+        ,"echo":true
+        ,"echo_time":1
+        ,"echo_max_fail":2
+        ,"echo_min_ok":3
+        ,"echo_conv":"json"
+        ,"echo_data":"{\"StringField\":\"Hello Echo\"}"
+        }
+
+service DEP_JSON={
+        "url":"/dep_jsonhte"
+        ,"errors":"http"
+        ,"timeout":5
+        ,"depends_on":"ECHO_JSON"
+        }
+        
+--------------------------------------------------------------------------------
+
+From above example it could be seen that, the https://example.com/echo_json will
+be requested every 1 second ('echo_time') and if the succeed count is 3 ('echo_min_ok')
+the service will advertise any dependent services, in this case *DEP_JSON*. In 
+case if the service fails 2x times ('echo_max_fail'), the *DEP_JSON* is unadvertised.
+
+The data which is send to service are *{"StringField":"Hello Echo"}* ('echo_data'),
+the buffer type is *json*.
+
+The advertise and unadvertised operations by echo threads are actually scheduled
+for XATMI servers main thread and executed with interval of the 7 seconds ('scan_time').
+
+
 Error handling type: 'http' - return error codes in HTTP protocol
 -----------------------------------------------------------------
 With this error handling method, the error codes are directly used from HTTP protocol.
@@ -191,6 +244,14 @@ If set to *1*, then in case of segmentation fault, the core dump will be generat
 instead of Golang default signal handler which just prints some info in stderr.
 The default value is *0* which means use default Golang panic handling mechanisms. 
 
+*scan_time* = 'SCAN_TIME_SECONDS'::
+This is *restoutsv* wide configuration parameter which is used in case if any
+echo services are define. This is time when main service thread is interrupted
+for doing any advertise or un-advertise as a result of echo threads have scheduled
+the changes in service board.
+
+The default is *1* (second) and used only if there is at-least one echo service.
+
 *defaults* = 'SERVICE_CONFIGURATION_JSON*::
 This is JSON string (can be multi-line) with defaults setting for the services. It
 is basically a service descriptor which is used as base configuration for services.
@@ -250,75 +311,53 @@ If set to *true* in case of 'errors' driving by *json* errors, then system will
 expect to have the 'errfmt_json_code' and 'errfmt_json_msg' fields to be present
 in response even the service invocation did succeed.
 
-*async* = 'DO_ASYNC_SERVICE_INVOCATION*::
-Set to *true* if target service should be invoked asynchronously with *TPNOREPLY*
-flag set, meaning that message is enqueued to service with out waiting for response.
-Regardless of error reporting method set in 'errors' parameter, the status of the
-invocation is provided back to caller, by using the configured method.
-The default value for parameter is *false*.
-
-*asyncecho* = 'ECHO_BACK_BUFFER_DURING_ASYNC_INVOCATION'::
-Set to *true* if on successful invocation, the request buffer shall be echoed back
-to caller. In this case if service invocation was successful, the request buffer
-is sent back to HTTP caller with no error fields set. In case if failure happened,
-then corresponding error is reported back to caller with configured 'errors' mechanism.
-The default value for parameter is *false*.
-
-*conv* = 'BUFFER_CONVERTION_TYPE'::
-Request/response buffer conversion method. Available constants *json2ubf*, *json*,
-*text* and *raw*. Buffer methods are described above in manpage. Shortly: *json2ubf* - 
-converts incoming JSON formatted document (with one level key:value (including arrays))
-to Enduro/X *UBF* buffer format. *json* makes the *JSON XATMI* data buffer, *text* makes
-*STRING XATMI* data buffer. The *raw* method load the data into *CARRAY* XATMI buffer.
-The default value for this parameter is *json2ubf*.
-
-*reqlogsvc* = 'REQUEST_LOGGING_SERVICE'::
-Request logging service. If the service name is set and buffer conversion type is
-set to *json2ubf*, then when request is received and is converted to UBF XATMI
-buffer type, the service is invoked by *tplogsetreqfile(3)* XATMI function. If
-service returns 'EX_NREQLOGFILE' UBF field, then current request logging is switched
-to given request file. When service invocation is completed and data is returned
-back to caller, the *restousv* will close the request logging by invoking 
-*tplogclosereqfile(3)*. This mechanism is useful if per session or some other
-correlator (for example banking card number (PAN) hash is used for separating the logs) 
-based logging is needed. Thus to employ the functionality fully, the target services
-should use the request logging too.
-The default value for this parameter is *empty* - not set.
 
 *errors_fmt_http_map* = 'HTTP_ERROR_CODES_MAPPING'::
-Error mapping between XATMI error code and HTTP. This is optional remap string
-which will override the default mode described above. The parameter is effective
-only in case if 'errors' parameter is set to 'http'. The syntax for the string
-is following:
+Error mapping between HTTP return codes and XATMI error codes used for returning
+the value to XATMI service client.
+
+The syntax for the string is following:
 
 --------------------------------------------------------------------------------
 
-"errors_fmt_http_map":"<ATMI_ERROR_CODE_1>:<HTTP_STATUS_CODE_1>,...,
-<ATMI_ERROR_CODE_N>:<HTTP_STATUS_CODE_N>,*:<HTTP_STATUS_CODE_FOR_ANY_OTHER>"
+"errors_fmt_http_map":"<HTTP_STATUS_CODE_1>:<ATMI_ERROR_CODE_1>,...,
+<HTTP_STATUS_CODE_N>:<ATMI_ERROR_CODE_N>,*:<ATMI_ERROR_CODE_FOR_ANY>"
 
 --------------------------------------------------------------------------------
 
-for example:
+for example (actually a *default* setting of the parameter):
 --------------------------------------------------------------------------------
-"errors_fmt_http_map":"13:404,*:200"
+"errors_fmt_http_map":"200:0,504:13,404:6,*:11"
 --------------------------------------------------------------------------------
 
-means that XATMI error code 13 (time-out)
-will be mapped to HTTP status code 404. In case of any other XATMI error (\*), 
-the HTTP status code will be set to 200.
-The default value is as described *above*.
+Means that HTTP return code 200 is translated to Succeed, error code 504 is
+translated to TPETIME (timeout) and 404 is translated on TPENOENT (no service)
+and any other error (\*) is translated to 11 which is service failure.
 
-*noreqfilersp* = 'DO_NOT_SEND_REQUEST_FILENAME_BACK_TO_CALLER'::
-If set to *true*, that will indicate the request logging file name shall not be
-provided back in buffer to caller in response.
-Default value for field is *false*, meaning that if conversion type is set to
-*json2ubf* and request logging is used, then field 'EX_NREQLOGFILE' will be provided
-back in response to caller.
 
-*echo* = 'ECHO_MODE'::
-In echo mode the incoming request buffer is directly sent back to caller in response
-message. This is useful for making link testing routines.
-The default value for parameter is *false*.
+*parseonerror* = 'PARSE_ON_ERROR*::
+...
+
+*echo* = 'ENABLE_ECHO*::
+...
+
+*echo_time* = 'ECHO_INTERVAL_TIME*::
+...
+
+*echo_max_fail* = 'ECHO_INTERVAL_TIME*::
+...
+
+*echo_min_ok* = 'ECHO_INTERVAL_TIME*::
+...
+
+*echo_conv* = 'ECHO_INTERVAL_TIME*::
+...
+
+*echo_data* = 'ECHO_INTERVAL_TIME*::
+...
+
+*depends_on* = 'ECHO_INTERVAL_TIME*::
+...
 
 
 EXIT STATUS
@@ -331,7 +370,8 @@ Failure
 
 EXAMPLE
 
-To see the usage different usage settings, see *tests/01_restin/runtime/conf/restin.ini'*.
+To see the usage different usage settings, see *tests/03_restout/runtime/conf/restout.ini'* and
+the corresponding rest-in services are defined in *tests/03_restout/runtime/conf/restin.ini'*.
 
 BUGS
 ----

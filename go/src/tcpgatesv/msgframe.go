@@ -247,7 +247,7 @@ func GetMessage(ac *atmi.ATMICtx, con *ExCon) ([]byte, error) {
 		ac.TpLogInfo("About to read message until delimiter 0x%x", MDelimStop)
 
 		//If we use delimiter, then read pu till that
-		data, err := con.reader.ReadSlice(MDelimStop)
+		idata, err := con.reader.ReadSlice(MDelimStop)
 
 		if err != nil {
 
@@ -255,7 +255,12 @@ func GetMessage(ac *atmi.ATMICtx, con *ExCon) ([]byte, error) {
 				MDelimStop, err.Error())
 			return nil, err
 		}
-
+		
+		// Bug #103, seems like the data returned by ReadSlice is somehow shared
+		// and not reallocated... Thus make a new buffer 
+		data :=make([]byte, len(idata))
+		copy(data, idata)
+		
 		ac.TpLogDump(atmi.LOG_DEBUG, "Got the message with end seperator",
 			data, len(data))
 

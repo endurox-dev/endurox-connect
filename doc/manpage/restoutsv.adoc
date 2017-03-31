@@ -336,7 +336,18 @@ and any other error (\*) is translated to 11 which is service failure.
 
 
 *parseonerror* = 'PARSE_ON_ERROR*::
-...
+If set to *true* and the error response is received from target service, then
+then service response buffer is populated with corresponding data received. Thus
+the XATMI service will return the error and the return buffer will be changed too.
+If set to *false* in case of error, from XATMI service only error will be returned
+and service request buffer is not changed.
+
+If error handling is different than 'http' for given rest service, but http error
+is received, then regardless of this parameter, the XATMI service call buffer is
+not changed.
+
+The default value for this parameter is *false*.
+
 
 *echo* = 'ENABLE_ECHO*::
 ...

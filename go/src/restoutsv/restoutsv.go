@@ -89,6 +89,7 @@ const (
 	ECHO_DEFAULT               = false
 	ECHO_CONV_DEFAULT          = "json2ubf"
 	ECHO_DATA_DEFAULT          = "{\"EX_DATA_STR\":\"Echo test\"}"
+	ECHO_TIME_DEFAULT          = 5
 	ERRORS_DEFAULT             = ERRORS_JSON2UBF
 	TIMEOUT_DEFAULT            = 60
 	ERRFMT_JSON_MSG_DEFAULT    = "error_message"
@@ -300,6 +301,7 @@ func appinit(ctx *atmi.ATMICtx) int {
 	Mdefaults.Echo = ECHO_DEFAULT
 	Mdefaults.EchoConv = ECHO_CONV_DEFAULT
 	Mdefaults.EchoData = ECHO_DATA_DEFAULT
+	Mdefaults.EchoTime = ECHO_TIME_DEFAULT
 	Mdefaults.Errfmt_json_msg = ERRFMT_JSON_MSG_DEFAULT
 	Mdefaults.Errfmt_json_code = ERRFMT_JSON_CODE_DEFAULT
 	Mdefaults.Errfmt_json_onsucc = ERRFMT_JSON_ONSUCC_DEFAULT

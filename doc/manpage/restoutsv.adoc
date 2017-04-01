@@ -252,14 +252,14 @@ the changes in service board.
 
 The default is *1* (second) and used only if there is at-least one echo service.
 
-*defaults* = 'SERVICE_CONFIGURATION_JSON*::
+*defaults* = 'SERVICE_CONFIGURATION_JSON'::
 This is JSON string (can be multi-line) with defaults setting for the services. It
 is basically a service descriptor which is used as base configuration for services.
 Once the service is being setup, firstly it uses this 'defaults' config block and
 then overrides it by additional flags in service definition block. The details
 within the JSON are described in bellow section *SERVICE CONFIGURATION*.
 
-*service <SERVICE_NAME>* = 'SERVICE_CONFIGURATION_JSON*::
+*service <SERVICE_NAME>* = 'SERVICE_CONFIGURATION_JSON'::
 This is the same configuration as for *default*, but describes the service routes.
 The REST-OUT process can have as many as needed the service mapping routes. Then
 <SERVICE_NAME>is XATMI service name to be advertised as outgoing for given 
@@ -335,7 +335,7 @@ translated to TPETIME (timeout) and 404 is translated on TPENOENT (no service)
 and any other error (\*) is translated to 11 which is service failure.
 
 
-*parseonerror* = 'PARSE_ON_ERROR*::
+*parseonerror* = 'PARSE_ON_ERROR'::
 If set to *true* and the error response is received from target service, then
 then service response buffer is populated with corresponding data received. Thus
 the XATMI service will return the error and the return buffer will be changed too.
@@ -349,25 +349,34 @@ not changed.
 The default value for this parameter is *false*.
 
 
-*echo* = 'ENABLE_ECHO*::
+*echo* = 'ENABLE_ECHO'::
+Make particular service a background echo daemon. This means that given service
+definition will make periodical remote HTTP/HTTPS REST service invocations. The
+service will count the succeeds or fails, and will schecdule advertise or unadvertise
+any services from service board, for which 'depends_on' is set to given echo
+service name.
+
+The default is *false*.
+
+*echo_time* = 'ECHO_INTERVAL_TIME'::
+Echo interval time. This is the time interval which is used for sending out
+echo messages. Paramter is used only when 'echo' is set to *true*.
+
+The default is *5* (seconds).
+
+*echo_max_fail* = 'ECHO_INTERVAL_TIME'::
 ...
 
-*echo_time* = 'ECHO_INTERVAL_TIME*::
+*echo_min_ok* = 'ECHO_INTERVAL_TIME'::
 ...
 
-*echo_max_fail* = 'ECHO_INTERVAL_TIME*::
+*echo_conv* = 'ECHO_INTERVAL_TIME'::
 ...
 
-*echo_min_ok* = 'ECHO_INTERVAL_TIME*::
+*echo_data* = 'ECHO_INTERVAL_TIME'::
 ...
 
-*echo_conv* = 'ECHO_INTERVAL_TIME*::
-...
-
-*echo_data* = 'ECHO_INTERVAL_TIME*::
-...
-
-*depends_on* = 'ECHO_INTERVAL_TIME*::
+*depends_on* = 'ECHO_INTERVAL_TIME'::
 ...
 
 

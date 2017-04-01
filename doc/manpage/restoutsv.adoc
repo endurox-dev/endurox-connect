@@ -364,21 +364,122 @@ echo messages. Paramter is used only when 'echo' is set to *true*.
 
 The default is *5* (seconds).
 
-*echo_max_fail* = 'ECHO_INTERVAL_TIME'::
-...
+*echo_max_fail* = 'ECHO_MAX_FAIL'::
+Max number of failure transmissions to echo URL. After the 'ECHO_MAX_FAIL' is
+reached, all services which are depending on this echo server will mark for 
+unadvertise. The unadvertise will happen at period of the 'scan_time'.
 
-*echo_min_ok* = 'ECHO_INTERVAL_TIME'::
-...
+The default value is *2*.
 
-*echo_conv* = 'ECHO_INTERVAL_TIME'::
-...
+*echo_min_ok* = 'ECHO_MIN_OK'::
+Minimum number of succeed echo messages after which dependent services will be
+scheduled for advertise by main thread. Main thread is executed at interval
+'scan_time'. Note that if service is marked 
 
-*echo_data* = 'ECHO_INTERVAL_TIME'::
-...
+The default is *3*.
 
-*depends_on* = 'ECHO_INTERVAL_TIME'::
-...
+*echo_conv* = 'ECHO_DATA_FORMAT'::
+Data buffer format which is used for sending the data to remote HTTP service.
+Possible values are *json2ubf*, *json*, *text* and *raw*. This parameter sets
+how 'echo_data' parameter is parsed to prepare the outgoing XATMI buffer that
+is converted to target HTTP service data format.
 
+The default is *json2ubf*.
+
+*echo_data* = 'ECHO_DATA'::
+Echo data is used for data preparation for sending to target service for doing
+diagnostics of the HTTP service availability. The value of this JSON configuration 
+parameter depends on value configured 'echo_conv' value.
+
+Formats of data are following according to 'echo_conv':
+
+*json2ubf*: The format is according to *tpjsontoubf(3)* function. One level json
+with UBF fields inside. Arrays are supported, which are loaded into UBF buffer
+occurrences. For example:
+
+--------------------------------------------------------------------------------
+
+# This echo host
+service ECHO_JSON2UBF={
+        "url":"/echo_json2ubf"
+        ,"errors":"json2ubf"
+        ,"echo":true
+        ,"echo_time":1
+        ,"echo_max_fail":2
+        ,"echo_min_ok":3
+        ,"echo_conv":"json2ubf"
+        ,"echo_data":"{\"T_STRING_FLD\":\"Some echo data...\"}"
+        }
+
+--------------------------------------------------------------------------------
+
+
+*json*: This is arbitrary JSON string. The double quotes shall be prefixed with
+back slash symbol (\). For example:
+
+--------------------------------------------------------------------------------
+
+service ECHO_JSON={
+        "url":"/echo_json"
+        ,"errors":"json"
+        ,"echo":true
+        ,"echo_time":1
+        ,"echo_max_fail":2
+        ,"echo_min_ok":3
+        ,"echo_conv":"json"
+        ,"echo_data":"{\"StringField\":\"Hello Echo\"}"
+        }
+
+
+--------------------------------------------------------------------------------
+
+*text*: This is arbitrary text buffer. Any double quotes shall be prefixed with
+back slash symbol (\). Example:
+
+--------------------------------------------------------------------------------
+
+# This echo host
+service ECHO_STRING={
+        "url":"/echo_string"
+        ,"errors":"text"
+        ,"echo":true
+        ,"echo_time":1
+        ,"echo_max_fail":2
+        ,"echo_min_ok":3
+        ,"echo_conv":"text"
+        ,"echo_data":"This is echo string!"
+        }
+
+--------------------------------------------------------------------------------
+
+
+*raw*: This is raw data encoded in base64. For example:
+
+--------------------------------------------------------------------------------
+
+service ECHO_RAW={
+        "url":"/echo_raw"
+        ,"errors":"text"
+        ,"echo":true
+        ,"echo_time":1
+        ,"echo_max_fail":2
+        ,"echo_min_ok":3
+        ,"echo_conv":"raw"
+        ,"echo_data":"AQIDBAUGBwgJEBESExQV"
+        }
+        
+--------------------------------------------------------------------------------
+
+*depends_on* = 'DEPENDS_ON'::
+This parameter is used by normal services (non echo), to mark that the defined 
+service is depending on echo service. Thus if echo service name is specified 
+in this parameter, then given service will be advertised if 'echo_min_ok' is
+reached by echo. And unadvertised when 'echo_max_fail' is reached. When *restoutsv*
+is booting, any services which depends on echo are not automatically advertised,
+instead they wait for echo service schedule.
+
+The default value is *empty*, thus service is advertised automatically and does
+not depend on echo service.
 
 EXIT STATUS
 -----------
@@ -399,7 +500,7 @@ Report bugs to madars.vitolins@gmail.com
 
 SEE ALSO
 --------
-*restincl(8)* *tcpgatesv(8)*.
+*restincl(8)* *tcpgatesv(8)*
 
 AUTHOR
 ------

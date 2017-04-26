@@ -37,8 +37,10 @@ set(PROJ_NAME "Enduro/X Connectivity Module")
 set(RELEASE "1")
 
 ################################################################################
-# OS Confiugration
+# OS Configuration
 ################################################################################
+
+find_program(A2X_EXECUTABLE NAMES a2x)
 
 
 EXEC_PROGRAM(uname ARGS -a OUTPUT_VARIABLE _TMP_CMAKE_OS_NAME)
@@ -91,11 +93,13 @@ install (FILES
     PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_EXECUTE GROUP_READ WORLD_EXECUTE WORLD_READ
     DESTINATION bin)
     
-# Install manpages (if any
-install (FILES
-	../doc/manpage/restincl.8
-	../doc/manpage/tcpgatesv.8
-	DESTINATION share/man/man8)
+if(A2X_EXECUTABLE)
+	# Install manpages (if any
+	install (FILES
+		../doc/manpage/restincl.8
+		../doc/manpage/tcpgatesv.8
+		DESTINATION share/man/man8)
+endif()
 	
 ################################################################################
 # Packages
@@ -119,8 +123,11 @@ if(LSB_RELEASE_EXECUTABLE)
                 OUTPUT_STRIP_TRAILING_WHITESPACE)
         string(REPLACE "." "_" LSB_RELEASE_OUTPUT_VER ${_TMP_LSB_RELEASE_OUTPUT_VER})
 else ()
-        set(LSB_RELEASE_OUTPUT_OS "unknown")
-        set(LSB_RELEASE_OUTPUT_VER "0")
+        #set(LSB_RELEASE_OUTPUT_OS "unknown")
+        #set(LSB_RELEASE_OUTPUT_VER "0")
+	set(LSB_RELEASE_OUTPUT_OS ${CMAKE_OS_NAME})
+	string(REPLACE "." "_" _TMP_LSB_RELEASE_OUTPUT_VER ${CMAKE_SYSTEM_VERSION})
+	string(REPLACE "-" "_" LSB_RELEASE_OUTPUT_VER ${_TMP_LSB_RELEASE_OUTPUT_VER})
 endif()
 
 message("CPack:Debug: LSB_RELEASE OS  = ${LSB_RELEASE_OUTPUT_OS}")
@@ -131,6 +138,21 @@ message("CPack:Debug: LSB_RELEASE VER = ${LSB_RELEASE_OUTPUT_VER}")
 MESSAGE( "CPack:Debug: CMAKE_SYSTEM_NAME: " ${CMAKE_SYSTEM_NAME} )
 MESSAGE( "CPack:Debug: CMAKE_SYSTEM_PROCESSOR: " ${CMAKE_SYSTEM_PROCESSOR} )
 
+find_program(RPMPROG "rpmbuild")
+find_program(APTPROG "apt")
+
+set(CPACK_GENERATOR "TGZ")
+if(RPMPROG)
+        message("Outputting RPM")
+        set(CPACK_GENERATOR "${CPACK_GENERATOR};RPM")
+endif()
+
+if(APTPROG)
+        message("Outputting DEB")
+        set(CPACK_GENERATOR "${CPACK_GENERATOR};DEB")
+endif()
+
+
 # have some issues with folders
 set(CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION /usr/share/man
 		/usr/share/man/man3
@@ -140,7 +162,6 @@ set(CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION /usr/share/man
 		/usr/lib/pkgconfig)
 
 set(CPACK_MONOLITHIC_INSTALL 1)
-set(CPACK_GENERATOR "DEB;RPM;TGZ")
 set(CPACK_PACKAGE_CONTACT "madars.vitolins@gmail.com")
 set(CPACK_PACKAGE_VERSION ${VERSION})
 #set(CPACK_DEBIAN_PACKAGE_DEPENDS "endurox")

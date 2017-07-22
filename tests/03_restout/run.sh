@@ -43,6 +43,10 @@ xadmin start -y
 # Let restout to start
 sleep 2
 
+xadmin psc
+xadmin psvc
+xadmin pqa
+
 #
 # Generic exit function
 #

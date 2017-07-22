@@ -4,6 +4,10 @@
 # @(#) Integration tests
 #
 
+> ./test.out
+# Have some terminal output...
+tail -f test.out &
+
 (
 M_tests=0
 M_ok=0
@@ -39,3 +43,8 @@ echo "*** SUMMARY $M_tests tests executed. $M_ok passes, $M_fail failures"
 exit $M_fail
 
 ) > test.out 2>&1
+
+# some cleanup...
+sleep 2
+killall -9 tail
+

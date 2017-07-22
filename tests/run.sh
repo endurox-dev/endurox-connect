@@ -4,6 +4,7 @@
 # @(#) Integration tests
 #
 
+(
 M_tests=0
 M_ok=0
 M_fail=0
@@ -36,3 +37,5 @@ run_test "03_restout"
 echo "*** SUMMARY $M_tests tests executed. $M_ok passes, $M_fail failures"
 
 exit $M_fail
+
+) > test.out 2>&1

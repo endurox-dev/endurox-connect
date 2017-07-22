@@ -40,11 +40,9 @@ run_test "03_restout"
 
 echo "*** SUMMARY $M_tests tests executed. $M_ok passes, $M_fail failures"
 
+xadmin killall tail
+
 exit $M_fail
 
 ) > test.out 2>&1
-
-# some cleanup...
-sleep 2
-killall -9 tail
 

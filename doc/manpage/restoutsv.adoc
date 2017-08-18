@@ -1,5 +1,5 @@
-RESTINCL(8)
-===========
+RESTOUTSV(8)
+============
 :doctype: manpage
 
 

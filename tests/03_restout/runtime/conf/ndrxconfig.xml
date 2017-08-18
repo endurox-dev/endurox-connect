@@ -76,7 +76,7 @@
 			The granularity is sanity time.
 			X <= 0 = disabled 
 		-->
-		<ping_max>5</ping_max>
+		<ping_max>10</ping_max>
 		
 		<!--
 			Max time to wait until process should exit on shutdown

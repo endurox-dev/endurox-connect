@@ -8,7 +8,8 @@ TIMES=200
 
 pushd .
 
-rm runtime/log/* 2>/dev/null
+rm -rf runtime/log
+mkdir runtime/log
 
 cd runtime
 
@@ -22,7 +23,7 @@ cd runtime
 #
 xadmin provision -d \
         -vaddubf=test.fd \
-        -vtimeout=2
+        -vtimeout=15
 
 cd conf
 
@@ -42,6 +43,10 @@ xadmin start -y
 
 # Let restout to start
 sleep 2
+
+xadmin psc
+xadmin psvc
+xadmin pqa
 
 #
 # Generic exit function

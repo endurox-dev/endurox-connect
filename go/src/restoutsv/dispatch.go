@@ -4,7 +4,7 @@
 ** @file service.go
 ** -----------------------------------------------------------------------------
 ** Enduro/X Middleware Platform for Distributed Transaction Processing
-** Copyright (C) 2015, ATR Baltic, SIA. All Rights Reserved.
+** Copyright (C) 2015, ATR Baltic, Ltd. All Rights Reserved.
 ** This software is released under one of the following licenses:
 ** GPL or ATR Baltic's license for commercial use.
 ** -----------------------------------------------------------------------------
@@ -24,7 +24,7 @@
 ** Place, Suite 330, Boston, MA 02111-1307 USA
 **
 ** -----------------------------------------------------------------------------
-** A commercial use license is available from ATR Baltic, SIA
+** A commercial use license is available from ATR Baltic, Ltd
 ** contact@atrbaltic.com
 ** -----------------------------------------------------------------------------
  */

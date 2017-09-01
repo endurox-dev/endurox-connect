@@ -86,7 +86,7 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 	} else {
 		err = atmiErr
 	}
-	
+
 	//Generate response accordingly...
 	ac.TpLogDebug("Conv %d errors %d", svc.Conv_int, svc.Errors_int)
 
@@ -338,8 +338,8 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter, req
 		switch svc.Conv_int {
 		case CONV_JSON2UBF:
 			//Convert JSON 2 UBF...
-
-			bufu, err1 := ac.NewUBF(1024)
+			//Bug #200, use max buffer size
+			bufu, err1 := ac.NewUBF(atmi.ATMI_MSG_MAX_SIZE)
 
 			if nil != err1 {
 				ac.TpLogError("failed to alloca ubf buffer %d:[%s]\n",

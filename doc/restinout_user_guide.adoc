@@ -42,6 +42,16 @@ call, and if the tpcall() succeeds, then we send the response back to network.
 This seems to be new feature of the tcpgatesv.
 
 
+=== Configuration of REST-IN
+
+=== Configuration of REST-OUT
+
+=== TCP Driver configuration
+
+
+
+
+
 
 == Conclusions
 

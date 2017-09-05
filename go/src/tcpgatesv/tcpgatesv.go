@@ -299,7 +299,7 @@ func Init(ac *atmi.ATMICtx) int {
 			tmp, _ := buf.BGetString(u.EX_CC_VALUE, occ)
 			ac.TpLogDebug("Got [%s] = [%s] ", fldName, tmp)
 
-			if "Y"==tmp || "y"==tmp {
+			if "Y"==string(tmp[0]) || "y"==string(tmp[0]) {
 					MIncomingSvcSync = true
 			}
 

@@ -4,87 +4,87 @@
 		*** For more info see ndrxconfig.xml(5) man page. ***
 	-->
 	<appconfig>
-	
-		<!-- 
-			ALL BELLOW ONES USES <sanity> periodical timer 
+
+		<!--
+			ALL BELLOW ONES USES <sanity> periodical timer
 			Sanity check time, sec
 		-->
 		<sanity>5</sanity>
-		
+
 		<!--
 			Seconds in which we should send service refresh to other node.
 		-->
 		<brrefresh>6</brrefresh>
-		
-		<!-- 
-			Do process reset after 1 sec 
+
+		<!--
+			Do process reset after 1 sec
 		-->
 		<restart_min>1</restart_min>
-		
-		<!-- 
+
+		<!--
 			If restart fails, then boot after +5 sec of previous wait time
 		-->
 		<restart_step>1</restart_step>
-		
-		<!-- 
-			If still not started, then max boot time is a 30 sec. 
+
+		<!--
+			If still not started, then max boot time is a 30 sec.
 		-->
 		<restart_max>5</restart_max>
-		
-		<!--  
+
+		<!--
 			<sanity> timer, usage end
 		-->
-		
-		<!-- 
+
+		<!--
 			Time (seconds) after attach when program will start do sanity & respawn checks,
-			starts counting after configuration load 
+			starts counting after configuration load
 		-->
 		<restart_to_check>20</restart_to_check>
-		
-		
-		<!-- 
-			Setting for pq command, should ndrxd collect service 
-			queue stats automatically If set to Y or y, 
+
+
+		<!--
+			Setting for pq command, should ndrxd collect service
+			queue stats automatically If set to Y or y,
 			then queue stats are on. Default is off.
 		-->
 		<gather_pq_stats>Y</gather_pq_stats>
-		
+
 	</appconfig>
 	<defaults>
-	
+
 		<min>1</min>
 		<max>2</max>
-		
-		<!-- 
+
+		<!--
 			Kill the process which have not started in <start_max> time
 		-->
 		<autokill>1</autokill>
-		
-		<!-- 
+
+		<!--
 			The maximum time while process can hang in 'starting' state i.e.
-			have not completed initialization, sec X <= 0 = disabled  
+			have not completed initialization, sec X <= 0 = disabled
 		-->
 		<start_max>2</start_max>
-		
+
 		<!--
 			Ping server in every X seconds (step is <sanity>).
 		-->
 		<pingtime>1</pingtime>
-		
+
 		<!--
 			Max time in seconds in which server must respond.
 			The granularity is sanity time.
-			X <= 0 = disabled 
+			X <= 0 = disabled
 		-->
 		<ping_max>4</ping_max>
-		
+
 		<!--
 			Max time to wait until process should exit on shutdown
-			X <= 0 = disabled 
+			X <= 0 = disabled
 		-->
 		<end_max>1</end_max>
-		
-		<!-- 
+
+		<!--
 			Interval, in seconds, by which signal sequence -2, -15, -9, -9.... will be sent
 			to process until it have been terminated.
 		-->
@@ -94,7 +94,7 @@
                         Reload the process on change
                 -->
                 <reloadonchange>Y</reloadonchange>
-		
+
 	</defaults>
 	<servers>
 		<server name="cconfsrv">
@@ -151,6 +151,20 @@
 			<sysopt>-e ${NDRX_APPHOME}/log/tcpgatesv-async-passive.log -r</sysopt>
 		</server>
 		<server name="tcpgatesv">
+			<cctag>pers/asyncsync/active</cctag>
+			<min>1</min>
+			<max>1</max>
+			<srvid>215</srvid>
+			<sysopt>-e ${NDRX_APPHOME}/log/tcpgatesv-asyncsync-active.log -r</sysopt>
+		</server>
+		<server name="tcpgatesv">
+			<cctag>pers/asyncsync/passive</cctag>
+			<min>1</min>
+			<max>1</max>
+			<srvid>216</srvid>
+			<sysopt>-e ${NDRX_APPHOME}/log/tcpgatesv-asyncsync-passive.log -r</sysopt>
+		</server>
+		<server name="tcpgatesv">
 			<cctag>pers/sync/active</cctag>
 			<min>1</min>
 			<max>1</max>
@@ -185,12 +199,12 @@
 			<sysopt>-e ${NDRX_APPHOME}/log/cpmsrv.log -r -- -k3 -i1</sysopt>
 		</server>
 	</servers>
-	<!-- 
-		Client section 
+	<!--
+		Client section
 	-->
 	<clients>
 		<!--
-			Test parameter passing to process 
+			Test parameter passing to process
 			- To list clients:$ xadmin pc
 			- To stop client: $ xadmin sc -t TAG1 -s SUBSECTION1
 			- To boot client: $ xadmin bc -t TAG1 -s SUBSECTION1

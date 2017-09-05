@@ -28,24 +28,45 @@ function go_out {
 # So we need to add some demo server
 # We need to add server process here + we need to register ubftab (test.fd)
 #
-xadmin provision -d -vaddubf=test.fd,Exfields
+xadmin provision -d -vaddubf=test.fd
 
 cd conf
 . settest1
+# Fix some config (logging for testcl to file)
+echo "[@debug]" >> app.ini
+echo 'testcl= ndrx=5 ubf=1 tp=5 file=${NDRX_APPHOME}/log/testcl.log' >> app.ini
+
 cd ..
 
 # Start the system
 xadmin start -y
 
 # Let connections to establish
-sleep 2
+sleep 10
+
 
 ################################################################################
-# Run async calls
+echo ">>> Run async calls, sync invocation"
+################################################################################
+NROFCALLS=$(($NUMCALL+5))
+NROFCALLS_CMP=$NUMCALL
+COMMAND="corr"
+testcl $COMMAND $NROFCALLS TCP_P_ASYSY_A
+RET=$?
+
+if [[ $RET != 0 ]]; then
+	echo "testcl $COMMAND $NROFCALLS TCP_P_ASYSY_A failed"
+	go_out 1
+fi
+
+################################################################################
+echo ">>> Run async calls"
 ################################################################################
 NROFCALLS=$(($NUMCALL+5))
 NROFCALLS_CMP=$NUMCALL
 COMMAND="async_call"
+
+ > log/testsv.log
 testcl async_call $NROFCALLS TCP_P_ASYNC_A
 RET=$?
 
@@ -68,7 +89,7 @@ if [[ $CNT -lt  $NROFCALLS_CMP ]]; then
 fi
 
 ################################################################################
-# No connection
+echo ">>> No connection"
 ################################################################################
 NROFCALLS=$NUMCALL
 COMMAND="nocon"
@@ -93,7 +114,7 @@ xadmin start -i 230
 sleep 1
 
 ################################################################################
-# Run Correlation...
+echo " >>> Run Correlation..."
 ################################################################################
 NROFCALLS=$NUMCALL
 COMMAND="corr"
@@ -109,7 +130,7 @@ if [[ $RET != 0 ]]; then
 fi
 
 ################################################################################
-# Run Correlation, timeout
+echo ">>>Run Correlation, timeout"
 ################################################################################
 COMMAND="corrtot"
 
@@ -124,7 +145,7 @@ if [[ $RET != 0 ]]; then
 fi
 
 ################################################################################
-# Persistent, Sync connection, call
+echo ">>> Persistent, Sync connection, call"
 ################################################################################
 NROFCALLS=$NUMCALL
 # We can reuse same test case, it will return some data (but tcpgates will match with
@@ -140,7 +161,7 @@ if [[ $RET != 0 ]]; then
 fi
 
 ################################################################################
-# Persistent, Sync connection, call, timeout
+echo ">>> Persistent, Sync connection, call, timeout"
 ################################################################################
 COMMAND="corrtot"
 
@@ -154,7 +175,7 @@ fi
 
 
 ################################################################################
-# Persistent, Sync connection, call, no-connection, try from Passive end.
+echo ">>> Persistent, Sync connection, call, no-connection, try from Passive end."
 ################################################################################
 NROFCALLS=$NUMCALL
 COMMAND="nocon"
@@ -168,7 +189,7 @@ if [[ $RET != 0 ]]; then
 fi
 
 ################################################################################
-# Nonpersistent, normal call
+echo ">>> Nonpersistent, normal call"
 ################################################################################
 NROFCALLS=$NUMCALL
 # We can reuse same test case, it will return some data (but tcpgates will match with
@@ -187,7 +208,7 @@ fi
 
 
 ################################################################################
-# Nonpersistent, timeout
+echo ">>> Nonpersistent, timeout"
 ################################################################################
 COMMAND="corrtot"
 
@@ -202,7 +223,7 @@ if [[ $RET != 0 ]]; then
 fi
 
 ################################################################################
-# Nonpersistent, cannot connect
+echo ">>> Nonpersistent, cannot connect"
 ################################################################################
 NROFCALLS=$NUMCALL
 COMMAND="nocon"
@@ -216,7 +237,7 @@ if [[ $RET != 0 ]]; then
 fi
 
 ################################################################################
-# Have some test where we overload the channel - i.e.
+echo ">>> Have some test where we overload the channel - i.e."
 # Send multiple requests to desitnation host, the all messages must be cleared ok
 # i.e. wait the connection from queue...
 ################################################################################
@@ -233,8 +254,7 @@ if [[ $RET != 0 ]]; then
 fi
 
 ################################################################################
-# have some batch callers to non persistant connections
-# They all should complete ok.
+echo ">>> have some batch callers to non persistant connections they all should complete ok."
 ################################################################################
 # Number of calls depends on internal modulus, now 40... over the ascii table from A
 NROFCALLS=40
@@ -249,7 +269,7 @@ if [[ $RET != 0 ]]; then
 fi
 
 ################################################################################
-# TODO: Same test for sync mode
+echo ">>> echo same test for sync mode"
 ################################################################################
 # Number of calls depends on internal modulus, now 40... over the ascii table from A
 NROFCALLS=40

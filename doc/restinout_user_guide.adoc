@@ -96,7 +96,7 @@ type=A
 periodic_zero_msg=5
 ip=127.0.0.1
 port=9998
-framing=BBBB
+framing=bbbb
 
 ---------------------------------------------------------------------------------
 
@@ -189,7 +189,7 @@ defaults={"urlbase":"http://some.host:8080"
 service RESTOUS1={
         "url":"/s1request"
         ,"errors":"json2ubf"
-        ,"timeout":1
+        ,"timeout":20
 
 ---------------------------------------------------------------------------------
 

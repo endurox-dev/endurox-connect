@@ -33,6 +33,13 @@ to be also correlated back.
 
 - The outgoing REST requests are made via *restoutsv(8)*.
 
+- Message length prefix 2 bytes, first youngest byte (big-endian), prefix does not
+include length bytes (it self).
+
+- We are TCP client.
+
+- All processes will be configured under "sub-section" named "SYS1".
+
 So basic setup is following:
 
 image:restinout_tutor_1.png[caption="Figure 1: ", title="Combining Incoming REST, Outgoing Rest with asynchronous TCP connections", alt="REST IN/OUT with Async TCP"]
@@ -42,15 +49,160 @@ call, and if the tpcall() succeeds, then we send the response back to network.
 This seems to be new feature of the tcpgatesv.
 
 
-=== Configuration of REST-IN
+=== Provision the new runtime first
 
-=== Configuration of REST-OUT
+Provision with CCONF server, and client process monitor, CPM:
+
+---------------------------------------------------------------------------------
+
+$ xadmin provision
+
+---------------------------------------------------------------------------------
 
 === TCP Driver configuration
+To start the TCP driver, we have to edit following files:
+
+Edit: ndrxconfig.xml, add
+
+---------------------------------------------------------------------------------
+
+                <server name="tcpgatesv">
+                        <min>1</min>
+                        <max>1</max>
+                        <cctag>SYS1</cctag>
+                        <srvid>2000</srvid>
+                        <sysopt>-e ${NDRX_APPHOME}/log/TCPGATE</sysopt>
+                </server>
 
 
+---------------------------------------------------------------------------------
+
+Add the application level configuration for TCP driver:
+
+Change IP correspondingly. 
+
+Edit: *app.ini*, add
+
+---------------------------------------------------------------------------------
+
+[@tcpgate/SYS1]
+corr_svc=CORSVCS1
+gateway=TCPGATES1
+incoming_svc=RESTOUTS1
+# When message is received call the RESTOUT service in synchronous way
+# wait for reply and if reply is OK, send that reply back to network.
+incoming_svc_sync=yes
+type=A
+periodic_zero_msg=5
+ip=127.0.0.1
+port=9998
+framing=BBBB
+
+---------------------------------------------------------------------------------
 
 
+=== Configuration of REST-IN
+Rest in is serviced as Client-process monitor job, thus
+
+Firstly we need to register client process in for CPM.
+
+Edit *ndrxconfig.xml*:
+
+---------------------------------------------------------------------------------
+</endurox>
+        ...
+        </servers>
+        ...
+        <!-- 
+                Client section 
+        -->
+        <clients>
+                <client cmdline="restincl">
+                        <exec tag="RESTIN" autostart="Y" cctag="SYS1" subsect="SYS1" 
+                            log="${NDRX_APPHOME}/log/RESTIN-SYS1"/>
+                </client>
+        </clients>
+</endurox>
+
+
+---------------------------------------------------------------------------------
+
+Once *restincl* is registered for startup, we need to add application level 
+configuration where the REST-IN server knows on what ports to listen and what
+URLs to service:
+
+Edit *app.ini*, add:
+
+---------------------------------------------------------------------------------
+[@restin/SYS1]
+port=8080
+ip=0.0.0.0
+gencore=1
+defaults={"errors":"json2ubf"
+        ,"conv": "json2ubf"
+        }
+/tcpgate={
+        "svc":"TCPGATES1"
+        }
+
+
+---------------------------------------------------------------------------------
+
+So basically we configure here, that we use "JSON2UBF" conversation mode of the data,
+and if data is received by service, it will be transported to the TCPGATE.
+
+=== Configuration of REST-OUT
+No to deliver the incoming messages to the "third-party" resources. To send the
+message outside from Enduor/X via HTTP/REST/POST message, we need to use *restoutsv(8)*
+XATMI server. As we noted previously TCP outgoing service is set as "RESTOUTS1", thus
+we need to advertise it.
+
+Firstly we need to boot it as part of the application server boot.
+
+---------------------------------------------------------------------------------
+                <server name="restoutsv">
+                        <min>2</min>
+                        <max>2</max>
+                        <srvid>2100</srvid>
+                        <cctag>SYS1</cctag>
+                        <sysopt>-e ${NDRX_APPHOME}/log/restoutsv.log -r</sysopt>
+                </server>
+
+---------------------------------------------------------------------------------
+Here we will boot 2x instances for outgoing requests. Note that these processes
+are multi-threaded, thus concurrency will be higher than 2.
+
+Then we need to have application level config.
+
+Edit *app.ini*, add:
+
+---------------------------------------------------------------------------------
+
+[@restout/SYS1]
+gencore=1
+workers=5
+scan_time=7
+defaults={"urlbase":"http://some.host:8080"
+           ,"errors":"json2ubf"
+        }
+
+service RESTOUS1={
+        "url":"/s1request"
+        ,"errors":"json2ubf"
+        ,"timeout":1
+
+---------------------------------------------------------------------------------
+
+
+=== Writing correlation server
+To match request with responses for TCP point of view, we need a service which will
+resolve the correlators of the messages. The service here will be written in golang
+quite simple one, it will try to find some tag in JSON. If found then put it in the
+UBF buffer.
+
+=== Testing
+
+To test the configuration, we really need 
 
 
 == Conclusions

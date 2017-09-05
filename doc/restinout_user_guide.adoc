@@ -1,0 +1,66 @@
+REST IN-OUT INTERFACE USER GUIDE
+================================
+Madars Vitolins
+v1.0, 2017-09:
+	Initial draft
+:doctype: book
+
+== Introduction
+This document describes the typical Enduro/X REST usage. It will go through the
+different use cases of the REST-IN and REST-OUT packages. The core functionality
+is described in the man pages *restincl(8)* and *restoutsv(8)*. This doc will also
+cover some functionality of the *tcpgatesv(8)*.
+
+
+== 1. Exposing TCP socket as REST service
+
+In this setup, we will expose asynchronous TCP socket over the REST service. So
+client will send data encoded in UBF buffer which will be forwarded to TCP Gate.
+
+=== Initial settings and the target
+
+- Will use UBF buffers (UBF2JSON), as used by *tcpgatesv*.
+
+- Errors will be handled in the same way, via EX_IF_ECODE and EX_IF_EMSG, for code
+meanings see the *restincl(8)* manpage.
+
+- The network data will be sent over the asynchronous channel and the data will be
+correlated to give back synchronous response back to REST caller.
+
+- The incoming messages from TCP sockets can be two kinds, either responses to
+outgoing TCP server or incoming other kind requests from server side which needs
+to be also correlated back.
+
+- The outgoing REST requests are made via *restoutsv(8)*.
+
+So basic setup is following:
+
+image:restinout_tutor_1.png[caption="Figure 1: ", title="Combining Incoming REST, Outgoing Rest with asynchronous TCP connections", alt="REST IN/OUT with Async TCP"]
+
+According to this char we need the invocation of the RESTOUSTSV with synchronous
+call, and if the tpcall() succeeds, then we send the response back to network.
+This seems to be new feature of the tcpgatesv.
+
+
+
+== Conclusions
+
+Enduro/X Connect module is quite powerful and lets user to configure different work
+scenarios.
+
+:numbered!:
+
+[bibliography]
+Additional documentation 
+------------------------
+This section lists additional related documents.
+
+[bibliography]
+.Resources
+- [[[EX_DEVGUIDE]]] Enduro/X Internal Developer Guide.
+
+
+////////////////////////////////////////////////////////////////
+The index is normally left completely empty, it's contents being
+generated automatically by the DocBook toolchain.
+////////////////////////////////////////////////////////////////

@@ -66,6 +66,7 @@ var MIp string = "0.0.0.0"   //IP to listen or to connect to if Active
 var MPort int = 7921         //Port to connect to or listen on depending on active/passive role
 var MAddr string = ""        //Compiled ip:port
 var MIncomingSvc string = "" //Incomding service to send to incoming async traffic
+var MIncomingSvcSync bool = false //Is incoming service Synchronous and needs tpcall with rsp back to net
 var MPerZero int = 0         //Period by witch to which send zero length message to all channels...
 var MStatussvc string = ""   //Status service to which send connection information
 var MStatusRefresh int = 0   //Send periodic status refreshes, seconds
@@ -293,6 +294,16 @@ func Init(ac *atmi.ATMICtx) int {
 			MIncomingSvc, _ = buf.BGetString(u.EX_CC_VALUE, occ)
 			ac.TpLogDebug("Got [%s] = [%s] ", fldName, MIncomingSvc)
 			break
+		case "incoming_svc_sync":
+
+			tmp, _ := buf.BGetString(u.EX_CC_VALUE, occ)
+			ac.TpLogDebug("Got [%s] = [%s] ", fldName, tmp)
+
+			if "Y"==tmp || "y"==tmp {
+					MIncomingSvcSync = true
+			}
+
+			break
 		case "periodic_zero_msg":
 			MPerZero, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
 			ac.TpLogDebug("Got [%s] = [%d] ", fldName, MPerZero)
@@ -390,7 +401,12 @@ func Init(ac *atmi.ATMICtx) int {
 			return FAIL
 		}
 
-		ac.TpLogInfo("Incoming service: [%s]", MIncomingSvc)
+		if MIncomingSvcSync {
+			ac.TpLogInfo("Incoming service: [%s] - sync", MIncomingSvc)
+		} else {
+			ac.TpLogInfo("Incoming service: [%s] - async", MIncomingSvc)
+		}
+
 		ac.TpLogInfo("Correlation service: [%s]", MCorrSvc)
 		ac.TpLogInfo("Network timeout: %d", MReqReplyTimeout)
 

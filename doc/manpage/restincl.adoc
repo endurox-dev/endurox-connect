@@ -267,6 +267,63 @@ must be '%d' - for XATMI error, and next parameter in format string must be '%s'
 for error message. For example 'errfmt_text' could be set to *%d: %s*.
 
 
+Error codes and it's meaning
+----------------------------
+No matter of which error handling mechanism is selected http/json/json2ubf/text,
+the list of Enduro/X error codes is following:
+
+. 0 - Succeed (TPMINVAL)
+
+. 1 - Transaction abort (TPEABORT)
+
+. 2 - Bad call descriptor (TPEBADDESC)
+
+. 3 - Blocking condition found (TPEBLOCK)
+
+. 4 - Invalid parameters passed to function or service (TPEINVAL)
+
+. 5 - System limit (TPELIMIT)
+
+. 6 - Service not found (TPENOENT)
+
+. 7 - Operating system error (TPEOS)
+
+. 8 - No permissions (TPEPERM)
+
+. 9 - Protocol error, service invoked in invalid order (TPEPROTO)
+
+. 10 - Service hard failure, crashed (TPESVCERR)
+
+. 11 - Service soft failure, returning error (TPESVCFAIL)
+
+. 12 - System error (TPESYSTEM)
+
+. 13 - Time out condition (TPETIME)
+
+. 14 - Transaction error (TPETRAN)
+
+. 16 - Resource manager error (TPERMERR)
+
+. 17 - Invalid input data type to service (TPEITYPE)
+
+. 18 - Invalid data type received from service (TPEOTYPE)
+
+. 19 - Invalid program release (TPERELEASE)
+
+. 20 - Transaction partially completed (TPEHAZARD)
+
+. 21 - Transaction partially completed (TPEHEURISTIC)
+
+. 22 - Event occurred, only for conversational messages, RFU (TPEEVENT)
+
+. 23 - Identifier not matches (TPEMATCH)
+
+. 24 - Diagnostic info provided, RFU (TPEDIAGNOSTIC)
+
+. 25 - RFU (TPEMIB)
+
+
+
 CONFIGURATION
 -------------
 *port* = 'PORT_NUMBER'::

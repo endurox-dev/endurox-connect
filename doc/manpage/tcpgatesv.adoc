@@ -389,6 +389,14 @@ correspond to any caller waiting for answer. This is incoming message for
 which there is no correlation id (the 'corr_svc' is not set or 'corr_svc'
 service did not return 'EX_NETCORR' field.
 
+*incoming_svc_sync* = 'INCOMING_SVC_SYNC'::
+Optional, if set to 'Y' or 'y' then it indicates that when there is incoming message
+the *incoming_svc* is invoked in synchronous way (tpcall()). If service response
+succeed (TPSUCCESS), then the return buffer with 'EX_NETDATA' field is sent to
+network to the same connection from which incoming message was received. This
+mode alters the *req_reply* mode *0* (full async) and mode *1*, by making invocations
+synchronous.
+
 *periodic_zero_msg* = 'PERIODIC_ZERO'::
 Number of seconds after which send to network zero length message for keeping
 connection alive. Used if number is greater that zero. Parameter is not

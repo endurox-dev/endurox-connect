@@ -613,7 +613,7 @@ folder.
 
 --------------------------------------------------------------------------------
 
-$ echo "source /enduro/conf/settrb" >> ~/.bashrc
+$ echo "source /enduro/conf/setuser1" >> ~/.bashrc
 
 --------------------------------------------------------------------------------
 
@@ -633,7 +633,7 @@ $ cat << EOF > /enduro/bin/enduro.start
 # Wrapper starter script systemd
 #
 
-su trb -c 'source /enduro/conf/settrb; xadmin start -y'
+su user1 -c 'source /enduro/conf/setuser1; xadmin start -y'
 EOF
 
 $ chmod +x /enduro/bin/enduro.start
@@ -651,7 +651,7 @@ $ cat << EOF > /enduro/bin/enduro.stop
 # Wrapper stopper script systemd
 #
 
-su trb -c 'source /enduro/conf/settrb; xadmin stop -c -y'
+su user1 -c 'source /enduro/conf/setuser1; xadmin stop -c -y'
 EOF
 
 $ chmod +x /enduro/bin/enduro.stop

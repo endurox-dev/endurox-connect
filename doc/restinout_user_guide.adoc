@@ -12,7 +12,7 @@ is described in the man pages *restincl(8)* and *restoutsv(8)*. This doc will al
 cover some functionality of the *tcpgatesv(8)*.
 
 
-== 1. Exposing TCP socket as REST service
+== Exposing TCP socket as REST service
 
 In this setup, we will expose asynchronous TCP socket over the REST service. So
 client will send data encoded in UBF buffer which will be forwarded to TCP Gate.

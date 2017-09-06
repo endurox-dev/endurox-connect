@@ -101,7 +101,8 @@ framing=bbbb
 ---------------------------------------------------------------------------------
 
 
-=== Configuration of REST-IN
+=== Configuration of REST-IN on newly installed server
+
 Rest in is serviced as Client-process monitor job, thus
 
 Firstly we need to register client process in for CPM.
@@ -200,10 +201,507 @@ resolve the correlators of the messages. The service here will be written in gol
 quite simple one, it will try to find some tag in JSON. If found then put it in the
 UBF buffer.
 
-=== Testing
 
-To test the configuration, we really need 
+The server will be simple one, just extract the corrid and set in FB, it not extracted
+then server does not provide back anything.
 
+== Installing Enduro/X REST-IN module
+
+This sections assumes the installation is done on RedHat Enterprise Linux 7. The
+Enduro/X will be started in '/enduro' folder of root file system.
+
+=== Configure server
+This section makes basic configuration to the server.
+
+==== Configure limits
+
+---------------------------------------------------------------------------------
+
+$ su - root
+# cat << EOF >> /etc/security/limits.conf
+
+# Do not limit message Q Count.
+*               soft    msgqueue        -1
+*               hard    msgqueue        -1
+
+# Increase the number of open files
+*               soft    nofile  6000
+*               hard    nofile  65536
+
+EOF
+
+---------------------------------------------------------------------------------
+
+
+==== Configure queues
+At the startup of the system needs to mount a Posix Queues folder, and needs to 
+set a appropriate limits. To do this automatically at system startup, 
+Linuxes which supports /etc/rc.local, must add following lines before "exit 0":
+
+Edit */etc/rc.local* add before exit 0, if no exit 0 found in file, then just 
+add to the end.
+
+---------------------------------------------------------------------------------
+
+# Mount the /dev/mqueue
+mkdir /dev/mqueue
+mount -t mqueue none /dev/mqueue
+
+# Max Messages in Queue
+echo 10000 > /proc/sys/fs/mqueue/msg_max
+
+# Max message size
+echo 64000 > /proc/sys/fs/mqueue/msgsize_max
+
+# Max number of queues for user
+echo 10000 > /proc/sys/fs/mqueue/queues_max
+
+---------------------------------------------------------------------------------
+
+For RHEL 7:
+
+---------------------------------------------------------------------------------
+
+# chmod u+x /etc/rc.d/rc.local
+
+# systemctl start rc-local
+
+# systemctl enable endurox.service
+
+---------------------------------------------------------------------------------
+
+Reboot the server to have setting be applied.
+
+==== Prepare users
+
+For this example we will use "test1" user.
+
+---------------------------------------------------------------------------------
+
+# useradd -m test1
+# passwd test1
+---------------------------------------------------------------------------------
+
+
+==== Prepare runtime directory
+
+---------------------------------------------------------------------------------
+# mkdir /enduro
+# chown test1:test1 /enduro
+---------------------------------------------------------------------------------
+
+
+==== Install Enduro/X and Enduro/X Connect packages
+
+---------------------------------------------------------------------------------
+# yum install wget perl
+
+# wget http://www.endurox.org/attachments/download/146/endurox-5.0.7-1.oracleserver7_3_GNU.x86_64.rpm
+# rpm -i endurox-5.0.7-1.oracleserver7_3_GNU.x86_64.rpm
+
+# wget http://www.endurox.org/attachments/download/151/enduroxconnect-2.1.3-1.oracleserver7_3.x86_64.rpm
+# rpm -i enduroxconnect-2.1.3-1.oracleserver7_3.x86_64.rpm
+
+---------------------------------------------------------------------------------
+
+
+==== Provision the runtime
+
+---------------------------------------------------------------------------------
+
+
+# su - user1
+$ cd /enduro
+$ xadmin provision
+Enduro/X 5.0.7, build Sep  4 2017 01:44:06, using epoll for LINUX (64 bits)
+
+Enduro/X Middleware Platform for Distributed Transaction Processing
+Copyright (C) 2009-2016 ATR Baltic Ltd.
+Copyright (C) 2017 Mavimax Ltd. All Rights Reserved.
+
+This software is released under one of the following licenses:
+GPLv2 (or later) or Mavimax license for commercial use.
+
+Logging to ./ULOG.20170906
+
+    ______          __                    ___  __
+   / ____/___  ____/ /_  ___________    _/_/ |/ /
+  / __/ / __ \/ __  / / / / ___/ __ \ _/_/ |   / 
+ / /___/ / / / /_/ / /_/ / /  / /_/ //_/  /   |  
+/_____/_/ /_/\__,_/\__,_/_/   \____/_/   /_/|_|  
+
+                     Provision
+
+Compiled system type....: LINUX
+
+ 0: qpath        :Queue device path [/dev/mqueue]: 
+ 1: nodeid       :Cluster node id [1]: 
+ 2: qprefix      :System code (prefix/setfile name, etc) [test1]: 
+ 3: timeout      :System wide tpcall() timeout, seconds [90]: 
+ 4: appHome      :Application home [/enduro]: 
+ 6: binDir       :Executables/binaries sub-folder of Apphome [bin]: 
+ 8: confDir      :Configuration sub-folder of Apphome [conf]: 
+ 9: logDir       :Log sub-folder of Apphome [log]: 
+10: ubfDir       :Unified Buffer Format (UBF) field defs sub-folder of Apphome [ubftab]: 
+11: tempDir      :Temp sub-dir (used for pid file) [tmp]: 
+12: installQ     :Configure persistent queue [y]: n
+18: eventSv      :Install event server [y]: 
+19: cpmSv        :Configure Client Process Monitor Server [y]: 
+20: configSv     :Install Configuration server [y]: 
+21: bridge       :Install bridge connection [y]: n
+27: ipckey       :IPC Key used for System V semaphores [44000]: 
+28: ldbal        :Load balance over cluster [0]: 
+29: ndrxlev      :Logging: ATMI sub-system log level 5 - highest (debug), 0 - minimum (off) [5]: 
+30: ubflev       :Logging: UBF sub-system log level 5 - highest (debug), 0 - minimum (off) [1]: 
+31: tplev        :Logging: /user sub-system log level 5 - highest (debug), 0 - minimum (off) [5]: 
+32: usv1         :Configure User server #1 [n]: 
+50: ucl1         :Configure User client #1 [n]: y
+51: usv1_cmdline :User client #1: cmdline []: restincl
+52: usv1_tag     :User client #1: tag []: RESTIN
+53: usv1_subsect :User client #1: subsect []: 1
+54: usv1_log     :User client #1: logfile []: ${NDRX_APPHOME}/log/RESTIN_1    
+55: addubf       :Additional UBFTAB files (comma seperated), can be empty []: 
+56: msgsizemax   :Max IPC message size [56000]: 
+57: msgmax       :Max IPC messages in queue [100]: 
+
+*** Review & edit configuration ***
+
+ 0: Edit qpath        :Queue device path [/dev/mqueue]: 
+ 1: Edit nodeid       :Cluster node id [1]: 
+ 2: Edit qprefix      :System code (prefix/setfile name, etc) [test1]: 
+ 3: Edit timeout      :System wide tpcall() timeout, seconds [90]: 
+ 4: Edit appHome      :Application home [/enduro]: 
+ 6: Edit binDir       :Executables/binaries sub-folder of Apphome [bin]: 
+ 8: Edit confDir      :Configuration sub-folder of Apphome [conf]: 
+ 9: Edit logDir       :Log sub-folder of Apphome [log]: 
+10: Edit ubfDir       :Unified Buffer Format (UBF) field defs sub-folder of Apphome [ubftab]: 
+11: Edit tempDir      :Temp sub-dir (used for pid file) [tmp]: 
+12: Edit installQ     :Configure persistent queue [n]: 
+18: Edit eventSv      :Install event server [y]: 
+19: Edit cpmSv        :Configure Client Process Monitor Server [y]: 
+20: Edit configSv     :Install Configuration server [y]: 
+21: Edit bridge       :Install bridge connection [n]: 
+27: Edit ipckey       :IPC Key used for System V semaphores [44000]: 
+28: Edit ldbal        :Load balance over cluster [0]: 
+29: Edit ndrxlev      :Logging: ATMI sub-system log level 5 - highest (debug), 0 - minimum (off) [5]: 
+30: Edit ubflev       :Logging: UBF sub-system log level 5 - highest (debug), 0 - minimum (off) [1]: 
+31: Edit tplev        :Logging: /user sub-system log level 5 - highest (debug), 0 - minimum (off) [5]: 
+32: Edit usv1         :Configure User server #1 [n]: 
+50: Edit ucl1         :Configure User client #1 [y]: 
+51: Edit usv1_cmdline :User client #1: cmdline [restincl]: 
+52: Edit usv1_tag     :User client #1: tag [RESTIN]: 
+53: Edit usv1_subsect :User client #1: subsect [1]: 
+54: Edit usv1_log     :User client #1: logfile [${NDRX_APPHOME}/log/RESTIN_1]: 
+55: Edit addubf       :Additional UBFTAB files (comma seperated), can be empty []: 
+56: Edit msgsizemax   :Max IPC message size [56000]: 
+57: Edit msgmax       :Max IPC messages in queue [100]: 
+c: Cancel
+w: Accept, write
+Enter the choice [0-57, c, w]: w
+ndrxconfig: [/enduro/conf/ndrxconfig.xml]
+appini: [/enduro/conf/app.ini]
+setfile: [/enduro/conf/settest1]
+
+
+To start your system, run following commands:
+$ cd /enduro/conf
+$ source settest1
+$ xadmin start -y
+
+
+Provision succeed!
+
+---------------------------------------------------------------------------------
+
+
+=== Add the RESTIN configuration
+
+We will add sample REST-IN service which will call the "GETACCOUNT" service. The URL
+of the POST request will be http://localhost:8181/getaccount
+
+Edit */enduro/conf/app.ini*, add:
+
+---------------------------------------------------------------------------------
+
+[@restin/1]
+port=8181
+ip=0.0.0.0
+gencore=1
+defaults={"errors":"json2ubf"
+        ,"conv": "json2ubf"
+        }
+/getaccount={
+        "svc":"GETACCOUNT"
+        }
+
+---------------------------------------------------------------------------------
+
+
+=== Fix the ndrxconfig.xml
+
+ndrxconfig.xml needs to add cctag for *restincl* process. Also remove anything
+else from "<client>" section, so that it would look like:
+
+---------------------------------------------------------------------------------
+...
+        <clients>
+                <client cmdline="restincl">
+                        <exec tag="RESTIN" autostart="Y" cctag="1" subsect="1" log="${NDRX_APPHOME}/log/restin_1.log"/>
+                </client>
+        </clients>
+...
+---------------------------------------------------------------------------------
+
+
+=== Boot the system up for first time
+
+
+---------------------------------------------------------------------------------
+$ cd /enduro/conf
+$ . settest1
+$ xadmin start -y
+Enduro/X 5.0.7, build Sep  4 2017 01:44:06, using epoll for LINUX (64 bits)
+
+Enduro/X Middleware Platform for Distributed Transaction Processing
+Copyright (C) 2009-2016 ATR Baltic Ltd.
+Copyright (C) 2017 Mavimax Ltd. All Rights Reserved.
+
+This software is released under one of the following licenses:
+GPLv2 (or later) or Mavimax license for commercial use.
+
+Enduro/X back-end (ndrxd) is not running
+ndrxd PID (from PID file): 23118
+ndrxd idle instance started.
+exec cconfsrv -k 0myWI5nu -i 1 -e /enduro/log/cconfsrv.log -r --  :
+	process id=23120 ... Started.
+exec cconfsrv -k 0myWI5nu -i 2 -e /enduro/log/cconfsrv.log -r --  :
+	process id=23121 ... Started.
+exec tpevsrv -k 0myWI5nu -i 20 -e /enduro/log/tpevsrv.log -r --  :
+	process id=23122 ... Started.
+exec tpevsrv -k 0myWI5nu -i 21 -e /enduro/log/tpevsrv.log -r --  :
+	process id=23123 ... Started.
+exec cpmsrv -k 0myWI5nu -i 9999 -e /enduro/log/cpmsrv.log -r -- -k3 -i1 --  :
+	process id=23124 ... Started.
+Startup finished. 5 processes started.
+
+---------------------------------------------------------------------------------
+
+
+=== Adding XA resource connection for accessing oracle DB:
+
+Firstly ensure that Oracle DB client is installed:
+
+---------------------------------------------------------------------------------
+$ su - root
+# rpm -i oracle-instantclient12.2-basic-12.2.0.1.0-1.x86_64.rpm
+# rpm -i oracle-instantclient12.2-sqlplus-12.2.0.1.0-1.x86_64.rpm
+# rpm -i oracle-instantclient12.2-tools-12.2.0.1.0-1.x86_64.rpm
+# rpm -i oracle-instantclient12.2-precomp-12.2.0.1.0-1.x86_64.rpm
+# rpm -i oracle-instantclient12.2-devel-12.2.0.1.0-1.x86_64.rpm
+# exit
+----------------------------------------------------------------------------------
+
+
+=== Register Resource manager 1 - Oracle DB
+
+
+Create XA Folder, where two phase commit logs are stored (preferably this should
+be on SSD disks):
+
+----------------------------------------------------------------------------------
+
+$ mkdir -p ${NDRX_APPHOME}/xa/rm1
+$ mkdir -p ${NDRX_APPHOME}/xa/rm1_dblogs
+
+----------------------------------------------------------------------------------
+
+
+Next we need to register distributed transaction manager process (tmsrv) to boot up:
+
+Edit: */enduro/conf/ndrconfig.xml*, add after "tpevsrv"
+----------------------------------------------------------------------------------
+                <server name="tmsrv">
+                        <srvid>500</srvid>
+                        <min>2</min>
+                        <max>2</max>
+                        <sysopt>-e ${NDRX_APPHOME}/log/tm1.log -r -- -t60 -l${NDRX_APPHOME}/xa/rm1 -P30 -R</sysopt>
+                </server>
+----------------------------------------------------------------------------------
+
+Note that flags -P30 -R are passed to server, meaning that every 30 seconds each
+control thread will ping the database by xa_recover() call. This call has to be 
+enabled for oracle user, thus grant following features to the Oracle DB user of
+the Enduro/X:
+
+---------------------------------------------------------------------------------
+SQL> grant select on pending_trans$ to <database_user>;
+SQL> grant select on dba_2pc_pending to <database_user>;
+SQL> grant select on dba_pending_transactions to <database_user>;
+SQL> grant execute on dbms_system to <database_user>; (If using Oracle 10.2)
+SQL> grant execute on dbms_xa to <database_user>; (If using Oracle 10.2)
+---------------------------------------------------------------------------------
+
+Add XA configuration string for TMSRV and other resources.
+
+Edit */enduro/conf/app.ini* in the end of "[@global]" section add:
+
+---------------------------------------------------------------------------------
+# XA Config
+NDRX_XA_RES_ID=1
+NDRX_XA_OPEN_STR=ORACLE_XA+SqlNet=<SID>+ACC=P/<DBUSER>/<DBPASS>+SesTM=180+LogDir=${NDRX_APPHOME}/xa/rm1_dblogs+nolocal=f+Threads=true
+NDRX_XA_CLOSE_STR=ORACLE_XA+SqlNet=<SID>+ACC=P/<DBUSER>/<DBPASS>+SesTM=180+LogDir=${NDRX_APPHOME}/xa/rm1_dblogs+nolocal=f+Threads=true
+NDRX_XA_DRIVERLIB=/usr/lib64/libndrxxaoras.so
+NDRX_XA_RMLIB=/usr/lib/oracle/12.2/client64/lib/libclntsh.so.12.1
+NDRX_XA_LAZY_INIT=1
+NDRX_XA_FLAGS=RECON:*:3:100
+# XA Config, end
+
+---------------------------------------------------------------------------------
+
+- Where <SID> - replace with Oracle DB sid.
+
+- Where <DBUSER> - replace with Oracle DB user name.
+
+- Where <DBPASS> - replace with Oracle DB user password.
+
+Add debug configuration for tmsrv:
+
+Edit */enduro/conf/app.ini*, add following line in the end of "[@debug]" section:
+
+---------------------------------------------------------------------------------
+tmsrv= file=
+---------------------------------------------------------------------------------
+
+This means that logging is done to *stderr* but in turn stderr is forwarded to -e
+paramter of xadmin server, thus "${NDRX_APPHOME}/tmp/tm1.log".
+
+=== Reload & boot missing services
+
+Restart the app server to load new env:
+
+---------------------------------------------------------------------------------
+$ xadmin stop -c -y
+$ xadmin start -y
+---------------------------------------------------------------------------------
+
+if *tmsrv* does not boot, then check the /enduro/log/tpevsrv.log log file. Some
+useful info can be found also in  xa_NULLMMDDYYYY.trc files, in ${NDRX_APPHOME}/xa/rm1_dblogs
+folder.
+
+=== Adding Enduro/X environment as default for user
+
+---------------------------------------------------------------------------------
+$ echo "source /enduro/conf/settrb" >> ~/.bashrc
+---------------------------------------------------------------------------------
+
+
+=== Adding Enduro/X to Systemd at the startup
+
+Firstly as we do not want to replicate the environment of the Enduro/X to the startup
+file, we will create a "environment wrapper" for xadmin tool.
+
+Create file *enduro.start*, add:
+
+---------------------------------------------------------------------------------
+$ cat << EOF > /enduro/bin/enduro.start
+#!/bin/bash
+
+#
+# Wrapper starter script systemd
+#
+
+su trb -c 'source /enduro/conf/settrb; xadmin start -y'
+EOF
+
+$ chmod +x /enduro/bin/enduro.start
+---------------------------------------------------------------------------------
+
+
+Create file *enduro.stop*, add:
+
+---------------------------------------------------------------------------------
+$ cat << EOF > /enduro/bin/enduro.stop
+#!/bin/bash
+
+#
+# Wrapper stopper script systemd
+#
+
+su trb -c 'source /enduro/conf/settrb; xadmin stop -c -y'
+EOF
+
+$ chmod +x /enduro/bin/enduro.stop
+---------------------------------------------------------------------------------
+
+
+Now create the SystemD unit file:
+
+---------------------------------------------------------------------------------
+
+$ su - root
+# cat << EOF > /etc/systemd/system/endurox.service
+[Unit]
+Description=Enduro/X Middleware
+After=rc-local.service
+ 
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/enduro/bin/enduro.start
+ExecStop=/enduro/bin/enduro.stop
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+
+[Install]
+WantedBy=multi-user.target
+
+EOF
+
+---------------------------------------------------------------------------------
+
+Enable the startup:
+
+---------------------------------------------------------------------------------
+# systemctl daemon-reload
+# systemctl enable endurox.service
+---------------------------------------------------------------------------------
+
+
+Test the service script:
+
+---------------------------------------------------------------------------------
+
+# systemctl stop endurox.service
+
+# systemctl start endurox.service
+# systemctl status endurox.service
+
+# systemctl stop endurox.service
+# systemctl status endurox.service
+---------------------------------------------------------------------------------
+
+
+=== Rest service testing with CURL
+
+In this case target XATMI service is not installed, thus we shall get the XATMI
+error 6 - service not available, when will do the request to the URL.
+
+---------------------------------------------------------------------------------
+
+
+$ su - root
+# yum install curl
+
+$ exit
+
+$ curl -H \"Content-Type: application/json\" -X POST -d \ "{\"EX_CC_RESOURCE\":\"TEST\"}"  http://localhost:8181/getaccount
+curl: (6) Could not resolve host: application; Name or service not known
+{"EX_IF_ECODE":6,"EX_CC_RESOURCE":"TEST","EX_IF_EMSG":"6:TPENOENT (last error 6: ndrx_tpacall: Service is not available GETACCOUNT by shm)"}
+
+---------------------------------------------------------------------------------
+
+The error code is ok, in this situation.
+
+System now should be ready for further service deployments.
 
 == Conclusions
 

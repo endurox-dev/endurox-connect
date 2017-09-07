@@ -12,7 +12,7 @@ is described in the man pages *restincl(8)* and *restoutsv(8)*. This doc will al
 cover some functionality of the *tcpgatesv(8)*.
 
 
-== 1. Exposing TCP socket as REST service
+== Exposing TCP socket as REST service
 
 In this setup, we will expose asynchronous TCP socket over the REST service. So
 client will send data encoded in UBF buffer which will be forwarded to TCP Gate.
@@ -613,7 +613,7 @@ folder.
 
 --------------------------------------------------------------------------------
 
-$ echo "source /enduro/conf/settrb" >> ~/.bashrc
+$ echo "source /enduro/conf/setuser1" >> ~/.bashrc
 
 --------------------------------------------------------------------------------
 
@@ -633,7 +633,7 @@ $ cat << EOF > /enduro/bin/enduro.start
 # Wrapper starter script systemd
 #
 
-su trb -c 'source /enduro/conf/settrb; xadmin start -y'
+su user1 -c 'source /enduro/conf/setuser1; xadmin start -y'
 EOF
 
 $ chmod +x /enduro/bin/enduro.start
@@ -651,7 +651,7 @@ $ cat << EOF > /enduro/bin/enduro.stop
 # Wrapper stopper script systemd
 #
 
-su trb -c 'source /enduro/conf/settrb; xadmin stop -c -y'
+su user1 -c 'source /enduro/conf/setuser1; xadmin stop -c -y'
 EOF
 
 $ chmod +x /enduro/bin/enduro.stop

@@ -730,6 +730,107 @@ The error code is ok, in this situation.
 
 System now should be ready for further service deployments.
 
+== Creating GO application framework with Oracle DB and Rest services
+This example will continue the previous chapter and we will make an module application
+based on Golang and Oracle DB with local and distributed transactions. Basically
+we will implement "GETACCOUNT" service.
+
+The project structure will be following:
+
+. "common" - a common module for various utilities shared by other projects
+
+. "bank" - bank module for exposing services
+
+=== Install Golang for RHEL
+
+--------------------------------------------------------------------------------
+
+$ su - root
+# rpm --import https://mirror.go-repo.io/centos/RPM-GPG-KEY-GO-REPO
+# curl -s https://mirror.go-repo.io/centos/go-repo.repo | tee /etc/yum.repos.d/go-repo.repo
+# yum install golang
+
+--------------------------------------------------------------------------------
+
+=== Directory structure and build env
+
+This will create a basic module 
+
+--------------------------------------------------------------------------------
+
+$ mkdir -p /enduro/build/common/src
+$ mkdir -p /enduro/build/bank/src
+
+--------------------------------------------------------------------------------
+
+
+Create modular build env:
+
+
+--------------------------------------------------------------------------------
+
+$ cat << EOF > /enduro/build/setenv
+
+#!/bin/bash
+
+export GOPATH=`pwd`/common:`pwd`/abs
+export CGO_CFLAGS=-DOCI8_ENABLE_XA
+
+
+EOF
+
+$ chmod +x /enduro/build/setenv
+
+
+$ source /enduro/build/setenv
+
+--------------------------------------------------------------------------------
+
+Now we are ready for some builds.
+
+=== Build UBF tab
+
+FML/UBF tables will go to common module, src/ubftab
+
+--------------------------------------------------------------------------------
+
+
+$ mkdir p /enduro/build/common/src/ubftab
+$ cd /enduro/build/common/src/ubftab
+$ xadmin gen ubf tab
+Enduro/X 5.0.7, build Sep  4 2017 01:44:06, using epoll for LINUX (64 bits)
+
+Enduro/X Middleware Platform for Distributed Transaction Processing
+Copyright (C) 2009-2016 ATR Baltic Ltd.
+Copyright (C) 2017 Mavimax Ltd. All Rights Reserved.
+
+This software is released under one of the following licenses:
+GPLv2 (or later) or Mavimax license for commercial use.
+
+Logging to ./ULOG.20170908
+ 0: table_name   :UBF Table name (.fd will be added) [test]: trb
+ 1: base_number  :Base number [6000]: 9000
+ 2: testfields   :Add test fields [y]: 
+ 3: genexfields  :Gen Exfields [y]: 
+ 4: genmake      :Gen makefile [y]: 
+ 5: makeLang     :Target language (c/go) [c]: go
+
+...
+$ make
+
+--------------------------------------------------------------------------------
+
+Remember to choose "go" output language for new UBF tab.
+
+== Add common db functions package/library
+
+For our sample purposes this will the library function will call the database stored
+procedure to which XML will be passed in and stored procedure will provide XML back.
+The XML will be mapped to UBF buffer and used for marshal/unmarshal to FML.
+
+
+
+
 == Conclusions
 
 Enduro/X Connect module is quite powerful and lets user to configure different work

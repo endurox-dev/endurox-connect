@@ -731,6 +731,7 @@ The error code is ok, in this situation.
 System now should be ready for further service deployments.
 
 == Creating GO application framework with Oracle DB and Rest services
+
 This example will continue the previous chapter and we will make an module application
 based on Golang and Oracle DB with local and distributed transactions. Basically
 we will implement "GETACCOUNT" service.
@@ -748,7 +749,7 @@ The project structure will be following:
 $ su - root
 # rpm --import https://mirror.go-repo.io/centos/RPM-GPG-KEY-GO-REPO
 # curl -s https://mirror.go-repo.io/centos/go-repo.repo | tee /etc/yum.repos.d/go-repo.repo
-# yum install golang
+# yum install golang git wget
 
 --------------------------------------------------------------------------------
 
@@ -824,11 +825,449 @@ Remember to choose "go" output language for new UBF tab.
 
 == Add common db functions package/library
 
-For our sample purposes this will the library function will call the database stored
+For our sample purposes this will add library function will call the database stored
 procedure to which XML will be passed in and stored procedure will provide XML back.
 The XML will be mapped to UBF buffer and used for marshal/unmarshal to FML.
 
+=== Install endurox-go and go-oci8 packages
 
+
+--------------------------------------------------------------------------------
+
+$ cd /enduro/build/common
+$ go get -u github.com/endurox-dev/endurox-go
+
+--------------------------------------------------------------------------------
+
+For OCI-8 package, firstly we need to get 'oci8.pc' and set the 'PKG_CONFIG_PATH'
+to that path. and only then we get run "go get". After you have got the 'oci8.pc'
+you need to change the settings accordingly.
+
+--------------------------------------------------------------------------------
+
+$ cd /enduro/build/common
+
+$ wget https://raw.githubusercontent.com/endurox-dev/go-oci8/master/oci8.pc
+
+$ echo 'export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/enduro/build/common' >> /enduro/build/setenv
+
+$ export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/enduro/build/common
+
+$ go get -u github.com/endurox-dev/go-oci8
+
+--------------------------------------------------------------------------------
+
+If errors like 
+
+--------------------------------------------------------------------------------
+
+$ go get -u github.com/endurox-dev/go-oci8
+# github.com/endurox-dev/go-oci8
+src/github.com/endurox-dev/go-oci8/oci8.go:4:17: fatal error: oci.h: No such file or directory
+ #include <oci.h>
+                 ^
+compilation terminated.
+
+
+--------------------------------------------------------------------------------
+
+appear, then invalid settings are present int '/enduro/build/common/oci8.pc' and
+you have to fix them. In my particular case defaults in oci8.pc was pointing to
+Oracle 12.1, but on hdd client was 12.2, thus changed the folder paths.
+
+=== Writing the sample library which calls the stored procedure
+
+
+Sample stored procedure:
+
+--------------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION testproc3(inParam1 IN VARCHAR2)
+RETURN VARCHAR2
+IS
+BEGIN
+
+  RETURN '<hello>'||inParam1||'</hello>';
+  
+END;
+/
+
+--------------------------------------------------------------------------------
+
+Test:
+
+--------------------------------------------------------------------------------
+$ sqlplus 
+
+SQL> select testproc3('abc') from dual;
+
+TESTPROC3('ABC')
+<hello>abc</hello>
+
+--------------------------------------------------------------------------------
+
+Procedure is working ok, now lets wrap it in go call.
+
+
+The oci-8 library call will look like:
+
+File: */enduro/build/common/src/sqlcmn/sqlcmn.go*
+
+--------------------------------------------------------------------------------
+
+package sqlcmn
+
+import (
+    "database/sql"
+    "fmt"
+    _ "github.com/endurox-dev/go-oci8"
+    atmi "github.com/endurox-dev/endurox-go"
+)
+
+func GetData(ac *atmi.ATMICtx, db *sql.DB, dataIn string, dataOut *string) error {
+    //TODO: Use QueryEscape() here...
+    //and maybe check availiblity for precompiled statements...
+    rows1, err1 := db.Query(fmt.Sprintf("select testproc3('%s') from dual", dataIn))
+    if err1 != nil {
+         ac.TpLogError("Query failed: %s", err1.Error())
+    return err1
+    }
+
+    for rows1.Next() {
+        err1 = rows1.Scan(dataOut)
+        if err1 != nil {
+            ac.TpLogError("Scan failed: %s", err1.Error());
+        }
+        ac.TpLogInfo("Got result: [%s]", dataOut);
+    }
+
+    return nil;
+}
+
+--------------------------------------------------------------------------------
+
+For production use the parameters of stored procedure must be escaped.
+
+
+=== Create go server
+
+The go server is generate in the "bank" module: /enduro/build/bank/src/serverg
+The server will expose "GETACCOUNT" service which can be tested from CURL.
+
+--------------------------------------------------------------------------------
+
+$ xadmin gen go server
+Enduro/X 5.0.7, build Sep  4 2017 01:44:06, using epoll for LINUX (64 bits)
+
+Enduro/X Middleware Platform for Distributed Transaction Processing
+Copyright (C) 2009-2016 ATR Baltic Ltd.
+Copyright (C) 2017 Mavimax Ltd. All Rights Reserved.
+
+This software is released under one of the following licenses:
+GPLv2 (or later) or Mavimax license for commercial use.
+
+Logging to ./ULOG.20170911
+ 0: svname       :XATMI Server Name (binary) [testsv]: serverg
+ 1: svcname      :Service name [TESTSV]: GETACCOUNT
+ 2: useubf       :Use UBF? [y]: 
+ 3: ubfname      :UBF package name [ubftab]: 
+ 4: genmake      :Gen makefile [y]: 
+ 5: config       :INI File section (optional, will read config if set) []: SERVERG
+
+*** Review & edit configuration ***
+
+ 0: Edit svname       :XATMI Server Name (binary) [serverg]: 
+ 1: Edit svcname      :Service name [GETACCOUNT]: 
+ 2: Edit useubf       :Use UBF? [y]: 
+ 3: Edit ubfname      :UBF package name [ubftab]: 
+ 4: Edit genmake      :Gen makefile [y]: 
+ 5: Edit config       :INI File section (optional, will read config if set) [SERVERG]: 
+c: Cancel
+w: Accept, write
+Enter the choice [0-5, c, w]: w
+
+--------------------------------------------------------------------------------
+
+The server code looks like:
+
+--------------------------------------------------------------------------------
+package main
+
+import (
+    atmi "github.com/endurox-dev/endurox-go"
+    "fmt"
+    "os"
+    u "ubftab"
+        "database/sql"
+    _ "github.com/endurox-dev/go-oci8"
+    "sqlcmn"
+)
+
+const (
+    SUCCEED = atmi.SUCCEED
+    FAIL    = atmi.FAIL
+    PROGSECTION = "SERVERG"
+)
+
+//Connection to DB
+var M_db *sql.DB
+
+//GETACCOUNT service
+//@param ac ATMI Context
+//@param svc Service call information
+func GETACCOUNT(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
+
+    ret := SUCCEED
+    
+    tranOpen:=false
+    //Return to the caller
+    defer func() {
+
+        ac.TpLogCloseReqFile()
+
+        if tranOpen && SUCCEED == ret {
+            
+            if errA:=ac.TpCommit(0); nil!=errA {
+                ac.TpLogError("Failed to commit: %s", errA.Message())
+                ret = FAIL
+            } else {
+                ac.TpLogInfo("Commit ok");
+            }
+        } else if tranOpen && SUCCEED != ret {
+            if errA:=ac.TpAbort(0); nil!=errA {
+                ac.TpLogError("Failed to commit: %s", errA.Message())
+            } else {
+                ac.TpLogInfo("abort ok");
+            }
+        }
+
+        if SUCCEED == ret {
+            ac.TpReturn(atmi.TPSUCCESS, 0, &svc.Data, 0)
+        } else {
+            ac.TpReturn(atmi.TPFAIL, 0, &svc.Data, 0)
+        }
+    }()
+    
+    
+    //Get UBF Handler
+    ub, _ := ac.CastToUBF(&svc.Data)
+
+    //Print the buffer to stdout
+    ub.TpLogPrintUBF(atmi.LOG_DEBUG, "Incoming request:")
+
+    if 0==ac.TpGetLev() {
+        if errA := ac.TpBegin(60, 0); errA!=nil {
+            ac.TpLogError("Failed to start transaction: %s", errA.Message());
+            ret = FAIL
+            return
+        }
+        tranOpen = true
+    }
+
+    //Resize buffer, to have some more space
+    if err := ub.TpRealloc(1024); err != nil {
+        ac.TpLogError("TpRealloc() Got error: %d:[%s]", err.Code(), err.Message())
+        ret = FAIL
+        return
+    }
+
+
+    datain, err:=ub.BGetString(u.T_DATA_IN, 0)
+
+    if err!=nil {
+        ac.TpLogError("Failed in data: %s", err.Message());
+    }
+    
+    var dataout string
+    if err1:=sqlcmn.GetData(ac, M_db, datain, &dataout); nil!=err1 {
+        ac.TpLogError("Failed to query data: %s", err1.Error())
+        ret = FAIL
+        return
+    }
+
+    //Add test field to buffer
+    if err:=ub.BChg(u.T_DATA_OUT, 0, dataout); err!=nil {
+        ac.TpLogError("BChg() Got error: %d:[%s]", err.Code(), err.Message())
+        ret = FAIL
+        return
+    }
+    
+    return
+}
+
+//Server init, called when process is booted
+//@param ac ATMI Context
+func Init(ac *atmi.ATMICtx) int {
+
+    ac.TpLogWarn("Doing server init...");
+
+    if err := ac.TpInit(); err != nil {
+        return FAIL;
+    }
+
+    /* connect to XA */
+    if err := ac.TpOpen(); err != nil {
+            fmt.Println(err)
+            return atmi.FAIL
+        }
+
+    //Get the configuration
+
+    //Allocate configuration buffer
+    buf, err := ac.NewUBF(16 * 1024)
+    if nil != err {
+        ac.TpLogError("Failed to allocate buffer: [%s]", err.Error())
+        return FAIL
+    }
+
+    buf.BChg(u.EX_CC_CMD, 0, "g")
+    buf.BChg(u.EX_CC_LOOKUPSECTION, 0, fmt.Sprintf("%s/%s", PROGSECTION, os.Getenv("NDRX_CCTAG")))
+
+    if _, err := ac.TpCall("@CCONF", buf, 0); nil != err {
+        ac.TpLogError("ATMI Error %d:[%s]\n", err.Code(), err.Message())
+        return FAIL;
+    }
+
+    //Dump to log the config read
+    buf.TpLogPrintUBF(atmi.LOG_DEBUG, "Got configuration.")
+
+    occs, _ := buf.BOccur(u.EX_CC_KEY)
+
+    // Load in the config...
+    for occ := 0; occ < occs; occ++ {
+        ac.TpLogDebug("occ %d", occ)
+        fldName, err := buf.BGetString(u.EX_CC_KEY, occ)
+
+        if nil != err {
+            ac.TpLogError("Failed to get field "+
+                "%d occ %d", u.EX_CC_KEY, occ)
+            return FAIL;
+        }
+
+        ac.TpLogDebug("Got config field [%s]", fldName)
+
+        switch fldName {
+
+        case "someconfig":
+                    myval, _ := buf.BGetString(u.EX_CC_VALUE, occ);
+            ac.TpLogDebug("Got [%s] = [%s] ", fldName, myval);
+            break
+
+        default:
+
+            break
+        }
+    }
+
+    ac.TpLogInfo("Open XA db connection...");
+    if err := ac.TpOpen(); err != nil {
+            ac.TpLogError("tpopen fail: %s", err.Error())
+            return atmi.FAIL
+        }
+
+    //Connect to XA driver (empty conn string...) & get the SQL handler.
+    //Dummy because using stuff from tpopen();
+
+        if db, err := sql.Open("oci8", "dummy_user:dummy_pass@localhost:1111/SID?enable_xa=YES"); err != nil {
+                ac.TpLogError("Failed to get SQL handler: %s", err.Error())
+                return atmi.FAIL
+        } else {
+                M_db = db
+        }
+
+    //Advertize service
+    if err := ac.TpAdvertise("GETACCOUNT", "GETACCOUNT", GETACCOUNT); err != nil {
+        ac.TpLogError("Failed to Advertise: ATMI Error %d:[%s]\n", err.Code(), err.Message())
+        return atmi.FAIL
+    }
+
+    return SUCCEED
+}
+
+//Server shutdown
+//@param ac ATMI Context
+func Uninit(ac *atmi.ATMICtx) {
+    ac.TpClose()
+    ac.TpLogWarn("Server is shutting down...");
+}
+
+//Executable main entry point
+func main() {
+    //Have some context
+    ac, err := atmi.NewATMICtx()
+
+    if nil != err {
+        fmt.Fprintf(os.Stderr, "Failed to allocate new context: %s", err)
+        os.Exit(atmi.FAIL)
+    } else {
+                //Run as server
+                if err=ac.TpRun(Init, Uninit); nil!=err {
+                        ac.TpLogError("Exit with failure");
+                        os.Exit(atmi.FAIL)
+                } else {
+                        ac.TpLogInfo("Exit with success");
+                        os.Exit(atmi.SUCCEED)
+                }
+    }
+}
+--------------------------------------------------------------------------------
+
+Register off the binary in */enduro/conf/ndrxconfig.xml*, edit
+
+--------------------------------------------------------------------------------
+        <servers>
+...
+                <server name="serverg">
+                        <srvid>1500</srvid>
+                        <min>2</min>
+                        <max>2</max>
+                        <sysopt>-e ${NDRX_APPHOME}/log/serverg.log -r -- </sysopt>
+                </server>
+...
+        </servers>
+
+
+--------------------------------------------------------------------------------
+
+Add symbolic link to the binary in the /enduro/bin directory:
+
+--------------------------------------------------------------------------------
+
+$ cd /enduro/bin
+$ ln -s /enduro/build/abs/src/serverg/serverg .
+
+--------------------------------------------------------------------------------
+
+Reload the Enduro/X config and start off the new server:
+
+--------------------------------------------------------------------------------
+
+$ xadmin reload
+
+$ xadmin start -s serverg
+
+
+$ xadmin psc
+
+Nd Service Name Routine Name Prog Name SRVID #SUCC #FAIL MAX      LAST     STAT
+-- ------------ ------------ --------- ----- ----- ----- -------- -------- -----
+1  GETACCOUNT   GETACCOUNT   serverg   1500  0     0     0ms      0ms      AVAIL
+1  GETACCOUNT   GETACCOUNT   serverg   1501  0     0     0ms      0ms      AVAIL
+
+--------------------------------------------------------------------------------
+
+We are ready to go.
+
+=== Tests from CURL
+
+--------------------------------------------------------------------------------
+
+$ curl -H \"Content-Type: application/json\" -X POST -d "{\"T_DATA_IN\": \"HELLO\"}" http://localhost:8181/getaccount
+{"EX_IF_ECODE":0,"EX_IF_EMSG":"SUCCEED","T_DATA_IN":"HELLO","T_DATA_OUT":"<hello>HELLO</hello>"}
+
+--------------------------------------------------------------------------------
+
+So in the end we see that we have got an data from database!
 
 
 == Conclusions

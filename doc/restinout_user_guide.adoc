@@ -826,8 +826,8 @@ Remember to choose "go" output language for new UBF tab.
 == Add common db functions package/library
 
 For our sample purposes this will add library function will call the database stored
-procedure to which XML will be passed in and stored procedure will provide XML back.
-The XML will be mapped to UBF buffer and used for marshal/unmarshal to FML.
+function. The function will receive one paramter and will receive value in return 
+code.
 
 === Install endurox-go and go-oci8 packages
 

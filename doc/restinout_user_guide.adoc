@@ -771,23 +771,19 @@ Create modular build env:
 --------------------------------------------------------------------------------
 
 $ cat << EOF > /enduro/build/setenv
-
 #!/bin/bash
-
 export GOPATH=`pwd`/common:`pwd`/abs
 export CGO_CFLAGS=-DOCI8_ENABLE_XA
-
-
 EOF
 
 $ chmod +x /enduro/build/setenv
-
-
 $ source /enduro/build/setenv
-
 --------------------------------------------------------------------------------
 
 Now we are ready for some builds.
+
+NOTE: that every time you start the development, you shall do the 
+'source /enduro/build/setenv' in your terminal!
 
 === Build UBF tab
 
@@ -809,7 +805,7 @@ This software is released under one of the following licenses:
 GPLv2 (or later) or Mavimax license for commercial use.
 
 Logging to ./ULOG.20170908
- 0: table_name   :UBF Table name (.fd will be added) [test]: trb
+ 0: table_name   :UBF Table name (.fd will be added) [test]: bank.fd
  1: base_number  :Base number [6000]: 9000
  2: testfields   :Add test fields [y]: 
  3: genexfields  :Gen Exfields [y]: 
@@ -823,13 +819,64 @@ $ make
 
 Remember to choose "go" output language for new UBF tab.
 
-== Add common db functions package/library
+Add new interface fiels to 'bank.fd'
+
+--------------------------------------------------------------------------------
+
+...
+
+*base 9000
+
+T_DATA_IN               100     string  - 1 data in
+T_DATA_OUT              101     string  - 1 data out
+
+...
+
+--------------------------------------------------------------------------------
+
+Run off the make:
+
+--------------------------------------------------------------------------------
+
+$ make
+make -f Mclang
+make[1]: Entering directory `/enduro/build/common/src/ubftab'
+make[1]: Mclang: No such file or directory
+make[1]: *** No rule to make target `Mclang'.  Stop.
+make[1]: Leaving directory `/enduro/build/common/src/ubftab'
+make: [all] Error 2 (ignored)
+make -f Mgolang
+$SOURCES is [Exfields bank.fd]
+$OUTPUT is [Exfields.go bank.fd.go]
+$FIELDTBLS is [Exfields,bank.fd]
+make[1]: Entering directory `/enduro/build/common/src/ubftab'
+mkfldhdr -m1 -pubftab
+To control debug output, set debugconfig file path in $NDRX_DEBUG_CONF
+N:NDRX:5:12477:7fbbfcf82780:000:20170911:015710057:fldhdr.c:0229:Output directory is [.]
+N:NDRX:5:12477:7fbbfcf82780:000:20170911:015710057:fldhdr.c:0230:Language mode [1]
+N:NDRX:5:12477:7fbbfcf82780:000:20170911:015710057:fldhdr.c:0231:Private data [ubftab]
+N:NDRX:5:12477:7fbbfcf82780:000:20170911:015710057:fldhdr.c:0243:Use environment variables
+U:UBF :5:12477:7fbbfcf82780:000:20170911:015710057:dtable.c:0115:Using NDRX_UBFMAXFLDS: 16000
+N:NDRX:5:12477:7fbbfcf82780:000:20170911:015710057:fldhdr.c:0303:enter generate_files()
+U:UBF :5:12477:7fbbfcf82780:000:20170911:015710057:fldhdr.c:0138:Load field dir [/enduro/build/common/src/ubftab]
+U:UBF :5:12477:7fbbfcf82780:000:20170911:015710057:fldhdr.c:0149:About to load fields list [Exfields,bank.fd]
+N:NDRX:5:12477:7fbbfcf82780:000:20170911:015710058:fldhdr.c:0369:/enduro/build/common/src/ubftab/Exfields processed OK, output: ./Exfields.go
+N:NDRX:5:12477:7fbbfcf82780:000:20170911:015710058:fldhdr.c:0369:/enduro/build/common/src/ubftab/bank.fd processed OK, output: ./bank.fd.go
+N:NDRX:5:12477:7fbbfcf82780:000:20170911:015710058:fldhdr.c:0256:Finished with : SUCCESS
+go build  -o ubftab *.go
+go install  ./...
+make[1]: Leaving directory `/enduro/build/common/src/ubftab'
+
+--------------------------------------------------------------------------------
+
+
+=== Add common db functions package/library
 
 For our sample purposes this will add library function will call the database stored
 function. The function will receive one paramter and will receive value in return 
 code.
 
-=== Install endurox-go and go-oci8 packages
+==== Install endurox-go and go-oci8 packages
 
 
 --------------------------------------------------------------------------------
@@ -846,13 +893,9 @@ you need to change the settings accordingly.
 --------------------------------------------------------------------------------
 
 $ cd /enduro/build/common
-
 $ wget https://raw.githubusercontent.com/endurox-dev/go-oci8/master/oci8.pc
-
 $ echo 'export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/enduro/build/common' >> /enduro/build/setenv
-
 $ export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/enduro/build/common
-
 $ go get -u github.com/endurox-dev/go-oci8
 
 --------------------------------------------------------------------------------
@@ -875,7 +918,7 @@ appear, then invalid settings are present int '/enduro/build/common/oci8.pc' and
 you have to fix them. In my particular case defaults in oci8.pc was pointing to
 Oracle 12.1, but on hdd client was 12.2, thus changed the folder paths.
 
-=== Writing the sample library which calls the stored procedure
+==== Writing the sample library which calls the stored procedure
 
 
 Sample stored procedure:
@@ -1238,15 +1281,32 @@ $ ln -s /enduro/build/abs/src/serverg/serverg .
 
 --------------------------------------------------------------------------------
 
+Add "bank.fd" to the */enduro/conf/app.ini*, section '[@global]'
+
+--------------------------------------------------------------------------------
+
+[@global]
+...
+FIELDTBLS=Exfields,bank.fd
+..
+
+--------------------------------------------------------------------------------
+
+Also add the link in runtime 'ubftab' directory to build time bank.fd file:
+
+
+--------------------------------------------------------------------------------
+$ cd /enduro/ubftab
+$ ln -s /enduro/build/common/src/ubftab/bank.fd .
+--------------------------------------------------------------------------------
+
+
 Reload the Enduro/X config and start off the new server:
 
 --------------------------------------------------------------------------------
 
 $ xadmin reload
-
 $ xadmin start -s serverg
-
-
 $ xadmin psc
 
 Nd Service Name Routine Name Prog Name SRVID #SUCC #FAIL MAX      LAST     STAT

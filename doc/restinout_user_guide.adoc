@@ -930,8 +930,8 @@ RETURN VARCHAR2
 IS
 BEGIN
 
-  RETURN '<hello>'||inParam1||'</hello>';
-  
+  RETURN '<ResponseMsg><hello>'||inParam1||'</hello></ResponseMsg>';
+
 END;
 /
 
@@ -981,7 +981,7 @@ func GetData(ac *atmi.ATMICtx, db *sql.DB, dataIn string, dataOut *string) error
         if err1 != nil {
             ac.TpLogError("Scan failed: %s", err1.Error());
         }
-        ac.TpLogInfo("Got result: [%s]", dataOut);
+        ac.TpLogInfo("Got result: [%s]", *dataOut);
     }
 
     return nil;
@@ -1038,23 +1038,30 @@ is not a problem for us, we do not plan here to use goroutines for informative
 services. Thus one thread for one server process - no problem.
 
 --------------------------------------------------------------------------------
+
 package main
 
 import (
-    atmi "github.com/endurox-dev/endurox-go"
-    "fmt"
-    "os"
-    u "ubftab"
+	atmi "github.com/endurox-dev/endurox-go"
+	"fmt"
+	"os"
+	u "ubftab"
         "database/sql"
-    _ "github.com/endurox-dev/go-oci8"
-    "sqlcmn"
+	_ "github.com/endurox-dev/go-oci8"
+	"sqlcmn"
+	"runtime"
+	"encoding/xml"
 )
 
 const (
-    SUCCEED = atmi.SUCCEED
-    FAIL    = atmi.FAIL
-    PROGSECTION = "SERVERG"
+	SUCCEED = atmi.SUCCEED
+	FAIL    = atmi.FAIL
+	PROGSECTION = "SERVERG"
 )
+
+type ResponseMsg struct {
+        HelloData string `xml:"hello" ubf:"T_DATA_OUT"`
+}
 
 //Connection to DB
 var M_db *sql.DB
@@ -1064,197 +1071,212 @@ var M_db *sql.DB
 //@param svc Service call information
 func GETACCOUNT(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 
-    ret := SUCCEED
-    
-    tranOpen:=false
-    //Return to the caller
-    defer func() {
+	ret := SUCCEED
+	
+	tranOpen:=false
+	//Return to the caller
+	defer func() {
 
-        ac.TpLogCloseReqFile()
+		ac.TpLogCloseReqFile()
 
-        if tranOpen && SUCCEED == ret {
-            
-            if errA:=ac.TpCommit(0); nil!=errA {
-                ac.TpLogError("Failed to commit: %s", errA.Message())
-                ret = FAIL
-            } else {
-                ac.TpLogInfo("Commit ok");
-            }
-        } else if tranOpen && SUCCEED != ret {
-            if errA:=ac.TpAbort(0); nil!=errA {
-                ac.TpLogError("Failed to commit: %s", errA.Message())
-            } else {
-                ac.TpLogInfo("abort ok");
-            }
-        }
+		if tranOpen && SUCCEED == ret {
+			
+			if errA:=ac.TpCommit(0); nil!=errA {
+				ac.TpLogError("Failed to commit: %s", errA.Message())
+				ret = FAIL
+			} else {
+				ac.TpLogInfo("Commit ok");
+			}
+		} else if tranOpen && SUCCEED != ret {
+			if errA:=ac.TpAbort(0); nil!=errA {
+				ac.TpLogError("Failed to commit: %s", errA.Message())
+			} else {
+				ac.TpLogInfo("abort ok");
+			}
+		}
 
-        if SUCCEED == ret {
-            ac.TpReturn(atmi.TPSUCCESS, 0, &svc.Data, 0)
-        } else {
-            ac.TpReturn(atmi.TPFAIL, 0, &svc.Data, 0)
-        }
-    }()
-    
-    
-    //Get UBF Handler
-    ub, _ := ac.CastToUBF(&svc.Data)
+		if SUCCEED == ret {
+			ac.TpReturn(atmi.TPSUCCESS, 0, &svc.Data, 0)
+		} else {
+			ac.TpReturn(atmi.TPFAIL, 0, &svc.Data, 0)
+		}
+	}()
+	
+	
+	//Get UBF Handler
+	ub, _ := ac.CastToUBF(&svc.Data)
 
-    //Print the buffer to stdout
-    ub.TpLogPrintUBF(atmi.LOG_DEBUG, "Incoming request:")
+	//Print the buffer to stdout
+	ub.TpLogPrintUBF(atmi.LOG_DEBUG, "Incoming request:")
 
-    if 0==ac.TpGetLev() {
-        if errA := ac.TpBegin(60, 0); errA!=nil {
-            ac.TpLogError("Failed to start transaction: %s", errA.Message());
-            ret = FAIL
-            return
-        }
-        tranOpen = true
-    }
+	if 0==ac.TpGetLev() {
+		if errA := ac.TpBegin(60, 0); errA!=nil {
+			ac.TpLogError("Failed to start transaction: %s", errA.Message());
+			ret = FAIL
+			return
+		}
+		tranOpen = true
+	}
 
-    //Resize buffer, to have some more space
-    if err := ub.TpRealloc(1024); err != nil {
-        ac.TpLogError("TpRealloc() Got error: %d:[%s]", err.Code(), err.Message())
-        ret = FAIL
-        return
-    }
+	//Resize buffer, to have some more space
+	if err := ub.TpRealloc(1024); err != nil {
+		ac.TpLogError("TpRealloc() Got error: %d:[%s]", err.Code(), err.Message())
+		ret = FAIL
+		return
+	}
 
 
-    datain, err:=ub.BGetString(u.T_DATA_IN, 0)
+	datain, err:=ub.BGetString(u.T_DATA_IN, 0)
 
-    if err!=nil {
-        ac.TpLogError("Failed in data: %s", err.Message());
-    }
-    
-    var dataout string
-    if err1:=sqlcmn.GetData(ac, M_db, datain, &dataout); nil!=err1 {
-        ac.TpLogError("Failed to query data: %s", err1.Error())
-        ret = FAIL
-        return
-    }
+	if err!=nil {
+		ac.TpLogError("Failed in data: %s", err.Message());
+	}
+	
+	var dataout string
+	if err1:=sqlcmn.GetData(ac, M_db, datain, &dataout); nil!=err1 {
+		ac.TpLogError("Failed to query data: %s", err1.Error())
+		ret = FAIL
+		return
+	}
 
-    //Add test field to buffer
-    if err:=ub.BChg(u.T_DATA_OUT, 0, dataout); err!=nil {
-        ac.TpLogError("BChg() Got error: %d:[%s]", err.Code(), err.Message())
-        ret = FAIL
-        return
-    }
-    
-    return
+/*
+	//Add test field to buffer
+	if err:=ub.BChg(u.T_DATA_OUT, 0, dataout); err!=nil {
+		ac.TpLogError("BChg() Got error: %d:[%s]", err.Code(), err.Message())
+		ret = FAIL
+		return
+	}
+*/
+	
+	var m ResponseMsg
+
+	ac.TpLogInfo("Got data from DB: [%s]", dataout);
+
+	
+	//TODO: Check errors
+	err1:=xml.Unmarshal([]byte(dataout), &m)
+	if nil!=err1 {
+		ac.TpLogError("Failed to unmarshal xml: %s", err1.Error());
+		ret = FAIL
+		return
+	}
+
+	ac.TpLogInfo("Parsed XML: [%s]", m.HelloData);
+
+	//TODO: Check errors
+	errU:=ub.Marshal(&m)
+	if nil!=errU {
+		ac.TpLogError("Failed to marshal UBF: %s", errU.Message());
+		ret = FAIL
+		return
+	}
+	
+	return
 }
 
 //Server init, called when process is booted
 //@param ac ATMI Context
 func Init(ac *atmi.ATMICtx) int {
 
-    ac.TpLogWarn("Doing server init...");
-    
-    //Run in single thread (this will include further connection to db)
-    runtime.LockOSThread()
-    ////////////////////////////////////////////////////////////////////////
-    //DB must run in global transaction...
-    ////////////////////////////////////////////////////////////////////////
-    ac.AssocThreadWithCtx()
-    
+	ac.TpLogWarn("Doing server init...");
 
-    if err := ac.TpInit(); err != nil {
-        return FAIL;
-    }
+    	//Run in single thread (this will include further connection to db)
+    	runtime.LockOSThread()
 
-    /* connect to XA */
-    if err := ac.TpOpen(); err != nil {
-            fmt.Println(err)
-            return atmi.FAIL
-        }
+	if err := ac.TpInit(); err != nil {
+		return FAIL;
+	}
 
-    //Get the configuration
+	/* connect to XA */
+ 	if err := ac.TpOpen(); err != nil {
+        	fmt.Println(err)
+        	return atmi.FAIL
+    	}
 
-    //Allocate configuration buffer
-    buf, err := ac.NewUBF(16 * 1024)
-    if nil != err {
-        ac.TpLogError("Failed to allocate buffer: [%s]", err.Error())
-        return FAIL
-    }
+	//Get the configuration
 
-    buf.BChg(u.EX_CC_CMD, 0, "g")
-    buf.BChg(u.EX_CC_LOOKUPSECTION, 0, fmt.Sprintf("%s/%s", PROGSECTION, os.Getenv("NDRX_CCTAG")))
+	//Allocate configuration buffer
+	buf, err := ac.NewUBF(16 * 1024)
+	if nil != err {
+		ac.TpLogError("Failed to allocate buffer: [%s]", err.Error())
+		return FAIL
+	}
 
-    if _, err := ac.TpCall("@CCONF", buf, 0); nil != err {
-        ac.TpLogError("ATMI Error %d:[%s]\n", err.Code(), err.Message())
-        return FAIL;
-    }
+	buf.BChg(u.EX_CC_CMD, 0, "g")
+	buf.BChg(u.EX_CC_LOOKUPSECTION, 0, fmt.Sprintf("%s/%s", PROGSECTION, os.Getenv("NDRX_CCTAG")))
 
-    //Dump to log the config read
-    buf.TpLogPrintUBF(atmi.LOG_DEBUG, "Got configuration.")
+	if _, err := ac.TpCall("@CCONF", buf, 0); nil != err {
+		ac.TpLogError("ATMI Error %d:[%s]\n", err.Code(), err.Message())
+		return FAIL;
+	}
 
-    occs, _ := buf.BOccur(u.EX_CC_KEY)
+	//Dump to log the config read
+	buf.TpLogPrintUBF(atmi.LOG_DEBUG, "Got configuration.")
 
-    // Load in the config...
-    for occ := 0; occ < occs; occ++ {
-        ac.TpLogDebug("occ %d", occ)
-        fldName, err := buf.BGetString(u.EX_CC_KEY, occ)
+	occs, _ := buf.BOccur(u.EX_CC_KEY)
 
-        if nil != err {
-            ac.TpLogError("Failed to get field "+
-                "%d occ %d", u.EX_CC_KEY, occ)
-            return FAIL;
-        }
+	// Load in the config...
+	for occ := 0; occ < occs; occ++ {
+		ac.TpLogDebug("occ %d", occ)
+		fldName, err := buf.BGetString(u.EX_CC_KEY, occ)
 
-        ac.TpLogDebug("Got config field [%s]", fldName)
+		if nil != err {
+			ac.TpLogError("Failed to get field "+
+				"%d occ %d", u.EX_CC_KEY, occ)
+			return FAIL;
+		}
 
-        switch fldName {
+		ac.TpLogDebug("Got config field [%s]", fldName)
 
-        case "someconfig":
-                    myval, _ := buf.BGetString(u.EX_CC_VALUE, occ);
-            ac.TpLogDebug("Got [%s] = [%s] ", fldName, myval);
-            break
+		switch fldName {
 
-        default:
+		case "someconfig":
+            		myval, _ := buf.BGetString(u.EX_CC_VALUE, occ);
+			ac.TpLogDebug("Got [%s] = [%s] ", fldName, myval);
+			break
 
-            break
-        }
-    }
+		default:
 
-    ac.TpLogInfo("Open XA db connection...");
-    if err := ac.TpOpen(); err != nil {
-            ac.TpLogError("tpopen fail: %s", err.Error())
-            return atmi.FAIL
-        }
+			break
+		}
+	}
 
-    //Connect to XA driver (empty conn string...) & get the SQL handler.
-    //Dummy because using stuff from tpopen();
+	//Connect to XA driver (empty conn string...) & get the SQL handler.
+	//Dummy because using stuff from tpopen();
 
-        if db, err := sql.Open("oci8", "dummy_user:dummy_pass@localhost:1111/SID?enable_xa=YES"); err != nil {
-                ac.TpLogError("Failed to get SQL handler: %s", err.Error())
-                return atmi.FAIL
-        } else {
-                M_db = db
-        }
+	ac.TpLogInfo("Opening DB connection...");
+       	if db, err := sql.Open("oci8", "dummy_user:dummy_pass@localhost:1111/SID?enable_xa=YES"); err != nil {
+               	ac.TpLogError("Failed to get SQL handler: %s", err.Error())
+               	return atmi.FAIL
+       	} else {
+               	M_db = db
+       	}
 
-    //Advertize service
-    if err := ac.TpAdvertise("GETACCOUNT", "GETACCOUNT", GETACCOUNT); err != nil {
-        ac.TpLogError("Failed to Advertise: ATMI Error %d:[%s]\n", err.Code(), err.Message())
-        return atmi.FAIL
-    }
+	//Advertize service
+	if err := ac.TpAdvertise("GETACCOUNT", "GETACCOUNT", GETACCOUNT); err != nil {
+		ac.TpLogError("Failed to Advertise: ATMI Error %d:[%s]\n", err.Code(), err.Message())
+		return atmi.FAIL
+	}
 
-    return SUCCEED
+	return SUCCEED
 }
 
 //Server shutdown
 //@param ac ATMI Context
 func Uninit(ac *atmi.ATMICtx) {
-    ac.TpClose()
-    ac.TpLogWarn("Server is shutting down...");
+	ac.TpClose()
+	ac.TpLogWarn("Server is shutting down...");
 }
 
 //Executable main entry point
 func main() {
-    //Have some context
-    ac, err := atmi.NewATMICtx()
+	//Have some context
+	ac, err := atmi.NewATMICtx()
 
-    if nil != err {
-        fmt.Fprintf(os.Stderr, "Failed to allocate new context: %s", err)
-        os.Exit(atmi.FAIL)
-    } else {
+	if nil != err {
+		fmt.Fprintf(os.Stderr, "Failed to allocate new context: %s", err)
+		os.Exit(atmi.FAIL)
+	} else {
                 //Run as server
                 if err=ac.TpRun(Init, Uninit); nil!=err {
                         ac.TpLogError("Exit with failure");
@@ -1263,8 +1285,10 @@ func main() {
                         ac.TpLogInfo("Exit with success");
                         os.Exit(atmi.SUCCEED)
                 }
-    }
+	}
 }
+
+
 --------------------------------------------------------------------------------
 
 Register off the binary in */enduro/conf/ndrxconfig.xml*, edit

@@ -930,7 +930,7 @@ RETURN VARCHAR2
 IS
 BEGIN
 
-  RETURN '<ResponseMsg><hello>'||inParam1||'</hello></ResponseMsg>';
+  RETURN '<ResponseMsg><hello>'||inParam1||' from database!</hello></ResponseMsg>';
 
 END;
 /
@@ -1359,7 +1359,7 @@ We are ready to go.
 --------------------------------------------------------------------------------
 
 $ curl -H \"Content-Type: application/json\" -X POST -d "{\"T_DATA_IN\": \"HELLO\"}" http://localhost:8181/getaccount
-{"EX_IF_ECODE":0,"EX_IF_EMSG":"SUCCEED","T_DATA_IN":"HELLO","T_DATA_OUT":"HELLO"}
+{"EX_IF_ECODE":0,"EX_IF_EMSG":"SUCCEED","T_DATA_IN":"HELLO","T_DATA_OUT":"HELLO from database!"}
 
 --------------------------------------------------------------------------------
 

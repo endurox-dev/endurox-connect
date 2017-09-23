@@ -79,10 +79,11 @@ const (
 
 //Conversion types resolved
 const (
-	CONV_JSON2UBF = 1
-	CONV_TEXT     = 2
-	CONV_JSON     = 3
-	CONV_RAW      = 4
+	CONV_JSON2UBF  = 1
+	CONV_TEXT      = 2
+	CONV_JSON      = 3
+	CONV_RAW       = 4
+	CONV_JSON2VIEW = 5
 )
 
 //Defaults
@@ -112,11 +113,31 @@ type ServiceMap struct {
 	Errfmt_json_msg  string `json:"errfmt_json_msg"`
 	Errfmt_json_code string `json:"errfmt_json_code"`
 	//If set, then generate code/message for success too
-	Errfmt_json_onsucc bool   `json:"errfmt_json_onsucc"`
-	Asynccall          bool   `json:"async"`     //use tpacall()
-	Asyncecho          bool   `json:"asyncecho"` //echo message in async mode
-	Conv               string `json:"conv"`      //Conv mode
-	Conv_int           int    //Resolve conversion type
+	Errfmt_json_onsucc bool `json:"errfmt_json_onsucc"`
+
+	//In case of json2view errors, we install the return
+	//code direclty in the given fields
+	Errfmt_view_msg    string `json:"errfmt_view_msg"`
+	Errfmt_view_code   string `json:"errfmt_view_code"`
+	Errfmt_view_onsucc bool   `json:"errfmt_view_onsucc"`
+
+	//Response view, if in original buffer fields defined in
+	//errfmt_view_msg and errfmt_view_code are not found.
+	//Must be set in case of 'async' if 'asyncecho' not set. In all other
+	//cases for example if json2view errors are used, system will try
+	//to install the error code in original buffer (either from service
+	//response or parsed incomming msg)
+	//In case if errfmt_view_rsp_first then errfmt_view_rsp is mandatory too
+	//and errors are always returned within the 'errfmt_view_rsp' view struct
+	Errfmt_view_rsp string `json:"errfmt_view_rsp"`
+	//In case of normal calls, this will be set only if 'errfmt_view_onsucc' is
+	//set, otherwise if there is no error, then normal response object is returned
+	Errfmt_view_rsp_first bool `json:"errfmt_view_rsp_first"`
+
+	Asynccall bool   `json:"async"`     //use tpacall()
+	Asyncecho bool   `json:"asyncecho"` //echo message in async mode
+	Conv      string `json:"conv"`      //Conv mode
+	Conv_int  int    //Resolve conversion type
 	//Request logging classify service
 	Reqlogsvc string `json:"reqlogsvc"`
 	//Error mapping Enduro/X error code (including * for all):http error code
@@ -143,10 +164,11 @@ var M_tls_key_file string
 //Conversion types
 var M_convs = map[string]int{
 
-	"json2ubf": CONV_JSON2UBF,
-	"text":     CONV_TEXT,
-	"json":     CONV_JSON,
-	"raw":      CONV_RAW,
+	"json2ubf":  CONV_JSON2UBF,
+	"text":      CONV_TEXT,
+	"json":      CONV_JSON,
+	"raw":       CONV_RAW,
+	"json2view": CONV_JSON2VIEW,
 }
 
 var M_workers int
@@ -164,6 +186,9 @@ func remapErrors(svc *ServiceMap) error {
 		svc.Errors_int = ERRORS_JSON
 		break
 	case "json2ubf":
+		svc.Errors_int = ERRORS_JSON2UBF
+		break
+	case "json2view":
 		svc.Errors_int = ERRORS_JSON2UBF
 		break
 	case "text":
@@ -397,6 +422,11 @@ func appinit(ac *atmi.ATMICtx) error {
 				return fmt.Errorf("Invalid conv: %s", M_defaults.Conv)
 			}
 
+			//Validate view settings (if any)
+			if err = ViewSvcValidateSettings(ac, &M_defaults); err != nil {
+				return err
+			}
+
 			printSvcSummary(ac, &M_defaults)
 
 			break
@@ -442,6 +472,11 @@ func appinit(ac *atmi.ATMICtx) error {
 
 				if tmp.Conv_int == 0 {
 					return fmt.Errorf("Invalid conv: %s", tmp.Conv)
+				}
+
+				//Validate view settings (if any)
+				if err = ViewSvcValidateSettings(ac, &tmp); err != nil {
+					return err
 				}
 
 				printSvcSummary(ac, &tmp)

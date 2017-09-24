@@ -164,9 +164,6 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 			if svc.Errors_int == ERRORS_JSON2VIEW {
 
 				rsp = VIEWGenDefaultResponse(ac, svc, atmiErr)
-				if nil == rsp {
-					return //Nothing to do
-				}
 
 			}
 		} else if !ok || nil == buf { //Nil case goes here too
@@ -179,9 +176,6 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 
 			if svc.Errors_int == ERRORS_JSON2VIEW {
 				rsp = VIEWGenDefaultResponse(ac, svc, atmiErr)
-				if nil == rsp {
-					return //Nothing to do
-				}
 			}
 		} else {
 
@@ -199,9 +193,7 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 					//Response directly with response object
 
 					rsp = VIEWGenDefaultResponse(ac, svc, atmiErr)
-					if nil == rsp {
-						return //Nothing to do or respond with empty JSON?
-					}
+
 				} else {
 					//Install response in view object
 
@@ -275,10 +267,10 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 					if err.Code() == atmi.TPMINVAL {
 						err = err1
 					}
-
-					if svc.Errors_int == ERRORS_JSON2UBF {
-						rsp = []byte(fmt.Sprintf("{EX_IF_ECODE:%d, EX_IF_EMSG:\"%s\"}",
-							err1.Code(), err1.Message()))
+					//In case of failure, just return empty json (should be assumed
+					//as timeout from on other end
+					if svc.Errors_int == ERRORS_JSON2VIEW {
+						rsp = []byte("{}")
 					}
 				}
 			}
@@ -591,10 +583,10 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter, req
 		if svc.Echo {
 			genRsp(ac, buf, svc, w, err, reqlogOpen)
 		} else if svc.Asynccall {
-			_, err := ac.TpACall(svc.Svc, buf.GetBuf(), flags|atmi.TPNOREPLY)
+			_, err := ac.TpACall(svc.Svc, buf, flags|atmi.TPNOREPLY)
 			genRsp(ac, buf, svc, w, err, reqlogOpen)
 		} else {
-			_, err := ac.TpCall(svc.Svc, buf.GetBuf(), flags)
+			_, err := ac.TpCall(svc.Svc, buf, flags)
 			genRsp(ac, buf, svc, w, err, reqlogOpen)
 		}
 	}

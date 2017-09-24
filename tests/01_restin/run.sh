@@ -148,6 +148,120 @@ http://localhost:8080/view/ok/errsucc 2>&1 )`
 	fi
 done
 
+
+###############################################################################
+echo "VIEW TEST return different object"
+###############################################################################
+for i in {1..10}
+do
+
+	# Having a -i means to print the headers
+        RSP=`(curl -s -H "Content-Type: application/json" -X POST -d \
+"{ \
+	\"REQUEST1\": { \
+		\"tshort1\": 5, \
+		\"tlong1\": 77777, \
+		\"tstring1\": [\"\", \"INCOMING TEST\"] \
+	} \
+}" \
+http://localhost:8080/view/ok/diffbuff 2>&1 )`
+
+	RSP_EXPECTED="{\"REQUEST2\":{\"tshort2\":5,\
+\"tlong2\":77777,\
+\"tstring2\":\"INCOMING TEST\"}}"
+	echo "Response: [$RSP]"
+	
+	if [[ "X$RSP" != "X$RSP_EXPECTED" ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 26
+	fi
+done
+
+###############################################################################
+echo "VIEW TEST return different object"
+###############################################################################
+for i in {1..10}
+do
+
+	# Having a -i means to print the headers
+        RSP=`(curl -s -H "Content-Type: application/json" -X POST -d \
+"{ \
+	\"REQUEST1\": { \
+		\"tshort1\": 5, \
+		\"tlong1\": 77777, \
+		\"tstring1\": [\"\", \"INCOMING TEST\"] \
+	} \
+}" \
+http://localhost:8080/view/ok/diffbuff 2>&1 )`
+
+	RSP_EXPECTED="{\"REQUEST2\":{\"tshort2\":5,\
+\"tlong2\":77777,\
+\"tstring2\":\"INCOMING TEST\"}}"
+	echo "Response: [$RSP]"
+	
+	if [[ "X$RSP" != "X$RSP_EXPECTED" ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 27
+	fi
+done
+
+
+###############################################################################
+echo "VIEW error not install, as succeed and no fields available..."
+###############################################################################
+for i in {1..10}
+do
+
+	# Having a -i means to print the headers
+        RSP=`(curl -s -H "Content-Type: application/json" -X POST -d \
+"{ \
+	\"REQUEST1\": { \
+		\"tshort1\": 5, \
+		\"tlong1\": 77777, \
+		\"tstring1\": [\"\", \"INCOMING TEST\"] \
+	} \
+}" \
+http://localhost:8080/view/ok/noerr/errosucc 2>&1 )`
+
+	RSP_EXPECTED="{\"REQUEST2\":{\"tshort2\":5,\
+\"tlong2\":77777,\
+\"tstring2\":\"INCOMING TEST\"}}"
+	echo "Response: [$RSP]"
+	
+	if [[ "X$RSP" != "X$RSP_EXPECTED" ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 28
+	fi
+done
+
+###############################################################################
+echo "VIEW error service failure"
+###############################################################################
+for i in {1..10}
+do
+
+	# Having a -i means to print the headers
+        RSP=`(curl -s -H "Content-Type: application/json" -X POST -d \
+"{ \
+	\"REQUEST1\": { \
+		\"tshort1\": 5, \
+		\"tlong1\": 77777, \
+		\"tstring1\": [\"\", \"INCOMING TEST\"] \
+	} \
+}" \
+http://localhost:8080/view/fail 2>&1 )`
+
+	RSP_EXPECTED="{\"RSPV\":{\"rspcode\":\"11\",\"rspmessage\":\"11:\"}}"
+	echo "Response: [$RSP]"
+
+	if [[ "X$RSP" != "X$RSP_EXPECTED" ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 25
+	fi
+done
+
+go_out 0
+
 ###############################################################################
 echo "TLS Test"
 ###############################################################################

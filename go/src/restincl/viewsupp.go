@@ -151,7 +151,7 @@ func VIEWSvcValidateSettings(ac *atmi.ATMICtx, svc *ServiceMap) error {
 //@param ac	ATMI Context
 //@param svc	Servic map
 //@param atmiErr ATMI error to put in response
-//@return byte array to send or nil (in case if cannot generate rsp)
+//@return In case of error return []
 func VIEWGenDefaultResponse(ac *atmi.ATMICtx, svc *ServiceMap, atmiErr atmi.ATMIError) []byte {
 	//In this case response VIEW buffer must be set.
 
@@ -162,7 +162,7 @@ func VIEWGenDefaultResponse(ac *atmi.ATMICtx, svc *ServiceMap, atmiErr atmi.ATMI
 			svc.Errfmt_view_rsp, errA.Error())
 		ac.UserLog("Failed to alloc VIEW/[%s] - dropping response: %s",
 			svc.Errfmt_view_rsp, errA.Error())
-		return nil
+		return []byte("{}")
 	}
 
 	if errU := VIEWInstallError(bufv, svc.Errfmt_view_rsp,
@@ -175,7 +175,7 @@ func VIEWGenDefaultResponse(ac *atmi.ATMICtx, svc *ServiceMap, atmiErr atmi.ATMI
 		ac.UserLog("Failed to set viewe response - dropping: %s",
 			atmiErr.Message())
 
-		return nil
+		return []byte("{}")
 
 	}
 

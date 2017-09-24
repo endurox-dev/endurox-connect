@@ -1,5 +1,5 @@
 all:
-	go get github.com/endurox-dev/endurox-go
+	go get -u github.com/endurox-dev/endurox-go
 	$(MAKE) -C ubftab
 	$(MAKE) -C testsv
 	$(MAKE) -C viewdir

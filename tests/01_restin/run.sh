@@ -61,6 +61,94 @@ function go_out {
 }
 
 ###############################################################################
+echo "VIEW TEST - normal call, view errors"
+###############################################################################
+for i in {1..10}
+do
+
+	# Having a -i means to print the headers
+        RSP=`(curl -s -H "Content-Type: application/json" -X POST -d \
+"{ \
+	\"REQUEST1\": { \
+		\"tshort1\": 5, \
+		\"tlong1\": 77777, \
+		\"tstring1\": [\"\", \"INCOMING TEST\"] \
+	} \
+}" \
+http://localhost:8080/view/ok 2>&1 )`
+
+	RSP_EXPECTED="{\"REQUEST1\":{\"tshort1\":8,\
+\"tlong1\":11111,\
+\"tstring1\":[\"HELLO RESPONSE\",\"INCOMING TEST\",\"\"],\
+\"rspcode\":\"0\",\
+\"rspmessage\":\"\"}}"
+        echo "Response: [$RSP]"
+
+	if [[ "X$RSP" != "X$RSP_EXPECTED" ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 23
+	fi
+done
+
+
+###############################################################################
+echo "VIEW TEST - normal call, error code in response"
+###############################################################################
+for i in {1..10}
+do
+
+	# Having a -i means to print the headers
+        RSP=`(curl -s -H "Content-Type: application/json" -X POST -d \
+"{ \
+	\"REQUEST1\": { \
+		\"tshort1\": 5, \
+		\"tlong1\": 77777, \
+		\"tstring1\": [\"\", \"INCOMING TEST\"] \
+	} \
+}" \
+http://localhost:8080/view/ok/errsucc 2>&1 )`
+
+	RSP_EXPECTED="{\"REQUEST1\":{\"tshort1\":8,\
+\"tlong1\":11111,\
+\"tstring1\":[\"HELLO RESPONSE\",\"INCOMING TEST\",\"\"],\
+\"rspcode\":\"0\",\
+\"rspmessage\":\"SUCCEED\"}}"
+	echo "Response: [$RSP]"
+
+	if [[ "X$RSP" != "X$RSP_EXPECTED" ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 24
+	fi
+done
+
+
+###############################################################################
+echo "VIEW TEST - invalid json - expected response object to be returned"
+###############################################################################
+for i in {1..10}
+do
+
+	# Having a -i means to print the headers
+	RSP=`(curl -s -H "Content-Type: application/json" -X POST -d \
+"{ \
+	\"REQUEST1\": { \
+		\"tshort: 5, \
+		\"tlong1\": 77777, \
+		\"tstring1\": [\"\", \"INCOMING TEST\"] \
+	} \
+}" \
+http://localhost:8080/view/ok/errsucc 2>&1 )`
+
+	RSP_EXPECTED="{\"RSPV\":{\"rspcode\":\"4\",\"rspmessage\":\"4:T\"}}"
+	echo "Response: [$RSP]"
+
+	if [[ "X$RSP" != "X$RSP_EXPECTED" ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 25
+	fi
+done
+
+###############################################################################
 echo "TLS Test"
 ###############################################################################
 

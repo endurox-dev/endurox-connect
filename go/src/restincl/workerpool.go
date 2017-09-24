@@ -153,6 +153,138 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 		}
 
 		break
+	case CONV_JSON2VIEW:
+		//rsp_type = "text/json"
+		//Convert buffer back to JSON & send it back..
+		//But we could append the buffer with error here...
+
+		bufv, ok := buf.(*atmi.TypedVIEW)
+
+		if svc.Asynccall && !svc.Asyncecho {
+			if svc.Errors_int == ERRORS_JSON2VIEW {
+
+				rsp = VIEWGenDefaultResponse(ac, svc, atmiErr)
+				if nil == rsp {
+					return //Nothing to do
+				}
+
+			}
+		} else if !ok || nil == buf { //Nil case goes here too
+			ac.TpLogError("Failed to cast TypedBuffer to TypedVIEW!")
+			//Create empty buffer for generating response...
+
+			if err.Code() == atmi.TPMINVAL {
+				err = atmi.NewCustomATMIError(atmi.TPESYSTEM, "Invalid buffer")
+			}
+
+			if svc.Errors_int == ERRORS_JSON2VIEW {
+				rsp = VIEWGenDefaultResponse(ac, svc, atmiErr)
+				if nil == rsp {
+					return //Nothing to do
+				}
+			}
+		} else {
+
+			rsp = nil
+			errorFallback := false
+			//If error is set, then try to install error
+			if svc.Errors_int == ERRORS_JSON2VIEW && err.Code() != atmi.TPMINVAL {
+
+				ac.TpLogInfo("Setting JSON2VIEW buffer error codes to: %d/%s",
+					err.Code(), err.Message())
+				//In case of success try to install only if
+				//ret on success is set..
+
+				if svc.Errfmt_view_rsp_first {
+					//Response directly with response object
+
+					rsp = VIEWGenDefaultResponse(ac, svc, atmiErr)
+					if nil == rsp {
+						return //Nothing to do or respond with empty JSON?
+					}
+				} else {
+					//Install response in view object
+
+					itype := ""
+					subtype := ""
+
+					if _, errA := ac.TpTypes(bufv.Buf, &itype, &subtype); nil != errA {
+						ac.TpLogError("Failed to get buffer infos: %s", errA.Error())
+						errorFallback = true
+					}
+
+					ac.TpLogInfo("Got buffer infos: %s/%s", itype, subtype)
+
+					if errA := VIEWInstallError(bufv, subtype, svc.Errfmt_view_code,
+						err.Code(), svc.Errfmt_view_msg, err.Message()); nil != errA {
+						ac.TpLogWarn("Failed to set view resposne fields, "+
+							"falling back to view rsp object: %s", errA.Error())
+					}
+
+				}
+
+				//Fallback to view object
+				if errorFallback {
+					if "" != svc.Errfmt_view_rsp {
+						ac.TpLogInfo("Error fallback enabled -Respond with rsp view")
+
+						rsp = VIEWGenDefaultResponse(ac, svc, atmiErr)
+						if nil == rsp {
+							return //Nothing to do
+						}
+
+					} else {
+						ac.TpLogInfo("svc: %s: Error fallback, but no rsp view defined-> drop rsp: %d/%s",
+							svc.Svc, err.Code(), err.Message())
+						ac.UserLog("svc: %s: Error fallback, but no rsp view defined-> drop rsp: %d/%s",
+							svc.Svc, err.Code(), err.Message())
+						return //Nothing to do
+					}
+				}
+			} else if svc.Errors_int == ERRORS_JSON2VIEW &&
+				err.Code() == atmi.TPMINVAL && svc.Errfmt_view_onsucc {
+				//Try to install error code on success
+				//If no response fields found, ignore error and return the response
+
+				itype := ""
+				subtype := ""
+
+				if _, errA := ac.TpTypes(bufv.Buf, &itype, &subtype); nil != errA {
+					ac.TpLogError("Failed to get buffer infos: %s", errA.Error())
+					errorFallback = true
+				}
+
+				ac.TpLogInfo("Got buffer infos: %s/%s", itype, subtype)
+
+				if errA := VIEWInstallError(bufv, subtype, svc.Errfmt_view_code,
+					atmi.TPMINVAL, svc.Errfmt_view_msg, "SUCCEED"); nil != errA {
+					ac.TpLogWarn("Failed to set view resposne fields, "+
+						"falling back to view rsp object: %s", errA.Error())
+				}
+			}
+
+			//Generate response if one is not set already
+			if nil == rsp {
+				ret, err1 := bufv.TpVIEWToJSON(svc.Errfmt_view_flags)
+
+				if nil == err1 {
+					//Generate the resposne buffer...
+					rsp = []byte(ret)
+				} else {
+
+					if err.Code() == atmi.TPMINVAL {
+						err = err1
+					}
+
+					if svc.Errors_int == ERRORS_JSON2UBF {
+						rsp = []byte(fmt.Sprintf("{EX_IF_ECODE:%d, EX_IF_EMSG:\"%s\"}",
+							err1.Code(), err1.Message()))
+					}
+				}
+			}
+		}
+
+		break
 	case CONV_TEXT: //This is string buffer...
 		//If there is no error & it is sync call, then just plot
 		//a buffer back
@@ -352,7 +484,7 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter, req
 			ac.TpLogDebug("Converting to UBF: [%s]", body)
 
 			if err1 := bufu.TpJSONToUBF(string(body)); err1 != nil {
-				ac.TpLogError("Failed to conver buffer to JSON %d:[%s]\n",
+				ac.TpLogError("Failed to conver from JSON to UBF %d:[%s]\n",
 					err1.Code(), err1.Message())
 
 				ac.TpLogError("Failed req: [%s]", string(body))
@@ -362,6 +494,25 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter, req
 			}
 
 			buf = bufu
+			break
+		case CONV_JSON2VIEW:
+			//Conver JSON to View
+
+			ac.TpLogDebug("Converting to VIEW: [%s]", body)
+
+			bufv, err1 := ac.TpJSONToVIEW(string(body))
+
+			if err1 != nil {
+				ac.TpLogError("Failed to convert JSON to VIEW: %d:[%s]\n",
+					err1.Code(), err1.Message())
+
+				ac.TpLogError("Failed req: [%s]", string(body))
+
+				genRsp(ac, nil, svc, w, err1, false)
+				return atmi.FAIL
+			}
+
+			buf = bufv
 			break
 		case CONV_TEXT:
 			//Use request buffer as string

@@ -74,7 +74,8 @@ const (
 	ERRORS_RAW  = 3 //Use the raw formatting (just another kind for text)
 	ERRORS_JSON = 4 //Contact the json fields to main respons block.
 	//Return the error code as UBF response (usable only in case if CONV_JSON2UBF used)
-	ERRORS_JSON2UBF = 5
+	ERRORS_JSON2UBF  = 5
+	ERRORS_JSON2VIEW = 6
 )
 
 //Conversion types resolved
@@ -120,6 +121,11 @@ type ServiceMap struct {
 	Errfmt_view_msg    string `json:"errfmt_view_msg"`
 	Errfmt_view_code   string `json:"errfmt_view_code"`
 	Errfmt_view_onsucc bool   `json:"errfmt_view_onsucc"`
+
+	//Install in response non null fields only
+	Errfmt_view_notnull bool `json:"errfmt_view_notnull"`
+
+	Errfmt_view_flags int64 //Flags used for VIEW2JSON
 
 	//Response view, if in original buffer fields defined in
 	//errfmt_view_msg and errfmt_view_code are not found.
@@ -189,7 +195,7 @@ func remapErrors(svc *ServiceMap) error {
 		svc.Errors_int = ERRORS_JSON2UBF
 		break
 	case "json2view":
-		svc.Errors_int = ERRORS_JSON2UBF
+		svc.Errors_int = ERRORS_JSON2VIEW
 		break
 	case "text":
 		svc.Errors_int = ERRORS_TEXT
@@ -423,8 +429,8 @@ func appinit(ac *atmi.ATMICtx) error {
 			}
 
 			//Validate view settings (if any)
-			if err = ViewSvcValidateSettings(ac, &M_defaults); err != nil {
-				return err
+			if errS := VIEWSvcValidateSettings(ac, &M_defaults); errS != nil {
+				return errS
 			}
 
 			printSvcSummary(ac, &M_defaults)
@@ -475,7 +481,7 @@ func appinit(ac *atmi.ATMICtx) error {
 				}
 
 				//Validate view settings (if any)
-				if err = ViewSvcValidateSettings(ac, &tmp); err != nil {
+				if err = VIEWSvcValidateSettings(ac, &tmp); err != nil {
 					return err
 				}
 

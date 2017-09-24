@@ -161,10 +161,14 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 		bufv, ok := buf.(*atmi.TypedVIEW)
 
 		if svc.Asynccall && !svc.Asyncecho {
+
+			ac.TpLogInfo("Async mode, no echo")
 			if svc.Errors_int == ERRORS_JSON2VIEW {
 
+				ac.TpLogInfo("Generating configured rsp...")
 				rsp = VIEWGenDefaultResponse(ac, svc, atmiErr)
 
+				ac.TpLogInfo("Got response: [%v]", rsp)
 			}
 		} else if !ok || nil == buf { //Nil case goes here too
 			ac.TpLogError("Failed to cast TypedBuffer to TypedVIEW!")
@@ -205,12 +209,14 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 						errorFallback = true
 					}
 
-					ac.TpLogInfo("Got buffer infos: %s/%s", itype, subtype)
+					ac.TpLogInfo("Got buffer infos: %s/%s [%s]",
+						itype, subtype, bufv.BVName())
 
 					if errA := VIEWInstallError(bufv, subtype, svc.Errfmt_view_code,
 						err.Code(), svc.Errfmt_view_msg, err.Message()); nil != errA {
 						ac.TpLogWarn("Failed to set view resposne fields, "+
 							"falling back to view rsp object: %s", errA.Error())
+						errorFallback = true
 					}
 
 				}
@@ -221,16 +227,15 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 						ac.TpLogInfo("Error fallback enabled -Respond with rsp view")
 
 						rsp = VIEWGenDefaultResponse(ac, svc, atmiErr)
-						if nil == rsp {
-							return //Nothing to do
-						}
 
 					} else {
-						ac.TpLogInfo("svc: %s: Error fallback, but no rsp view defined-> drop rsp: %d/%s",
+						ac.TpLogInfo("svc: %s: Error fallback, but no rsp view "+
+							"defined-> drop rsp: %d/%s",
 							svc.Svc, err.Code(), err.Message())
-						ac.UserLog("svc: %s: Error fallback, but no rsp view defined-> drop rsp: %d/%s",
+						ac.UserLog("svc: %s: Error fallback, but no rsp view "+
+							"defined-> drop rsp: %d/%s",
 							svc.Svc, err.Code(), err.Message())
-						return //Nothing to do
+						rsp = []byte("{}")
 					}
 				}
 			} else if svc.Errors_int == ERRORS_JSON2VIEW &&
@@ -587,6 +592,7 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter, req
 			genRsp(ac, buf, svc, w, err, reqlogOpen)
 		} else {
 			_, err := ac.TpCall(svc.Svc, buf, flags)
+
 			genRsp(ac, buf, svc, w, err, reqlogOpen)
 		}
 	}

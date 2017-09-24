@@ -51,7 +51,7 @@ func VIEWInstallError(buf *atmi.TypedVIEW, view string, view_code_fld string,
 
 	if nil != errU {
 		buf.Buf.Ctx.TpLogError("Failed to get %s.%s infos: %s",
-			view, view_msg_fld, code, errU.Error())
+			view, view_msg_fld, errU.Error())
 		return errU
 	}
 
@@ -155,6 +155,9 @@ func VIEWSvcValidateSettings(ac *atmi.ATMICtx, svc *ServiceMap) error {
 func VIEWGenDefaultResponse(ac *atmi.ATMICtx, svc *ServiceMap, atmiErr atmi.ATMIError) []byte {
 	//In this case response VIEW buffer must be set.
 
+	if nil == atmiErr {
+		atmiErr = atmi.NewCustomATMIError(atmi.TPMINVAL, "SUCCEED")
+	}
 	bufv, errA := ac.NewVIEW(svc.Errfmt_view_rsp, 0)
 
 	if nil != errA {
@@ -172,7 +175,7 @@ func VIEWGenDefaultResponse(ac *atmi.ATMICtx, svc *ServiceMap, atmiErr atmi.ATMI
 		ac.TpLogError("Failed to set viewe response - dropping: %s",
 			atmiErr.Message())
 
-		ac.UserLog("Failed to set viewe response - dropping: %s",
+		ac.UserLog("Failed to set view response - dropping: %s",
 			atmiErr.Message())
 
 		return []byte("{}")

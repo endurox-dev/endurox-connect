@@ -256,8 +256,160 @@ http://localhost:8080/view/fail 2>&1 )`
 
 	if [[ "X$RSP" != "X$RSP_EXPECTED" ]]; then
 		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
-		go_out 25
+		go_out 29
 	fi
+done
+
+###############################################################################
+echo "VIEW error service failure"
+###############################################################################
+for i in {1..10}
+do
+
+	# Having a -i means to print the headers
+        RSP=`(curl -s -H "Content-Type: application/json" -X POST -d \
+"{ \
+	\"REQUEST1\": { \
+		\"tshort1\": 5, \
+		\"tlong1\": 77777, \
+		\"tstring1\": [\"\", \"INCOMING TEST\"] \
+	} \
+}" \
+http://localhost:8080/view/fail/norsp 2>&1 )`
+
+	RSP_EXPECTED="{}"
+	echo "Response: [$RSP]"
+
+	if [[ "X$RSP" != "X$RSP_EXPECTED" ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 30
+	fi
+done
+
+
+###############################################################################
+echo "VIEW error, async no nulls in rsp"
+###############################################################################
+for i in {1..10}
+do
+
+	# Having a -i means to print the headers
+        RSP=`(curl -s -H "Content-Type: application/json" -X POST -d \
+"{ \
+	\"REQUEST1\": { \
+		\"tshort1\": 5, \
+		\"tlong1\": 77777, \
+		\"tstring1\": [\"\", \"INCOMING TEST\"] \
+	} \
+}" \
+http://localhost:8080/view/async 2>&1 )`
+
+	RSP_EXPECTED="{\"RSPV\":{\"rspcode\":\"0\",\"rspmessage\":\"SUC\"}}"
+	echo "Response: [$RSP]"
+
+	if [[ "X$RSP" != "X$RSP_EXPECTED" ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 31
+	fi
+done
+
+###############################################################################
+echo "VIEW errors, stipped NULLs, async + echo"
+###############################################################################
+for i in {1..10}
+do
+
+	# Having a -i means to print the headers
+        RSP=`(curl -s -H "Content-Type: application/json" -X POST -d \
+"{ \
+	\"REQUEST1\": { \
+		\"tshort1\": 5, \
+		\"tlong1\": 77777, \
+		\"tstring1\": [\"\", \"INCOMING TEST\"] \
+	} \
+}" \
+http://localhost:8080/view/async/echo 2>&1 )`
+
+	RSP_EXPECTED="{\"REQUEST1\":{\"tshort1\":5,\
+\"tlong1\":77777,\
+\"tstring1\":[\"\",\"INCOMING TEST\"]}}"
+        echo "Response: [$RSP]"
+
+	if [[ "X$RSP" != "X$RSP_EXPECTED" ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 32
+	fi
+done
+
+
+###############################################################################
+echo "Views HTTP case, ok"
+###############################################################################
+for i in {1..10}
+do
+
+	RSP=`curl -i -H "Content-Type: application/json" -X POST -d \
+"{ \
+	\"REQUEST1\": { \
+		\"tshort1\": 5, \
+		\"tlong1\": 77777, \
+		\"tstring1\": [\"\", \"INCOMING TEST\"] \
+	} \
+}" \
+	http://localhost:8080/view/httpe/ok 2>&1`
+
+	if [[ "$RSP" != *"HELLO RESPONSE"* ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [HELLO RESPONSE] to appear"
+		go_out 33
+	fi
+	
+	RSP_EXPECTED="200"
+	
+	echo "Response: [$RSP]"
+
+	if [[ "$RSP" != *"$RSP_EXPECTED"* ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 34
+	fi
+	
+done
+
+
+###############################################################################
+echo "Views HTTP case, svc fail"
+###############################################################################
+for i in {1..10}
+do
+
+	RSP=`curl -i -H "Content-Type: application/json" -X POST -d \
+"{ \
+	\"REQUEST1\": { \
+		\"tshort1\": 5, \
+		\"tlong1\": 77777, \
+		\"tstring1\": [\"\", \"INCOMING TEST\"] \
+	} \
+}" \
+	http://localhost:8080/view/httpe/fail 2>&1`
+
+	if [[ "$RSP" != *"REQUEST2"* ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [REQUEST2] to appear"
+		go_out 35
+	fi
+
+	if [[ "$RSP" != *"INCOMING"* ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [INCOMING] to appear"
+		go_out 36
+	fi
+	
+	RSP_EXPECTED="500"
+	
+	echo "Response: [$RSP]"
+
+	if [[ "$RSP" != *"$RSP_EXPECTED"* ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 37
+	fi
+	
 done
 
 go_out 0

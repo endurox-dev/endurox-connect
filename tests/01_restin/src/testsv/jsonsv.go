@@ -39,12 +39,14 @@ func JSONSV(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 
 	//Resize buffer, to have some more space to return data in
 	if err := jb.TpRealloc(1024); err != nil {
-		ac.TpLogError("TpRealloc() Got error: %d:[%s]\n", err.Code(), err.Message())
+		ac.TpLogError("TpRealloc() Got error: %d:[%s]\n",
+			err.Code(), err.Message())
 		ret = FAIL
 		return
 	}
 
-	ac.TpLogDump(atmi.LOG_INFO, "Got request buffer", jb.GetJSON(), len(jb.GetJSON()))
+	ac.TpLogDump(atmi.LOG_INFO, "Got request buffer",
+		jb.GetJSON(), len(jb.GetJSON()))
 	//Umarshal the data, copy to *2 and marshal back to buffer
 	jerr := json.Unmarshal(jb.GetJSON(), &msg)
 	if jerr != nil {

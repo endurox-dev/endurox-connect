@@ -6,3 +6,4 @@ Releases:
 2.0.0 - Completed restin/restout/tcpgate
 2.1.2 - Fixes of Bug #200, Bug #201
 2.1.3 - Feature #204
+2.1.4 - View support in restincl

@@ -106,7 +106,7 @@ func VIEWSV2(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 //VIEW service - Failure service, with different buffer
 //@param ac ATMI Context
 //@param svc Service call information
-func VIEWSVFAIL(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
+func VIEWFAIL(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 
 	//Get UBF Handler
 	v, _ := ac.CastToVIEW(&svc.Data)
@@ -139,6 +139,52 @@ func VIEWSVFAIL(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	ac.TpAssertEqualPanic(errU, nil, "Request2: tstring2")
 
 	v = v2
+
+	return
+}
+
+//VIEW service, FAIL2
+//@param ac ATMI Context
+//@param svc Service call information
+func VIEWFAIL2(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
+
+	//Get UBF Handler
+	v, _ := ac.CastToVIEW(&svc.Data)
+
+	//Return to the caller
+	defer func() {
+		ac.TpReturn(atmi.TPFAIL, 0, v, 0)
+	}()
+
+	//Test data received
+	tshort1, errU := v.BVGetInt16("tshort1", 0, 0)
+	ac.TpAssertEqualPanic(errU, nil, "tshort1=> must be nil")
+	ac.TpAssertEqualPanic(tshort1, 5, "tshort1 value")
+
+	tlong1, errU := v.BVGetInt64("tlong1", 0, 0)
+	ac.TpAssertEqualPanic(errU, nil, "tlong1=> must be nil")
+	ac.TpAssertEqualPanic(tlong1, 77777, "tlong1 value")
+
+	tstring1, errU := v.BVGetString("tstring1", 1, 0)
+	ac.TpAssertEqualPanic(errU, nil, "tstring1=> must be nil")
+	ac.TpAssertEqualPanic(tstring1, "INCOMING TEST", "tstring1 value")
+
+	//Set response data
+
+	if errU = v.BVChg("tshort1", 0, 8); nil != errU {
+		ac.TpLogError("Failed to set tshort1: %s", errU.Error())
+		return
+	}
+
+	if errU = v.BVChg("tlong1", 0, 11111); nil != errU {
+		ac.TpLogError("Failed to set tlong1: %s", errU.Error())
+		return
+	}
+
+	if errU = v.BVChg("tstring1", 0, "HELLO RESPONSE"); nil != errU {
+		ac.TpLogError("Failed to set tstring1: %s", errU.Error())
+		return
+	}
 
 	return
 }

@@ -347,7 +347,12 @@ func Init(ac *atmi.ATMICtx) int {
 		return atmi.FAIL
 	}
 
-	if err := ac.TpAdvertise("VIEWSVFAIL", "VIEWSVFAIL", VIEWSVFAIL); err != nil {
+	if err := ac.TpAdvertise("VIEWFAIL", "VIEWFAIL", VIEWFAIL); err != nil {
+		fmt.Println(err)
+		return atmi.FAIL
+	}
+
+	if err := ac.TpAdvertise("VIEWFAIL2", "VIEWFAIL2", VIEWFAIL2); err != nil {
 		fmt.Println(err)
 		return atmi.FAIL
 	}

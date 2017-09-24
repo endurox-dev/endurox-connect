@@ -413,6 +413,61 @@ do
 done
 
 ###############################################################################
+echo "VIEW TEST - view errors, line in req buffer"
+###############################################################################
+for i in {1..100}
+do
+
+    # Having a -i means to print the headers
+        RSP=`(curl -s -H "Content-Type: application/json" -X POST -d \
+"{ \
+    \"REQUEST1\": { \
+        \"tshort1\": 5, \
+        \"tlong1\": 77777, \
+        \"tstring1\": [\"\", \"INCOMING TEST\"] \
+    } \
+}" \
+http://localhost:8080/view/fail/einline 2>&1 )`
+
+    RSP_EXPECTED="{\"REQUEST1\":{\"tshort1\":8,\
+\"tlong1\":11111,\
+\"tstring1\":[\"HELLO RESPONSE\",\"INCOMING TEST\",\"\"],\
+\"rspcode\":\"11"
+        echo "Response: [$RSP]"
+
+    if [[ "X$RSP" != "X$RSP_EXPECTED"* ]]; then
+        echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+        go_out 38
+    fi
+done
+
+###############################################################################
+echo "VIEW TEST - view errors, error object view first"
+###############################################################################
+for i in {1..100}
+do
+
+    # Having a -i means to print the headers
+        RSP=`(curl -s -H "Content-Type: application/json" -X POST -d \
+"{ \
+    \"REQUEST1\": { \
+        \"tshort1\": 5, \
+        \"tlong1\": 77777, \
+        \"tstring1\": [\"\", \"INCOMING TEST\"] \
+    } \
+}" \
+http://localhost:8080/view/fail/efirst 2>&1 )`
+
+    RSP_EXPECTED="{\"RSPV\":{\"rspcode\":\"11\",\"rspmessage\":\"11:\"}}"
+        echo "Response: [$RSP]"
+
+    if [[ "X$RSP" != "X$RSP_EXPECTED" ]]; then
+        echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+        go_out 39
+    fi
+done
+
+###############################################################################
 echo "TLS Test"
 ###############################################################################
 

@@ -32,6 +32,8 @@ different error handling schemes. Buffer formats can be:
 
 . *json2ubf* - JSON Converted to UBF XATMI buffer type;
 
+. *json2view* - JSON Converted to VIEW XATMI buffer type;
+
 . *json* - JSON text directly set in UBF JSON buffer type;
 
 . *text* - XATMI Typed String buffer format. Incoming text is copied to String buffer;
@@ -51,6 +53,10 @@ specified in config;
 
 . *json2ubf* - The error code is set in Enduro/X standard buffer fields and later
 Converted to JSON buffer.
+
+. *json2view* - The error is converted to code/message fields specified for the view
+errors. If views does not hold response field, the separate view name can be configured
+in order to provide responses in error cases.
 
 
 The operation modes of the REST interface can by:
@@ -145,11 +151,80 @@ T_CARRAY_FLD	Hello
 
 When response is generated for caller, the UBF buffer coming back from Enduro/X IPC
 would be in the same JSON format as in request - single level JSON document with
-arrays if necessary i.e. hvae multiple occurrences for field.
+arrays if necessary i.e. have multiple occurrences for field.
 
 The 'restincl' for incoming data does not check the MIME type, but in response
 MIME type will be set to: 'text/plain'.
 
+
+
+
+Conversion buffer type: 'json2viiew' - JSON converted to VIEW message handling
+------------------------------------------------------------------------------
+With 'JSON2VIEW' mode, it is expected that configured web service will receive JSON
+document formatted in two levels, outer level is object with view name (which is
+configured in Enduro/X environment *VIEWDIR* and *VIEWFILES*. The second level
+of the JSON document basically is fields encoded in key:value format. 
+Array's types is supported. The array elements are loaded into UBF buffer
+field occurrences. The BLOB elements are encoded as Base64 data and are loaded
+into VIEW buffer's carray fields typed fields in decoded (binary form). The standard
+UBF data conversation functions (CBchg(3)) are used for data converting.
+
+
+The JSON2VIEW POST REST data of service invocation of would look like:
+
+--------------------------------------------------------------------------------
+{
+    "MYVIEW":{
+        "char_fld":"a",
+        "short_fld":123,
+        "long_fld":444444444,
+        "float_fld":1.33,
+        "double_fld":4444.3333,
+        "string_fld":["hello", "world"],
+        "carray_fld":"SGVsbG8="
+    }
+}
+--------------------------------------------------------------------------------
+
+That would be converted into following VIEW buffer:
+
+--------------------------------------------------------------------------------
+VIEW REQUEST2
+#type    cname      fbname              count   flag    size    null
+
+char    char_fld    -                   1       -       -       -
+short   short_fld   -                   1       -       -       -
+long    long_fld    -                   1       -       -       -
+float   float_fld   -                   1       -       -       -
+double  double_fld  -                   1       -       -       -
+string  string_fld  -                   2       -       20      -
+carray  carray_fld  -                   1       -       25      -
+        
+# optional response fields, used if configured so:
+
+string  rspmessage  -                   1       -       255      -
+short  rspcode     -                    1       -       -        -
+END
+
+--------------------------------------------------------------------------------
+
+When response is generated for caller, the VIEW buffer coming back from Enduro/X IPC
+would be in the same JSON format as in request - two level JSON document with
+arrays if necessary i.e. have multiple occurrences for field.
+
+The 'restincl' for incoming data does not check the MIME type, but in response
+MIME type will be set to: 'text/plain'.
+
+For error handling if configured so (using json2view errors), the *restincl* can
+install the ATMI error code and message in the VIEW before converting to JSON,
+Thus *rspcode* and *rspmessage* can be produced back in the JSON with corresponding
+content. In case of wrong configuration ('errfmt_view_rsp' does not contain 
+response fields) or 'errfmt_view_rsp' is not set at all, but error mechanism is
+'json2view' and response view does not have response fields, the *restincl* will
+generate '{}' - empty JSON object error. The caller shall assume this as format
+error or timeout (because there are no knowledge to caller of what have happened
+at the service).
 
 Conversion buffer type: 'json' - Direct JSON buffer
 ---------------------------------------------------
@@ -414,6 +489,43 @@ The default value for this parameter is *"error_code":%d*.
 If set to *true*, in case of successful synchronous service invocation, then error
 fields defined in 'errfmt_json_msg' and 'errfmt_json_code' will be added to JSON
 message ending.
+
+*errfmt_view_code* = 'ERRFMT_VIEW_CODE'::
+Field name into which store the response XATMI error code in case of 'json2view'
+errors. Parameter is mandatory for 'json2view' error handling mechanism.
+
+*errfmt_view_msg* = 'ERRFMT_VIEW_MSG'::
+Field name into which store the response XATMI error message in case of 'json2view'
+errors. Parameter is mandatory for 'json2view' error handling mechanism.
+
+*errfmt_view_onsucc* = 'ERRFMT_VIEW_ONSUCC'::
+If set to *true*, the *restincl* will try to install the *errfmt_view_code* and
+*errfmt_view_msg* errors fields in the response buffer in case if call is success,
+if fields are not found in the response buffer, the condition is ignored and pure
+response buffer (converted to JSON) is returned. Default is *false*.
+
+*errfmt_view_notnull* = 'ERRFMT_VIEW_NOTNULL'::
+Do not convert NULL fields (according to view) to the outgoing JSON. For more
+infos see, the *tpjsontoview(3)* or *CBvget(3)* man pages. Basically the functionality
+will omit the matched NULL fields in the VIEW. In case of arrays, dropped will be
+only last NULL fields, if there is some valid value in the middle and start is
+filled with NULLs, then start NULLs will be converted to JSON anyway.
+Default is *false*.
+
+*errfmt_view_rsp*  = 'ERRFMT_VIEW_RSP'::
+View name to be used when sending the errors 'json2view' errors. In case of 1) 
+if there is error and response buffer does not have error fields, view
+'errfmt_view_rsp' will be instantiated and fields will set with the error code.
+If 'errfmt_view_rsp' is invalid, then response will contain '{}' - empty JSON
+object. In that case the caller should threat the error as format error or timeout.
+2) In case of 'async' is set to *true* and 'asyncecho' is set to false, in this
+case 'errfmt_view_rsp' is mandatory. 3) If 'errfmt_view_rsp_first' is set, then
+'errfmt_view_rsp' must be set too, as in this case error will be charged into
+configured object.
+
+*errfmt_view_rsp_first*  = 'ERRFMT_VIEW_RSP_FIRST'::
+If set to *true*, the system will instantiated *errfmt_view_rsp* view and set error
+there instead of response view.
 
 *async* = 'DO_ASYNC_SERVICE_INVOCATION*::
 Set to *true* if target service should be invoked asynchronously with *TPNOREPLY*

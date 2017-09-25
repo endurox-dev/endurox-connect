@@ -159,7 +159,7 @@ MIME type will be set to: 'text/plain'.
 
 
 
-Conversion buffer type: 'json2viiew' - JSON converted to VIEW message handling
+Conversion buffer type: 'json2view' - JSON converted to VIEW message handling
 ------------------------------------------------------------------------------
 With 'JSON2VIEW' mode, it is expected that configured web service will receive JSON
 document formatted in two levels, outer level is object with view name (which is

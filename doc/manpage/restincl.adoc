@@ -190,7 +190,7 @@ The JSON2VIEW POST REST data of service invocation of would look like:
 That would be converted into following VIEW buffer:
 
 --------------------------------------------------------------------------------
-VIEW REQUEST2
+VIEW MYVIEW
 #type    cname      fbname              count   flag    size    null
 
 char    char_fld    -                   1       -       -       -

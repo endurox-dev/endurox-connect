@@ -73,15 +73,17 @@ const (
 	ERRORS_TEXT = 2 //Return error as formatted text (from config)
 	ERRORS_JSON = 3 //Contact the json fields to main respons block.
 	//Return the error code as UBF response (usable only in case if CONV_JSON2UBF used)
-	ERRORS_JSON2UBF = 4
+	ERRORS_JSON2UBF  = 4
+	ERRORS_JSON2VIEW = 5
 )
 
 //Conversion types resolved
 const (
-	CONV_JSON2UBF = 1
-	CONV_TEXT     = 2
-	CONV_JSON     = 3
-	CONV_RAW      = 4
+	CONV_JSON2UBF  = 1
+	CONV_TEXT      = 2
+	CONV_JSON      = 3
+	CONV_RAW       = 4
+	CONV_JSON2VIEW = 5
 )
 
 //Defaults
@@ -130,6 +132,10 @@ type ServiceMap struct {
 	//If missing, then assume response is ok
 	Errfmt_json_onsucc bool `json:"errfmt_json_onsucc"`
 
+	//VIEW fields
+	Errfmt_view_msg  string `json:"errfmt_view_msg"`
+	Errfmt_view_code string `json:"errfmt_view_code"`
+
 	//Error mapping between <http><Enduro/X, currently 0 or 11)
 	Errors_fmt_http_map_str string `json:"errors_fmt_http_map"`
 	Errors_fmt_http_map     map[string]*int
@@ -163,6 +169,7 @@ type ServiceMap struct {
 
 	//Preparsed buffers
 	echoUBF    *atmi.TypedUBF
+	echoVIEW   *atmi.TypedVIEW //View support, instantiated echo buffer
 	echoCARRAY *atmi.TypedCarray
 
 	//Dependies...
@@ -192,10 +199,11 @@ var MScanTime = 1 //In seconds
 //Conversion types
 var Mconvs = map[string]int{
 
-	"json2ubf": CONV_JSON2UBF,
-	"text":     CONV_TEXT,
-	"json":     CONV_JSON,
-	"raw":      CONV_RAW,
+	"json2ubf":  CONV_JSON2UBF,
+	"text":      CONV_TEXT,
+	"json":      CONV_JSON,
+	"raw":       CONV_RAW,
+	"json2view": CONV_JSON2VIEW,
 }
 
 //Remap the error from string to int constant
@@ -214,6 +222,9 @@ func remapErrors(ac *atmi.ATMICtx, svc *ServiceMap) error {
 		break
 	case "text":
 		svc.Errors_int = ERRORS_TEXT
+		break
+	case "json2view":
+		svc.Errors_int = ERRORS_JSON2VIEW
 		break
 	default:
 		return fmt.Errorf("Unsupported error type [%s]", svc.Errors)
@@ -513,6 +524,14 @@ func appinit(ctx *atmi.ATMICtx) int {
 					Mmonitors++
 				}
 
+				//Test service if it is view
+
+				if err := VIEWValidateService(ctx, &tmp); nil != err {
+					ctx.TpLogError("Failed to validate view settings: %s",
+						err.Error())
+					return FAIL
+				}
+
 				Mservices[matchSvc[1]] = &tmp
 
 				printSvcSummary(ctx, &tmp)
@@ -623,7 +642,7 @@ func RESTOUT(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 			ac.TpReturn(atmi.TPFAIL, 0, &svc.Data, 0)
 		}
 	}()
-        ac.TpLogInfo("RESTOUT got request...");
+	ac.TpLogInfo("RESTOUT got request...")
 
 	//Pack the request data to pass to thread
 	ctxData, err := ac.TpSrvGetCtxData()

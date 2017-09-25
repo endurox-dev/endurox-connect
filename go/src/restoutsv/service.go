@@ -43,14 +43,14 @@ import (
 func (s *ServiceMap) Advertise(ac *atmi.ATMICtx) atmi.ATMIError {
 	ac.TpLogInfo("About to advertise: %s", s.Svc)
 
-	errA:=ac.TpAdvertise(s.Svc, "RESTOUT", RESTOUT)
+	errA := ac.TpAdvertise(s.Svc, "RESTOUT", RESTOUT)
 
-        if nil==errA {
-                s.echoIsAdvertised = true
-                s.echoSchedAdv = false
-        }
+	if nil == errA {
+		s.echoIsAdvertised = true
+		s.echoSchedAdv = false
+	}
 
-        return errA
+	return errA
 }
 
 //Remove service from shared memory
@@ -58,14 +58,14 @@ func (s *ServiceMap) Advertise(ac *atmi.ATMICtx) atmi.ATMIError {
 //@return ATMI error
 func (s *ServiceMap) Unadvertise(ac *atmi.ATMICtx) atmi.ATMIError {
 	ac.TpLogInfo("About to unadvertise: %s", s.Svc)
-	errA:=ac.TpUnadvertise(s.Svc)
+	errA := ac.TpUnadvertise(s.Svc)
 
-        if nil==errA {
-                s.echoIsAdvertised = false
-                s.echoSchedUnAdv = false
-        }
+	if nil == errA {
+		s.echoIsAdvertised = false
+		s.echoSchedUnAdv = false
+	}
 
-        return errA
+	return errA
 }
 
 //Preparese echo buffers
@@ -96,6 +96,24 @@ func (s *ServiceMap) PreparseEchoBuffers(ac *atmi.ATMICtx) atmi.ATMIError {
 				return atmi.NewCustomATMIError(atmi.TPEINVAL, "Failed to create "+
 					"UBF buffer from JSON!")
 			}
+			break
+		case CONV_JSON2VIEW:
+
+			//Restore the data from JSON config...
+			var errA atmi.ATMIError
+
+			if s.echoVIEW, errA = ac.TpJSONToVIEW(s.EchoData); nil != errA {
+				ac.TpLogError("Failed to build VIEW from JSON [%s] %d:[%s]",
+					s.EchoData, errA.Code(), errA.Message())
+
+				return errA
+			}
+
+			if errA := VIEWResetEchoError(ac, s, s.echoVIEW); nil != errA {
+				ac.TpLogError("Failed to reset echo view...")
+				return errA
+			}
+
 			break
 		case CONV_RAW:
 			data, err := base64.StdEncoding.DecodeString(s.EchoData)
@@ -284,23 +302,23 @@ func (s *ServiceMap) Monitor() {
 				break
 			}
 
-                        trendSucc:=" "
-                        trendFail:=" "
+			trendSucc := " "
+			trendFail := " "
 			if nil == result {
 				// Echo is OK
 				if s.echoSucceeds <= s.EchoMinOK {
 					s.echoSucceeds++
 				} else {
-                                        trendSucc="+ "
-                                }
+					trendSucc = "+ "
+				}
 				s.echoFails = 0
 			} else {
 				//Echo failed
 				if s.echoFails <= s.EchoMaxFail {
 					s.echoFails++
 				} else {
-                                        trendFail="+ "
-                                }
+					trendFail = "+ "
+				}
 				s.echoSucceeds = 0
 			}
 

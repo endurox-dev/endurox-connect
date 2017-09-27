@@ -33,9 +33,14 @@ package main
 import (
 	"encoding/base64"
 	"time"
-
+        "fmt"
 	atmi "github.com/endurox-dev/endurox-go"
 )
+
+/*
+#include <string.h>
+*/
+import "C"
 
 //Advertise service for given service definition
 //@param ac 	Context into which run the operation
@@ -169,6 +174,40 @@ func (s *ServiceMap) EchoJSON2UBF(ac *atmi.ATMICtx) atmi.ATMIError {
 	}
 
 	ac.TpLogDebug("JSON2UBF: Echo Test to service [%s] OK", s.Svc)
+
+	return nil
+}
+
+//Call the echo service with JSON2VIEW format data
+//@param ac	ATMI Context
+//@return nil (all ok) or ATMI error
+func (s *ServiceMap) EchoJSON2VIEW(ac *atmi.ATMICtx) atmi.ATMIError {
+
+	//Allocate the buffer
+	buf, errA := ac.NewVIEW(s.echoVIEW.BVName(), 0)
+
+	if nil != errA {
+		ac.TpLogError("failed to alloca ubf buffer %d:[%s]",
+			errA.Code(), errA.Message())
+		return errA
+	}
+
+        _, errU:=s.echoVIEW.BVCpy(buf);
+        if nil!=errU {
+		ac.TpLogError("Failed to copy echo view: %s", errU.Error())
+		return atmi.NewCustomATMIError(atmi.TPESYSTEM,
+                        fmt.Sprintf("Failed to copy echo view: %s!",    
+                                errU.Error()))
+        }
+
+	ac.TpLogDebug("About to call echo service: [%s]", s.Svc)
+	if _, errA = ac.TpCall(s.Svc, buf.GetBuf(), 0); nil != errA {
+		ac.TpLogError("Failed to call echo service [%s]",
+			errA.Error())
+		return errA
+	}
+
+	ac.TpLogDebug("JSON2VIEW: Echo Test to service [%s] OK", s.Svc)
 
 	return nil
 }

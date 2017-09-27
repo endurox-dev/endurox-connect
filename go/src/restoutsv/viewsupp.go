@@ -86,6 +86,13 @@ func VIEWInstallError(buf *atmi.TypedVIEW, view string, view_code_fld string,
 //@return error in case of err or nil
 func VIEWValidateService(ac *atmi.ATMICtx, s *ServiceMap) error {
 
+	//Set not NULL flag
+	if s.View_notnull {
+		ac.TpLogInfo("VIEWs in responses will contain non NULL fields only " +
+			"(according to view file)")
+		s.View_flags |= atmi.BVACCESS_NOTNULL
+	}
+
 	if ERRORS_JSON2VIEW == s.Errors_int &&
 		(s.Errfmt_view_code == "" || s.Errfmt_view_msg == "") {
 		return fmt.Errorf("For json2view errors parameters 'errfmt_view_code' and " +

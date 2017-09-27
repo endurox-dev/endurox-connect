@@ -34,7 +34,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"io/ioutil"
-//	"io"
+	//	"io"
 	"net"
 	"net/http"
 	"strconv"
@@ -84,6 +84,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 	ret := SUCCEED
 	ac := pool.ctxs[nr]
 	buftype := ""
+	subtype := ""
 	var retFlags int64 = 0
 	/* The error codes sent from network */
 	netCode := atmi.TPMINVAL
@@ -98,10 +99,12 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 	var bufj *atmi.TypedJSON
 	var bufs *atmi.TypedString
 	var bufc *atmi.TypedCarray
+	var bufv *atmi.TypedVIEW
 
 	retBuf := buf
 
-	bufu_rsp_parsed := false
+	bufu_rsp_parsed := false //UBF Parsed
+	//bufv_rsp_parsed := false //VIEW Parsed
 	var errG error
 
 	defer func() {
@@ -152,7 +155,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 	}
 
 	//Cast the buffer to target format
-	datalen, errA := ac.TpTypes(buf, &buftype, nil)
+	datalen, errA := ac.TpTypes(buf, &buftype, &subtype)
 
 	if nil != errA {
 		ac.TpLogError("Invalid buffer format received: %s", errA.Error())
@@ -199,6 +202,46 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 			ac.UserLog("Service [%s] configuration error! Processing "+
 				"buffer UBF, but errors marked as [%s]. "+
 				"Must be 'json2ubf' or 'http'. Check field 'errors' "+
+				"in service config block", svc.Errors)
+			ret = FAIL
+			return
+		}
+
+		break
+	case "VIEW", "VIEW32":
+		content_type = "application/json"
+		ac.TpLogInfo("VIEW buffer, len %d - converting to JSON & sending req",
+			datalen)
+
+		bufv, errA = ac.CastToVIEW(buf)
+		if errA != nil {
+			ac.TpLogError("Failed to cast to VIEW: %s", errA.Error())
+			ret = FAIL
+			return
+
+		}
+		json, errA := bufv.TpVIEWToJSON(svc.View_flags)
+
+		if nil == errA {
+			ac.TpLogDebug("Got json to send: [%s]", json)
+			//Set content to send
+			content_to_send = []byte(json)
+		} else {
+
+			ac.TpLogError("Failed to cast UBF to JSON: %s", errA.Error())
+			ret = FAIL
+			return
+		}
+
+		if svc.Errors_int != ERRORS_HTTP && svc.Errors_int != ERRORS_JSON2VIEW {
+
+			ac.TpLogError("Invalid configuration! Sending VIEW buffer "+
+				"with non 'http' or 'json2view' buffer handling methods. "+
+				" Current method: %s", svc.Errors)
+
+			ac.UserLog("Service [%s] configuration error! Processing "+
+				"buffer VIEW, but errors marked as [%s]. "+
+				"Must be 'json2view' or 'http'. Check field 'errors' "+
 				"in service config block", svc.Errors)
 			ret = FAIL
 			return
@@ -299,35 +342,35 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 
 	ac.TpLogDump(atmi.LOG_DEBUG, "Data To send", content_to_send, len(content_to_send))
 	req, errReq := http.NewRequest("POST", svc.Url, bytes.NewBuffer(content_to_send))
-        if nil!=errReq {
-                ac.TpLogError("Failed to make request object: %s", errReq.Error());
-                ret = FAIL
-                return
-        }
+	if nil != errReq {
+		ac.TpLogError("Failed to make request object: %s", errReq.Error())
+		ret = FAIL
+		return
+	}
 
 	//req.Header.Set("X-Custom-Header", "myvalue")
 	req.Header.Set("Content-Type", content_type)
 
 	tr := &http.Transport{
-                DisableKeepAlives: true,
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: svc.SSLInsecure},
+		DisableKeepAlives: true,
+		TLSClientConfig:   &tls.Config{InsecureSkipVerify: svc.SSLInsecure},
 	}
 	client := &http.Client{
 		Timeout:   time.Second * time.Duration(svc.Timeout),
 		Transport: tr}
 
 	resp, errClt := client.Do(req)
-        
-        //Avoid file descriptor leak...
-        if nil!=resp {
-	        defer resp.Body.Close()
-        }
+
+	//Avoid file descriptor leak...
+	if nil != resp {
+		defer resp.Body.Close()
+	}
 
 	if errClt != nil {
 
-          //      if nil!=resp {
-         //               io.Copy(ioutil.Discard, resp.Body) 
-           //     }
+		//      if nil!=resp {
+		//               io.Copy(ioutil.Discard, resp.Body)
+		//     }
 		ac.TpLogError("Got error: %s", errClt.Error())
 
 		if err, ok := errClt.(net.Error); ok && err.Timeout() {
@@ -346,8 +389,8 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 	ac.TpLogInfo("response Status: %s", resp.Status)
 
 	body, errN := ioutil.ReadAll(resp.Body)
-        //Allow to return connection to pool
-        //io.Copy(ioutil.Discard, resp.Body) 
+	//Allow to return connection to pool
+	//io.Copy(ioutil.Discard, resp.Body)
 
 	if nil != errN {
 		ac.TpLogError("Failed to read response body - dropping the "+
@@ -449,7 +492,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 		}
 
 		if errA = bufuRsp.TpJSONToUBF(stringBody); errA != nil {
-			ac.TpLogError("Failed to conver buffer to JSON %d:[%s]",
+			ac.TpLogError("Failed to conver JSON to UBF %d:[%s]",
 				errA.Code(), errA.Message())
 
 			ac.TpLogError("Failed req: [%s] - dropping msg/tout",
@@ -490,6 +533,66 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 		}
 
 		bufuRsp.BDel(u.EX_IF_EMSG, 0)
+
+		break
+	case ERRORS_JSON2VIEW:
+		//Parse the buffer (will read all data right into buffer)
+		//Allocate parse buffer - it will be new (because
+		//We might not want to return data in error case...)
+		//...Depending on flags
+		ac.TpLogDebug("Converting to VIEW: [%s]", body)
+
+		if "{}" == string(body) {
+			ac.TpLogError("JSON Content {}: - assume format " +
+				"error - timeout")
+			retFlags |= atmi.TPSOFTTIMEOUT
+			ret = FAIL
+			return
+		}
+
+		bufvRsp, errA := ac.TpJSONToVIEW(stringBody)
+
+		if errA != nil {
+			ac.TpLogError("Failed to conver JSON to VIEW %d:[%s]",
+				errA.Code(), errA.Message())
+
+			ac.TpLogError("Failed req: [%s] - dropping msg/tout",
+				stringBody)
+
+			retFlags |= atmi.TPSOFTTIMEOUT
+			ret = FAIL
+			return
+		}
+
+		//TODO: bufv_rsp_parsed = true
+
+		//JSON2UBF response fields are present always
+		var errU atmi.UBFError
+
+		netCode, errU = bufvRsp.BVGetInt(svc.Errfmt_view_code, 0, 0)
+
+		if nil != errU {
+			ac.TpLogError("Missing [%s]: %s - assume format "+
+				"error - timeout", svc.Errfmt_view_code, errU.Error())
+			retFlags |= atmi.TPSOFTTIMEOUT
+			ret = FAIL
+			return
+		}
+
+		//Reset the filed in view..
+		bufvRsp.BVChg(svc.Errfmt_view_code, 0, 0)
+
+		netMessage, errU = bufvRsp.BVGetString(svc.Errfmt_view_msg, 0, 0)
+
+		if nil != errU {
+			ac.TpLogError("Missing [%s]: %s - assume format "+
+				"error - timeout", svc.Errfmt_view_msg, errU.Error())
+			retFlags |= atmi.TPSOFTTIMEOUT
+			ret = FAIL
+			return
+		}
+
+		bufvRsp.BVChg(svc.Errfmt_view_msg, 0, "")
 
 		break
 	case ERRORS_TEXT:

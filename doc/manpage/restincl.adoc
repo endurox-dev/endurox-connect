@@ -504,7 +504,7 @@ If set to *true*, the *restincl* will try to install the *errfmt_view_code* and
 if fields are not found in the response buffer, the condition is ignored and pure
 response buffer (converted to JSON) is returned. Default is *false*.
 
-*errfmt_view_notnull* = 'ERRFMT_VIEW_NOTNULL'::
+*view_notnull* = 'VIEW_NOTNULL'::
 Do not convert NULL fields (according to view) to the outgoing JSON. For more
 infos see, the *tpjsontoview(3)* or *CBvget(3)* man pages. Basically the functionality
 will omit the matched NULL fields in the VIEW. In case of arrays, dropped will be

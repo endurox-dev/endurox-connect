@@ -153,6 +153,10 @@ type ServiceMap struct {
 	echoConvInt int
 	EchoData    string `json:"echo_data"`
 
+	//Install in response non null fields only
+	View_notnull bool  `json:"view_notnull"`
+	View_flags   int64 //Flags used for VIEW2JSON
+
 	//Counters:
 	echoFails      int  //Number failed echos
 	echoSchedUnAdv bool //Should we schedule advertise

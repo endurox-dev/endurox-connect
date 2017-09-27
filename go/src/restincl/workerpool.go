@@ -262,7 +262,7 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 
 			//Generate response if one is not set already
 			if nil == rsp {
-				ret, err1 := bufv.TpVIEWToJSON(svc.Errfmt_view_flags)
+				ret, err1 := bufv.TpVIEWToJSON(svc.View_flags)
 
 				if nil == err1 {
 					//Generate the resposne buffer...

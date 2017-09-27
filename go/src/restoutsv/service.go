@@ -32,8 +32,9 @@ package main
 
 import (
 	"encoding/base64"
+	"fmt"
 	"time"
-        "fmt"
+
 	atmi "github.com/endurox-dev/endurox-go"
 )
 
@@ -192,13 +193,13 @@ func (s *ServiceMap) EchoJSON2VIEW(ac *atmi.ATMICtx) atmi.ATMIError {
 		return errA
 	}
 
-        _, errU:=s.echoVIEW.BVCpy(buf);
-        if nil!=errU {
+	_, errU := s.echoVIEW.BVCpy(buf)
+	if nil != errU {
 		ac.TpLogError("Failed to copy echo view: %s", errU.Error())
 		return atmi.NewCustomATMIError(atmi.TPESYSTEM,
-                        fmt.Sprintf("Failed to copy echo view: %s!",    
-                                errU.Error()))
-        }
+			fmt.Sprintf("Failed to copy echo view: %s!",
+				errU.Error()))
+	}
 
 	ac.TpLogDebug("About to call echo service: [%s]", s.Svc)
 	if _, errA = ac.TpCall(s.Svc, buf.GetBuf(), 0); nil != errA {
@@ -338,6 +339,9 @@ func (s *ServiceMap) Monitor() {
 				break
 			case CONV_RAW:
 				result = s.EchoRaw(ac)
+				break
+			case CONV_JSON2VIEW:
+				result = s.EchoJSON2VIEW(ac)
 				break
 			}
 

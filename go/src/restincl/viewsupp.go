@@ -87,10 +87,10 @@ func VIEWInstallError(buf *atmi.TypedVIEW, view string, view_code_fld string,
 func VIEWSvcValidateSettings(ac *atmi.ATMICtx, svc *ServiceMap) error {
 
 	//Set not NULL flag
-	if svc.Errfmt_view_notnull {
+	if svc.View_notnull {
 		ac.TpLogInfo("VIEWs in responses will contain non NULL fields only " +
 			"(according to view file)")
-		svc.Errfmt_view_flags |= atmi.BVACCESS_NOTNULL
+		svc.View_flags |= atmi.BVACCESS_NOTNULL
 	}
 
 	if svc.Errors_int != ERRORS_JSON2VIEW {

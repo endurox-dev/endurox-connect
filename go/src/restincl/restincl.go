@@ -123,9 +123,9 @@ type ServiceMap struct {
 	Errfmt_view_onsucc bool   `json:"errfmt_view_onsucc"`
 
 	//Install in response non null fields only
-	Errfmt_view_notnull bool `json:"errfmt_view_notnull"`
+	View_notnull bool `json:"view_notnull"`
 
-	Errfmt_view_flags int64 //Flags used for VIEW2JSON
+	View_flags int64 //Flags used for VIEW2JSON
 
 	//Response view, if in original buffer fields defined in
 	//errfmt_view_msg and errfmt_view_code are not found.

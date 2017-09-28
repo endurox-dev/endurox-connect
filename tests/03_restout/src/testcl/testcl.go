@@ -209,6 +209,49 @@ func CARRAYCall(ac *atmi.ATMICtx, cmd string, svc string, times string) error {
 	return nil
 }
 
+//Call the view with REQUEST1
+func VIEWCallREQUEST1(ac *atmi.ATMICtx, cmd string, svc string, times string) error {
+
+	nrTimes, _ := strconv.Atoi(times)
+
+	for i := 0; i < nrTimes; i++ {
+
+		buf, err := ac.NewVIEW("REQUEST1", 0)
+
+		if err != nil {
+			return errors.New(err.Error())
+		}
+
+		//Set some values in buffer...
+		ac.TpAssertEqualPanic(buf.BVChg("tstring1", 1, "HELLO TESTCL"), nil, "Failed to set tstring1")
+		ac.TpAssertEqualPanic(buf.BVChg("tlong1", 0, 44444), nil, "Failed to set tlong1")
+
+		//Call the server
+		if _, err := ac.TpCall(svc, buf, 0); nil != err {
+			MErrorCode = err.Code()
+			return errors.New(err.Error())
+		}
+
+		//Test the response...
+		tstring1, errU := buf.BVGetString("tstring1", 0, 0)
+		ac.TpAssertEqualPanic(errU, nil, "tstring1 must be present")
+        ac.TpLogInfo("Got string: [%s]", tstring1)
+		ac.TpAssertEqualPanic(tstring1, "HELLO RESPONSE", "tstring1 must be set "+
+			"to \"HELLO RESPONSE\"")
+
+		tstring1, errU = buf.BVGetString("tstring1", 1, 0)
+		ac.TpAssertEqualPanic(errU, nil, "tstring1[1] must be present")
+		ac.TpAssertEqualPanic(tstring1, "HELLO TESTCL", "tstring1[1] must be set"+
+			" to \"HELLO TESTCL\"")
+
+		tlong1, errU := buf.BVGetInt64("tlong1", 1, 0)
+		ac.TpAssertEqualPanic(errU, nil, "tlong1[0] must be present")
+		ac.TpAssertEqualPanic(tlong1, 11111, "tlong1 must be 11111")
+	}
+
+	return nil
+}
+
 //Run the listener
 func apprun(ac *atmi.ATMICtx) error {
 
@@ -235,6 +278,8 @@ func apprun(ac *atmi.ATMICtx) error {
 		return JSONCall(ac, cmd, svc, times)
 	case "carraycall":
 		return CARRAYCall(ac, cmd, svc, times)
+	case "view_request1":
+		return VIEWCallREQUEST1(ac, cmd, svc, times)
 	default:
 		return errors.New(fmt.Sprintf("Invalid test case: [%s]", cmd))
 	}

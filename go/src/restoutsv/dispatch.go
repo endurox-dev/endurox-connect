@@ -100,11 +100,12 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 	var bufs *atmi.TypedString
 	var bufc *atmi.TypedCarray
 	var bufv *atmi.TypedVIEW
+	var bufvRsp *atmi.TypedVIEW
 
 	retBuf := buf
 
 	bufu_rsp_parsed := false //UBF Parsed
-	//bufv_rsp_parsed := false //VIEW Parsed
+	bufv_rsp_parsed := false //VIEW Parsed
 	var errG error
 
 	defer func() {
@@ -564,7 +565,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 			return
 		}
 
-		//TODO: bufv_rsp_parsed = true
+		bufv_rsp_parsed = true
 
 		//JSON2UBF response fields are present always
 		var errU atmi.UBFError
@@ -695,6 +696,40 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 				//is it auto
 				//Also
 				retBuf = bufuRsp.GetBuf()
+			}
+			break
+		case "VIEW", "VIEW32":
+
+			//Parse response back from JSON
+			if !bufv_rsp_parsed {
+				ac.TpLogDebug("Converting to VIEW: [%s]", body)
+
+				//Keep the original buffer in reply in case if we fail.
+				bufvTmp, errA := ac.TpJSONToVIEW(stringBody)
+
+				if errA != nil {
+					ac.TpLogError("Failed to conver rsp "+
+						"buffer from JSON->VIEW%d:[%s] - dropping",
+						errA.Code(), errA.Message())
+
+					ac.UserLog("Failed to conver rsp "+
+						"buffer from JSON->VIEW%d:[%s] - dropping",
+						errA.Code(), errA.Message())
+
+					retFlags |= atmi.TPSOFTTIMEOUT
+					ret = FAIL
+					return
+				}
+
+				retBuf = bufvTmp.GetBuf()
+			} else {
+				//Response is parbufused and we will answer with it
+				ac.TpLogInfo("Swapping UBF bufers...")
+
+				//Original buffer will be automatically
+				//is it auto
+				//Also
+				retBuf = bufvRsp.GetBuf()
 			}
 			break
 		case "STRING":

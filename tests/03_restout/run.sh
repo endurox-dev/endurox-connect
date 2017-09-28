@@ -72,9 +72,35 @@ RET=$?
 
 if [[ $RET != 0 ]]; then
 	echo "testcl $COMMAND: failed"
-	go_out 1
+	go_out 28
 fi
 
+################################################################################
+echo "VIEW FAIL - json2view errors"
+################################################################################
+
+COMMAND="view_request1"
+
+testcl $COMMAND VIEWERR_FAIL 1
+RET=$?
+
+if [[ $RET != 11 ]]; then
+	echo "testcl $COMMAND: failed"
+	go_out 29
+fi
+
+################################################################################
+echo "VIEW FAIL - json2view TOUT"
+################################################################################
+
+COMMAND="view_request1_tout"
+testcl $COMMAND VIEWERR_TOUT 1
+RET=$?
+
+if [[ $RET != 13 ]]; then
+	echo "testcl $COMMAND: failed (ret must be 13, but got: $RET)"
+	go_out 3
+fi
 
 ################################################################################
 echo "JSON2UBF test case - jue (json2ubf err), OK"

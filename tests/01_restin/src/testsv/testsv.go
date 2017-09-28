@@ -296,6 +296,22 @@ func DATASV1(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	return
 }
 
+//LONGOP2 service (works with any buffer type)
+//@param ac ATMI Context
+//@param svc Service call information
+func LONGOP2(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
+
+	//Return to the caller
+	defer func() {
+		ac.TpReturn(atmi.TPFAIL, 0, &svc.Data, 0)
+	}()
+
+	ac.TpLogWarn("Sleeping 4 sec...")
+	time.Sleep(4000 * time.Millisecond)
+
+	return
+}
+
 //Server init, called when process is booted
 //@param ac ATMI Context
 func Init(ac *atmi.ATMICtx) int {
@@ -353,6 +369,11 @@ func Init(ac *atmi.ATMICtx) int {
 	}
 
 	if err := ac.TpAdvertise("VIEWFAIL2", "VIEWFAIL2", VIEWFAIL2); err != nil {
+		fmt.Println(err)
+		return atmi.FAIL
+	}
+
+	if err := ac.TpAdvertise("LONGOP2", "LONGOP2", LONGOP2); err != nil {
 		fmt.Println(err)
 		return atmi.FAIL
 	}

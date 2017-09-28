@@ -481,6 +481,8 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 		//...Depending on flags
 		ac.TpLogDebug("Converting to UBF: [%s]", body)
 
+		var errA atmi.ATMIError
+
 		bufuRsp, errA = ac.NewUBF(atmi.ATMI_MSG_MAX_SIZE)
 
 		if errA != nil {
@@ -551,7 +553,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 			return
 		}
 
-		bufvRsp, errA := ac.TpJSONToVIEW(stringBody)
+		bufvRsp, errA = ac.TpJSONToVIEW(stringBody)
 
 		if errA != nil {
 			ac.TpLogError("Failed to conver JSON to VIEW %d:[%s]",

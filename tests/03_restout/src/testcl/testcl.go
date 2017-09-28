@@ -223,33 +223,44 @@ func VIEWCallREQUEST1(ac *atmi.ATMICtx, cmd string, svc string, times string) er
 		}
 
 		//Set some values in buffer...
-		ac.TpAssertEqualPanic(buf.BVChg("tstring1", 1, "HELLO TESTCL"), nil, "Failed to set tstring1")
-		ac.TpAssertEqualPanic(buf.BVChg("tlong1", 0, 44444), nil, "Failed to set tlong1")
+		ac.TpAssertEqualPanic(buf.BVChg("tshort1", 0, 5), nil, "Failed to set tshort1")
+		ac.TpAssertEqualPanic(buf.BVChg("tlong1", 0, 77777), nil, "Failed to set tlong1")
+		ac.TpAssertEqualPanic(buf.BVChg("tstring1", 1, "INCOMING TEST"), nil, "Failed to set tstring1")
 
 		//Call the server
 		if _, err := ac.TpCall(svc, buf, 0); nil != err {
 			MErrorCode = err.Code()
-			return errors.New(err.Error())
+			//In this case return error directly...
+			if cmd == "view_request1_tout" {
+				return errors.New(err.Error())
+			}
 		}
+
+		//The data still must be parsed in!
 
 		//Test the response...
 		tstring1, errU := buf.BVGetString("tstring1", 0, 0)
 		ac.TpAssertEqualPanic(errU, nil, "tstring1 must be present")
-        ac.TpLogInfo("Got string: [%s]", tstring1)
+		ac.TpLogInfo("Got string: [%s]", tstring1)
 		ac.TpAssertEqualPanic(tstring1, "HELLO RESPONSE", "tstring1 must be set "+
 			"to \"HELLO RESPONSE\"")
 
 		tstring1, errU = buf.BVGetString("tstring1", 1, 0)
 		ac.TpAssertEqualPanic(errU, nil, "tstring1[1] must be present")
-		ac.TpAssertEqualPanic(tstring1, "HELLO TESTCL", "tstring1[1] must be set"+
+		ac.TpAssertEqualPanic(tstring1, "INCOMING TEST", "tstring1[1] must be set"+
 			" to \"HELLO TESTCL\"")
 
-		tlong1, errU := buf.BVGetInt64("tlong1", 1, 0)
+		tlong1, errU := buf.BVGetInt64("tlong1", 0, 0)
 		ac.TpAssertEqualPanic(errU, nil, "tlong1[0] must be present")
 		ac.TpAssertEqualPanic(tlong1, 11111, "tlong1 must be 11111")
 	}
 
-	return nil
+	if 0 != MErrorCode {
+		return errors.New("VIEWCallREQUEST1 failed")
+	} else {
+		return nil
+	}
+
 }
 
 //Run the listener
@@ -278,7 +289,8 @@ func apprun(ac *atmi.ATMICtx) error {
 		return JSONCall(ac, cmd, svc, times)
 	case "carraycall":
 		return CARRAYCall(ac, cmd, svc, times)
-	case "view_request1":
+	case "view_request1", "view_request1_tout":
+
 		return VIEWCallREQUEST1(ac, cmd, svc, times)
 	default:
 		return errors.New(fmt.Sprintf("Invalid test case: [%s]", cmd))

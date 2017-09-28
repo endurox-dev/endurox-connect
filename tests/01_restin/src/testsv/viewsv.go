@@ -7,7 +7,7 @@ import atmi "github.com/endurox-dev/endurox-go"
 //@param svc Service call information
 func VIEWSV1(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 
-	ret := SUCCEED
+	ret := FAIL
 
 	//Get UBF Handler
 	v, _ := ac.CastToVIEW(&svc.Data)
@@ -38,21 +38,20 @@ func VIEWSV1(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 
 	if errU = v.BVChg("tshort1", 0, 8); nil != errU {
 		ac.TpLogError("Failed to set tshort1: %s", errU.Error())
-		ret = FAIL
 		return
 	}
 
 	if errU = v.BVChg("tlong1", 0, 11111); nil != errU {
 		ac.TpLogError("Failed to set tlong1: %s", errU.Error())
-		ret = FAIL
 		return
 	}
 
 	if errU = v.BVChg("tstring1", 0, "HELLO RESPONSE"); nil != errU {
 		ac.TpLogError("Failed to set tstring1: %s", errU.Error())
-		ret = FAIL
 		return
 	}
+
+	ret = SUCCEED
 
 	return
 }

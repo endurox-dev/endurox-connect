@@ -7,3 +7,4 @@ Releases:
 2.1.2 - Fixes of Bug #200, Bug #201
 2.1.3 - Feature #204
 2.1.4 - View support in restincl
+2.2.1 - (development version) Bug #225, works on restout view support

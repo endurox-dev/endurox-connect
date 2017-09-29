@@ -100,6 +100,8 @@ type ExCon struct {
 	outgoing chan *DataBlock //This is for outgoing
 	shutdown chan bool       //This is if we get shutdown messages
 	is_open  bool            //Is connection open?
+
+	inIdle exutil.StopWatch //Max idle time
 }
 
 //We need a hash list of open connection (no matter incoming our outgoing...)
@@ -307,7 +309,6 @@ func GetNewConnectionId(ac *atmi.ATMICtx) (int64, int64, int64) {
 	var i int64
 
 	ac.TpLogDebug("Generating new connectiond Id, MMaxConnections=%d", MMaxConnections)
-
 	//Will enumerate connections from
 	for i = 1; i < MMaxConnections+1; i++ {
 		if nil == MConnectionsSimple[i] {
@@ -359,6 +360,9 @@ func ReadConData(con *ExCon, ch chan<- []byte, eCh chan<- error) {
 
 		ac.TpLogInfo("conn %d get message len: %d",
 			con.id_comp, len(data))
+
+		con.inIdle.Reset() //Reset connection idle timer
+
 		if len(data) > 0 {
 			// send data if we read some.
 			ch <- data
@@ -567,6 +571,8 @@ func SetupConnection(con *ExCon) {
 
 	con.outgoing = make(chan *DataBlock, 10)
 	con.shutdown = make(chan bool, 10)
+
+	con.inIdle.Reset() //Reset idle timeout counter...
 }
 
 //Setup data block commons
@@ -615,12 +621,13 @@ func GoDial(con *ExCon, block *DataBlock) {
 
 		//Remove connection from hashes
 		/*
-			Not in let yet
-			MConnMutex.Lock()
-			delete(MConnectionsSimple, con.id)
-			delete(MConnectionsComp, con.id_comp)
-			MConnMutex.Unlock()
+			Not in let yet - why not?
 		*/
+		MConnMutex.Lock()
+		delete(MConnectionsSimple, con.id)
+		delete(MConnectionsComp, con.id_comp)
+		MConnMutex.Unlock()
+
 		//Generate erro buffer
 		if block != nil {
 			if rply_buf, _ := GenErrorUBF(ac, 0, atmi.NENOCONN,
@@ -633,11 +640,12 @@ func GoDial(con *ExCon, block *DataBlock) {
 
 	ac.TpLogInfo("Marking connection %d/%d as open", con.id, con.id_comp)
 
+	/*  Bug #225 - register connection already when doing to dia
 	MConnMutex.Lock()
 	MConnectionsSimple[con.id] = con
 	MConnectionsComp[con.id_comp] = con
 	MConnMutex.Unlock()
-
+	*/
 	con.is_open = true
 
 	//Have buffered read/write API to socket

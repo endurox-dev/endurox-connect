@@ -39,6 +39,7 @@ import (
 //Zero sending periodic stopwatch
 var MZeroStopwatch exutil.StopWatch
 var MStatusRefreshStopWatch exutil.StopWatch
+var MInIdleCheckStopWatch exutil.StopWatch
 
 //Send zero length messages over the channels
 func RunZeroOverOpenCons(ac *atmi.ATMICtx) {
@@ -67,6 +68,34 @@ func RunZeroOverOpenCons(ac *atmi.ATMICtx) {
 
 	MConnMutex.Unlock()
 
+}
+
+//Check activity over open conns
+//So that if we have not received anyting
+func RunCheckInIdleChk(ac *atmi.ATMICtx) {
+
+	//Lock all connections
+	MConnMutex.Lock()
+	for _, v := range MConnectionsComp {
+
+		if v.is_open {
+
+			spent := v.inIdle.GetDetlaSec()
+			if spent > MInIdleMax {
+				ac.TpLogWarn("RESET: Connect %d/%d not received any data in %d sec "+
+					"(already spent: %d sec) - resetting conn",
+					v.id, v.id_comp, MInIdleMax, spent)
+				//Close connection
+				v.shutdown <- true
+			}
+
+		} else {
+			ac.TpLogInfo("conn %d/%d is not yet open - not sending zero msg",
+				v.id, v.id_comp)
+		}
+	}
+
+	MConnMutex.Unlock()
 }
 
 //Send zero length messages over the channels
@@ -116,12 +145,13 @@ func CheckDial(ac *atmi.ATMICtx) {
 			break
 		}
 
-		//2. Add to hash
+		//2. Add to hash, -- why not 2017/09/29 - we get the same connection ids...
+		//when they are not connect but new ids are generated?
 		/*
-			mvitolin 2017/01/25 do it when connection is established in GoDial
-			MConnectionsSimple[con.id] = &con
-			MConnectionsComp[con.id_comp] = &con
-		*/
+			mvitolin 2017/01/25 do it when connection is established in GoDial*/
+		MConnectionsSimple[con.id] = &con
+		MConnectionsComp[con.id_comp] = &con
+
 		MConnMutex.Unlock()
 
 		//3. and spawn the routine...
@@ -272,8 +302,17 @@ func Periodic(ac *atmi.ATMICtx) int {
 		ac.TpLogInfo("Time for status refresh messages to be sent...")
 
 		RunStatusRefresh(ac)
-
 		MStatusRefreshStopWatch.Reset()
+
+	}
+
+	//Check the idle time incoming activitiy, if no messages received in given
+	//time frame then connection is reset
+	if MInIdleCheck > 0 && MInIdleCheckStopWatch.GetDetlaSec() > MInIdleCheck {
+		ac.TpLogInfo("Time for idle connection checks with no incomming traffic")
+
+		RunCheckInIdleChk(ac)
+		MInIdleCheckStopWatch.Reset()
 
 	}
 

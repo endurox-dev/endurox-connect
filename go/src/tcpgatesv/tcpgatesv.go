@@ -59,17 +59,17 @@ var MFramingMaxMsgLen int = 0      //Max message len (checked if >0)
 var MFramingHalfSwap bool = false  //Should we swap on the half incoming length bytes
 
 //In case if framing is "d"
-var MDelimStart byte = 0x02  //can be optional
-var MDelimStop byte = 0x03   //Can be optional
-var MType string = "P"       //A - Active, P - Pasive
-var MIp string = "0.0.0.0"   //IP to listen or to connect to if Active
-var MPort int = 7921         //Port to connect to or listen on depending on active/passive role
-var MAddr string = ""        //Compiled ip:port
-var MIncomingSvc string = "" //Incomding service to send to incoming async traffic
+var MDelimStart byte = 0x02       //can be optional
+var MDelimStop byte = 0x03        //Can be optional
+var MType string = "P"            //A - Active, P - Pasive
+var MIp string = "0.0.0.0"        //IP to listen or to connect to if Active
+var MPort int = 7921              //Port to connect to or listen on depending on active/passive role
+var MAddr string = ""             //Compiled ip:port
+var MIncomingSvc string = ""      //Incomding service to send to incoming async traffic
 var MIncomingSvcSync bool = false //Is incoming service Synchronous and needs tpcall with rsp back to net
-var MPerZero int = 0         //Period by witch to which send zero length message to all channels...
-var MStatussvc string = ""   //Status service to which send connection information
-var MStatusRefresh int = 0   //Send periodic status refreshes, seconds
+var MPerZero int = 0              //Period by witch to which send zero length message to all channels...
+var MStatussvc string = ""        //Status service to which send connection information
+var MStatusRefresh int = 0        //Send periodic status refreshes, seconds
 //Max number to connection to connect to server, or allow max incomings in the same time.
 var MMaxConnections int64 = 5
 
@@ -81,6 +81,8 @@ var MReqReply int = RR_PERS_ASYNC_INCL_CORR
 //Timeout for req-reply model
 var MReqReplyTimeout int64 = 60
 var MConnWaitTime int64 = 60 //Max time to wait for connection in pool
+var MInIdleMax int64 = 0     //By default no connection restart
+var MInIdleCheck int64 = 0   //Time into which check idle seconds
 var MScanTime = 1            //Seconds for housekeeping
 
 //Correlator service for incoming messages
@@ -299,8 +301,8 @@ func Init(ac *atmi.ATMICtx) int {
 			tmp, _ := buf.BGetString(u.EX_CC_VALUE, occ)
 			ac.TpLogDebug("Got [%s] = [%s] ", fldName, tmp)
 
-			if "Y"==string(tmp[0]) || "y"==string(tmp[0]) {
-					MIncomingSvcSync = true
+			if "Y" == string(tmp[0]) || "y" == string(tmp[0]) {
+				MIncomingSvcSync = true
 			}
 
 			break
@@ -337,10 +339,21 @@ func Init(ac *atmi.ATMICtx) int {
 			MConnWaitTime, _ = buf.BGetInt64(u.EX_CC_VALUE, occ)
 			ac.TpLogDebug("Got [%s] = [%d] ", fldName, MConnWaitTime)
 			break
+		case "in_idle_max":
+			//Restart connection if in idle (no incoming traffice) for more than
+			//given seconds
+			MInIdleMax, _ = buf.BGetInt64(u.EX_CC_VALUE, occ)
+			ac.TpLogDebug("Got [%s] = [%d] ", fldName, MInIdleMax)
+			break
+		case "in_idle_check":
+			//Number in seconds into which to check the connection idle time
+			MInIdleCheck, _ = buf.BGetInt64(u.EX_CC_VALUE, occ)
+			ac.TpLogDebug("Got [%s] = [%d] ", fldName, MInIdleCheck)
+			break
 		case "corr_svc":
 			//Corelator service for sync tpcall over mulitple persistent connectinos
 			MCorrSvc, _ = buf.BGetString(u.EX_CC_VALUE, occ)
-			ac.TpLogDebug("Got [%s] = [%s] ", fldName, MReqReplyTimeout)
+			ac.TpLogDebug("Got [%s] = [%s] ", fldName, MCorrSvc)
 			break
 		case "debug":
 			//Set debug configuration string
@@ -388,6 +401,13 @@ func Init(ac *atmi.ATMICtx) int {
 	if MFramingHalfSwap && MFramingLen%2 > 0 {
 		ac.TpLogWarn("Using half swap of framing bytes, but byte length is odd: %d",
 			MFramingLen)
+		return FAIL
+	}
+
+	//Check the idle time settings
+	if MInIdleCheck > 0 && MInIdleMax <= 0 || MInIdleCheck <= 0 && MInIdleMax > 0 {
+		ac.TpLogError("ERROR: paramters 'in_idle_check' (%d) and 'in_idle_max'(%d) "+
+			"both must be either 0 or greater than 0", MInIdleCheck, MInIdleMax)
 		return FAIL
 	}
 

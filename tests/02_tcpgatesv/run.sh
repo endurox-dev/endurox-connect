@@ -44,7 +44,6 @@ xadmin start -y
 # Let connections to establish
 sleep 10
 
-
 ################################################################################
 echo ">>> Run async calls, sync invocation"
 ################################################################################
@@ -282,6 +281,56 @@ if [[ $RET != 0 ]]; then
 	echo "testcl $COMMAND $NROFCALLS TCP_P_SYNC_A failed"
 	go_out 15
 fi
+
+
+################################################################################
+echo ">>> Test connection reset tests in_idle_max/in_idle_check params..."
+################################################################################
+# This assumes that test have already run for 20 seconds to have idle time enough
+
+sleep 30
+
+FILE="tcpgatesv-async-active-idlerst"
+RESET_OUT=`grep RESET $NDRX_APPHOME/log/$FILE*`
+
+echo "RESET $FILE out: [$RESET_OUT]"
+
+if [ "X$RESET_OUT" == "X" ]; then
+	echo "Testing of in_idle_max/in_idle_check fail - NO 'RESET' found in $FILE"
+	go_out 16
+fi
+
+
+FILE="tcpgatesv-async-active-idlerst"
+RESET_OUT=`grep RESET $NDRX_APPHOME/log/$FILE*`
+
+echo "RESET $FILE out: [$RESET_OUT]"
+
+if [ "X$RESET_OUT" == "X" ]; then
+	echo "Testing of in_idle_max/in_idle_check fail - NO 'RESET' found in $FILE"
+	go_out 17
+fi
+
+FILE="tcpgatesv-async-passive."
+RESET_OUT=`grep RESET $NDRX_APPHOME/log/$FILE*`
+
+echo "RESET $FILE out: [$RESET_OUT]"
+
+if [ "X$RESET_OUT" != "X" ]; then
+	echo "Testing of in_idle_max/in_idle_check fail - 'RESET' MUST NOT be found in $FILE"
+	go_out 18
+fi
+
+FILE="tcpgatesv-async-active."
+RESET_OUT=`grep RESET $NDRX_APPHOME/log/$FILE*`
+
+echo "RESET $FILE out: [$RESET_OUT]"
+
+if [ "X$RESET_OUT" != "X" ]; then
+	echo "Testing of in_idle_max/in_idle_check fail - 'RESET' MUST NOT be found in $FILE"
+	go_out 19
+fi
+
 
 xadmin stop -c -y
 

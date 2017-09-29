@@ -192,6 +192,34 @@
 			<srvid>250</srvid>
 			<sysopt>-e ${NDRX_APPHOME}/log/tcpgatesv-nonpers-passive.log -r</sysopt>
 		</server>
+		<server name="tcpgatesv">
+			<cctag>pers/async/active/idlerst</cctag>
+			<min>1</min>
+			<max>1</max>
+			<srvid>260</srvid>
+			<sysopt>-e ${NDRX_APPHOME}/log/tcpgatesv-async-active-idlerst.log -r</sysopt>
+		</server>
+		<server name="tcpgatesv">
+			<cctag>pers/async/passive/idlerst</cctag>
+			<min>1</min>
+			<max>1</max>
+			<srvid>270</srvid>
+			<sysopt>-e ${NDRX_APPHOME}/log/tcpgatesv-async-passive-idlerst.log -r</sysopt>
+		</server>		
+		<server name="tcpgatesv">
+			<cctag>pers/async/active/idlerstact</cctag>
+			<min>1</min>
+			<max>1</max>
+			<srvid>280</srvid>
+			<sysopt>-e ${NDRX_APPHOME}/log/tcpgatesv-async-active-idlerstact.log -r</sysopt>
+		</server>
+		<server name="tcpgatesv">
+			<cctag>pers/async/passive/idlerstact</cctag>
+			<min>1</min>
+			<max>1</max>
+			<srvid>290</srvid>
+			<sysopt>-e ${NDRX_APPHOME}/log/tcpgatesv-async-passive-idlerstact.log -r</sysopt>
+		</server>		
 		<server name="cpmsrv">
 			<min>1</min>
 			<max>1</max>

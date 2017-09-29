@@ -404,6 +404,23 @@ suitable for non-persistent connections. I.e. it is not possible to use
 this paramter with 'req_reply' modes *3* and *4*.
 The default is *0*.
 
+*in_idle_max* = 'IN_IDLE_MAX'::
+Max time in seconds after which connections with out any incoming network
+traffic will be reset. Thus if both ends of TCP connection are configured to
+send the periodic zero messages (or some other traffic), then connection is not
+reset. The tcpgate will monitor those connections, and if found that there are no
+inbound traffic for 'IN_IDLE_MAX' time, then connection is closed. This works for
+active and passive connections.
+The default is *0* meaning functionality is disabled. If feature is enabled the
+it must be configured with 'in_idle_check' parameter.
+
+
+'in_idle_check' = 'IN_IDLE_CHECK'::
+Number of seconds within 'scan_time' to perform Inbound idle connection tests
+('in_idle_max') and connection reset if needed. If configured then 'in_idle_max'
+must be set too.
+Default value is *0* - meaning disable inbound traffic check.
+
 *status_svc* = 'STATUS_SERVICE_NAME'::
 Name of the service which receives connection status updates. Parameter
 is optional, and if not set, then connection status updates will not be
@@ -507,7 +524,6 @@ mode was *1* or *3*. The calls are put in waiter lists. Gateway periodically sca
 the connection waiter lists (period is set by 'scan_time' parameter). If the reply
 time is reached with no response, the caller will get back UBF response with 
 'EX_NERROR_CODE'=*8* (timeout).
-
 The default is *60* seconds.
 
 
@@ -515,7 +531,6 @@ The default is *60* seconds.
 The number of seconds where main Enduro/X dispatcher thread is interrupted in order
 to run time-out scans. For outgoing correlated connections (either by correlator id
 or by connection).
-
 The default is *1* - every second.
 
 
@@ -524,7 +539,6 @@ This is time-out time in seconds waiting for connection from connection pool (wh
 connection is not identified by 'EX_NETCONNID'. The parameter is effective only form
 'req_reply' modes *0* and *1*. In case if timeout is reached, the error *NENOCONN*
 error *9* will be generated.
-
 The default is *60* seconds.
 
 
@@ -538,7 +552,6 @@ service that can populate the 'EX_NETCORR' for incoming messages. *NOTE* that
 'corr_svc' have a rights to change the 'EX_NETDATA' in reply so that when request
 or reply is coming in from network, the already parsed data can be delivered to
 'incoming_svc'.
-
 The default value for this field is *unset* (i.e. empty parameter - not used).
 
 *debug* = 'DEBUG_STRING'::
@@ -573,15 +586,11 @@ To see the usage different usage settings, see *tests/02_tcpgatesv/runtime/conf/
 
 BUGS
 ----
-Report bugs to madars.vitolins@gmail.com
+Report bugs to support@mavimax.com
 
 SEE ALSO
 --------
 *restincl(8)* *restoutsv(8)*.
-
-AUTHOR
-------
-Enduro/X is created by Madars Vitolins.
 
 
 COPYING

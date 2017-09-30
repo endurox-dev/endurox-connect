@@ -132,6 +132,58 @@ if [[ $RET != 11 ]]; then
 	go_out 32
 fi
 
+
+################################################################################
+# Echo tests for VIEW...
+################################################################################
+
+# stop the restin client
+xadmin sc -t RESTIN || exit 33
+
+# Wait some time for unadvertise
+sleep 20
+
+xadmin psc 
+
+################################################################################
+echo "VIEW echo NOENT"
+################################################################################
+COMMAND="view_request1_tout"
+
+testcl $COMMAND DEP_JSON2VIEW 1
+RET=$?
+
+if [[ $RET != 6 ]]; then
+    echo "testcl $COMMAND: failed"
+    go_out 34
+fi
+
+
+# boot back the restin client
+xadmin bc -t RESTIN || exit 35
+
+# Wait to advertise back
+sleep 20
+
+xadmin psc 
+xadmin pqa -a
+###############################################################################
+echo "JSON2UBF echo back on track"
+###############################################################################
+COMMAND="view_request1"
+
+testcl $COMMAND DEP_JSON2VIEW $TIMES
+RET=$?
+
+if [[ $RET != 0 ]]; then
+    echo "testcl $COMMAND: failed"
+    go_out 36
+fi
+
+################################################################################
+# VIEW ECHO END
+################################################################################
+
 ################################################################################
 echo "JSON2UBF test case - jue (json2ubf err), OK"
 ################################################################################
@@ -432,7 +484,7 @@ if [[ $RET != 6 ]]; then
 	go_out 24
 fi
 
-# No need to test other logic is simular... Now get back echo
+# No need to test other logic is similar... Now get back echo
 
 # stop the restin client
 xadmin bc -t RESTIN || exit 25

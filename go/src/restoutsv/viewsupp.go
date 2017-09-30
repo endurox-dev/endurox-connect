@@ -111,7 +111,7 @@ func VIEWResetEchoError(ac *atmi.ATMICtx, s *ServiceMap, v *atmi.TypedVIEW) atmi
 
 	if s.Errors_int == ERRORS_JSON2VIEW {
 		errU := VIEWInstallError(s.echoVIEW, s.echoVIEW.BVName(), s.Errfmt_view_code,
-			atmi.TPMINVAL, "SUCCEED", s.Errfmt_view_msg)
+			atmi.TPMINVAL, s.Errfmt_view_msg, "SUCCEED")
 		if nil != errU {
 			ac.TpLogError("Failed to install response in echo view: %s",
 				errU.Error())

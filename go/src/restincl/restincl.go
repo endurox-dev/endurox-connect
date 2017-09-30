@@ -96,6 +96,7 @@ const (
 	ERRFMT_JSON_MSG_DEFAULT    = "\"error_message\":\"%s\""
 	ERRFMT_JSON_CODE_DEFAULT   = "\"error_code\":%d"
 	ERRFMT_JSON_ONSUCC_DEFAULT = true /* generate success message in JSON */
+	ERRFMT_VIEW_ONSUCC_DEFAULT = true /* generate success message in VIEW */
 	ERRFMT_TEXT_DEFAULT        = "%d: %s"
 	ASYNCCALL_DEFAULT          = false
 	WORKERS                    = 10 /* Number of worker processes */
@@ -320,6 +321,7 @@ func appinit(ac *atmi.ATMICtx) error {
 	M_defaults.Errfmt_json_onsucc = ERRFMT_JSON_ONSUCC_DEFAULT
 	M_defaults.Errfmt_text = ERRFMT_TEXT_DEFAULT
 	M_defaults.Asynccall = ASYNCCALL_DEFAULT
+	M_defaults.Errfmt_view_onsucc = ERRFMT_VIEW_ONSUCC_DEFAULT
 
 	M_workers = WORKERS
 

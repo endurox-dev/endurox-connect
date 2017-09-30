@@ -502,7 +502,7 @@ errors. Parameter is mandatory for 'json2view' error handling mechanism.
 If set to *true*, the *restincl* will try to install the *errfmt_view_code* and
 *errfmt_view_msg* errors fields in the response buffer in case if call is success,
 if fields are not found in the response buffer, the condition is ignored and pure
-response buffer (converted to JSON) is returned. Default is *false*.
+response buffer (converted to JSON) is returned. Default is *true*.
 
 *view_notnull* = 'VIEW_NOTNULL'::
 Do not convert NULL fields (according to view) to the outgoing JSON. For more

@@ -99,7 +99,37 @@ RET=$?
 
 if [[ $RET != 13 ]]; then
 	echo "testcl $COMMAND: failed (ret must be 13, but got: $RET)"
-	go_out 3
+	go_out 30
+fi
+
+
+################################################################################
+echo "VIEW HTTP Errors, OK"
+################################################################################
+
+COMMAND="view_request1"
+
+testcl $COMMAND VIEWHTTP_OK $TIMES
+RET=$?
+
+if [[ $RET != 0 ]]; then
+	echo "testcl $COMMAND: failed $RET"
+	go_out 31
+fi
+
+
+################################################################################
+echo "VIEW HTTP Errors, FAIL"
+################################################################################
+
+COMMAND="view_request1"
+
+testcl $COMMAND VIEWHTTP_FAIL 1
+RET=$?
+
+if [[ $RET != 11 ]]; then
+	echo "testcl $COMMAND: failed $RET"
+	go_out 32
 fi
 
 ################################################################################

@@ -92,7 +92,7 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 
 	switch svc.Conv_int {
 	case CONV_JSON2UBF:
-		//rsp_type = "text/json"
+		rspType = "application/json"
 		//Convert buffer back to JSON & send it back..
 		//But we could append the buffer with error here...
 
@@ -154,7 +154,7 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 
 		break
 	case CONV_JSON2VIEW:
-		//rsp_type = "text/json"
+		rspType = "application/json"
 		//Convert buffer back to JSON & send it back..
 		//But we could append the buffer with error here...
 
@@ -331,7 +331,7 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 		}
 		break
 	case CONV_JSON:
-		rspType = "text/json"
+		rspType = "application/json"
 		/*		if !svc.Asynccall && atmi.TPMINVAL == err.Code() { why?
 				Lets reply back with same incoming buffer...
 		*/
@@ -442,6 +442,7 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 	ac.TpLogDebug("Returning context type: %s, len: %d", rspType, len(rsp))
 	ac.TpLogDump(atmi.LOG_INFO, "Sending response back", rsp, len(rsp))
 	w.Header().Set("Content-Length", strconv.Itoa(len(rsp)))
+	w.Header().Set("Content-Type", rspType)
 	w.Write(rsp)
 }
 

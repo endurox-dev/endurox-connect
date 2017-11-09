@@ -148,9 +148,9 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 
 	ac.TpLogInfo("Reallocating the incoming buffer for storing the RSP")
 
-	if errA := buf.TpRealloc(atmi.ATMI_MSG_MAX_SIZE); nil != errA {
+	if errA := buf.TpRealloc(atmi.ATMIMsgSizeMax()); nil != errA {
 		ac.TpLogError("Failed to realloc buffer to: %s",
-			atmi.ATMI_MSG_MAX_SIZE)
+			atmi.ATMIMsgSizeMax())
 		ret = FAIL
 		return
 	}
@@ -483,7 +483,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 
 		var errA atmi.ATMIError
 
-		bufuRsp, errA = ac.NewUBF(atmi.ATMI_MSG_MAX_SIZE)
+		bufuRsp, errA = ac.NewUBF(atmi.ATMIMsgSizeMax())
 
 		if errA != nil {
 			ac.TpLogError("Failed to alloc UBF %d:[%s] - drop/timeout",

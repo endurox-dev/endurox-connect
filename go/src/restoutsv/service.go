@@ -85,7 +85,7 @@ func (s *ServiceMap) PreparseEchoBuffers(ac *atmi.ATMICtx) atmi.ATMIError {
 
 		case CONV_JSON2UBF:
 			//Allocate the buffer
-			s.echoUBF, errA = ac.NewUBF(atmi.ATMI_MSG_MAX_SIZE)
+			s.echoUBF, errA = ac.NewUBF(atmi.ATMIMsgSizeMax())
 
 			if nil != errA {
 				ac.TpLogError("failed to alloca ubf buffer %d:[%s]",
@@ -152,7 +152,7 @@ func (s *ServiceMap) PreparseEchoBuffers(ac *atmi.ATMICtx) atmi.ATMIError {
 func (s *ServiceMap) EchoJSON2UBF(ac *atmi.ATMICtx) atmi.ATMIError {
 
 	//Allocate the buffer
-	buf, errA := ac.NewUBF(atmi.ATMI_MSG_MAX_SIZE)
+	buf, errA := ac.NewUBF(atmi.ATMIMsgSizeMax())
 
 	if nil != errA {
 		ac.TpLogError("failed to alloca ubf buffer %d:[%s]",

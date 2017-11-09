@@ -469,7 +469,7 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter, req
 		case CONV_JSON2UBF:
 			//Convert JSON 2 UBF...
 			//Bug #200, use max buffer size
-			bufu, err1 := ac.NewUBF(atmi.ATMI_MSG_MAX_SIZE)
+			bufu, err1 := ac.NewUBF(atmi.ATMIMsgSizeMax())
 
 			if nil != err1 {
 				ac.TpLogError("failed to alloca ubf buffer %d:[%s]\n",

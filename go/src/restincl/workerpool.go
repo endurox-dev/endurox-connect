@@ -440,7 +440,7 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 
 	//Send response back
 	ac.TpLogDebug("Returning context type: %s, len: %d", rspType, len(rsp))
-	ac.TpLogDump(atmi.LOG_INFO, "Sending response back", rsp, len(rsp))
+	ac.TpLogDump(atmi.LOG_DEBUG, "Sending response back", rsp, len(rsp))
 	w.Header().Set("Content-Length", strconv.Itoa(len(rsp)))
 	w.Header().Set("Content-Type", rspType)
 	w.Write(rsp)

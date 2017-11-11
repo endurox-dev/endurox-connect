@@ -17,6 +17,7 @@ cd runtime
 # Create the env..
 #
 
+runbigmsg=0
 #
 # So we need to add some demo server
 # We need to add server process here + we need to register ubftab (test.fd)
@@ -26,6 +27,7 @@ if [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
         echo "Running on linux => Using 1M message buffer"
         # set to 1M + 1024
         msgsize=1049600
+        runbigmsg=1
 fi
 
 xadmin provision -d \
@@ -68,6 +70,24 @@ function go_out {
     exit $1
 }
 
+################################################################################
+echo "Big message tests (if available on platform)"
+################################################################################
+
+if [[ "$runbigmsg" == "1" ]]; then
+
+    COMMAND="bigmsg"
+
+    testcl $COMMAND BIGMSG_REST  100
+    RET=$?
+
+    if [[ $RET != 0 ]]; then
+     echo "testcl $COMMAND: failed"
+     go_out 37
+    fi
+else
+	echo "bigmsg not available on given platform"
+fi
 
 ################################################################################
 echo "VIEW OK - json2view errors"
@@ -146,7 +166,7 @@ fi
 ################################################################################
 
 # stop the restin client
-xadmin sc -t RESTIN || exit 33
+xadmin sc -t RESTIN -s1 || exit 33
 
 # Wait some time for unadvertise
 sleep 20
@@ -168,7 +188,7 @@ fi
 
 
 # boot back the restin client
-xadmin bc -t RESTIN || exit 35
+xadmin bc -t RESTIN -s1 || exit 35
 
 # Wait to advertise back
 sleep 20
@@ -460,7 +480,7 @@ fi
 echo "ECHO FAIL, no SVC"
 ###############################################################################
 # stop the restin client
-xadmin sc -t RESTIN || exit 22
+xadmin sc -t RESTIN -s1 || exit 22
 
 # Wait some time for unadvertise
 sleep 20
@@ -495,7 +515,7 @@ fi
 # No need to test other logic is similar... Now get back echo
 
 # stop the restin client
-xadmin bc -t RESTIN || exit 25
+xadmin bc -t RESTIN -s1 || exit 25
 
 # Wait some time for unadvertise
 sleep 20

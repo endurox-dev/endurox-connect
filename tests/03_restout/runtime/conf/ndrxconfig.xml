@@ -69,14 +69,14 @@
 		<!--
 			Ping server in every X seconds (step is <sanity>).
 		-->
-		<pingtime>2</pingtime>
+		<pingtime>10</pingtime>
 		
 		<!--
 			Max time in seconds in which server must respond.
 			The granularity is sanity time.
 			X <= 0 = disabled 
 		-->
-		<ping_max>10</ping_max>
+		<ping_max>20</ping_max>
 		
 		<!--
 			Max time to wait until process should exit on shutdown
@@ -131,12 +131,27 @@
 			<srvid>2000</srvid>
 			<sysopt>-e ${NDRX_APPHOME}/log/testsv.log -r</sysopt>
 		</server>
+		<server name="bigmsgsv">
+			<min>1</min>
+			<max>1</max>
+			<srvid>2050</srvid>
+			<sysopt>-e ${NDRX_APPHOME}/log/bigmsgsv.log -r</sysopt>
+		</server>
 		<server name="restoutsv">
 			<min>1</min>
 			<max>1</max>
 			<srvid>2100</srvid>
-                        <reloadonchange>y</reloadonchange>
+			<reloadonchange>y</reloadonchange>
 			<sysopt>-e ${NDRX_APPHOME}/log/restoutsv.log -r</sysopt>
+			<cctag>1</cctag>
+		</server>
+		<server name="restoutsv">
+			<min>1</min>
+			<max>1</max>
+			<srvid>2200</srvid>
+			<reloadonchange>y</reloadonchange>
+			<sysopt>-e ${NDRX_APPHOME}/log/restoutsv_bigmsg.log -r</sysopt>
+			<cctag>bigmsg</cctag>
 		</server>
 		<server name="cpmsrv">
 			<min>1</min>
@@ -150,7 +165,8 @@
 	-->
 	<clients>
 		<client cmdline="restincl">
-			<exec tag="RESTIN" autostart="Y" cctag="TLS" subsect="" log="${NDRX_APPHOME}/log/restin.log"/>
+			<exec tag="RESTIN" autostart="Y" cctag="1/TLS" subsect="1" log="${NDRX_APPHOME}/log/restin.log"/>
+			<exec tag="RESTIN" autostart="Y" cctag="bigmsg" subsect="bigmsg" log="${NDRX_APPHOME}/log/restin_bigmsg.log"/>
 		</client>
 	</clients>
 </endurox>

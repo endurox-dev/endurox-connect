@@ -3,3 +3,4 @@ all:
 	$(MAKE) -C ubftab
 	$(MAKE) -C testcl
 	$(MAKE) -C viewdir
+	$(MAKE) -C bigmsgsv

@@ -33,6 +33,61 @@ type TestJSONMsg struct {
 	BoolField2   bool   `json:"BoolField2"`
 }
 
+//Test big message over the rest interface
+func BigMsg(ac *atmi.ATMICtx, cmd string, svc string, times string) error {
+
+	nrTimes, _ := strconv.Atoi(times)
+
+	for i := 0; i < nrTimes; i++ {
+		buf, err := ac.NewUBF(1024*1024 + 1024)
+
+		if err != nil {
+			return errors.New(err.Error())
+		}
+
+		testdata := make([]byte, 1024*1024)
+
+		for i := 0; i < len(testdata); i++ {
+			testdata[i] = byte((i + 1) % 255)
+		}
+
+		if err := buf.BChg(u.T_CARRAY_FLD, 0, testdata); nil != err {
+			fmt.Printf("! ATMI Error %d:[%s]\n", err.Code(), err.Message())
+			return errors.New(fmt.Sprintf("! ATMI Error %d:[%s]\n",
+				err.Code(), err.Message()))
+		}
+
+		//Call the server
+		if _, err := ac.TpCall(svc, buf, 0); nil != err {
+			MErrorCode = err.Code()
+			return errors.New(err.Error())
+		}
+
+		testdata, err = buf.BGetByteArr(u.T_CARRAY_FLD, 0)
+
+		if nil != err {
+			fmt.Printf("! Failed to get rsp: ATMI Error %d:[%s]\n",
+				err.Code(), err.Message())
+			return errors.New(fmt.Sprintf("! Failed to get rsp: ATMI Error %d:[%s]\n",
+				err.Code(), err.Message()))
+		}
+
+		for i := 0; i < len(testdata); i++ {
+			if testdata[i] != byte((i+2)%255) {
+
+				ac.TpLogError("TESTERROR: Error at index %d expected %d got: %d",
+					i, (i+2)%255, testdata[i])
+
+				return errors.New(fmt.Sprintf("TESTERROR: Error at index %d expected %d got: %d",
+					i, (i+2)%255, testdata[i]))
+			}
+		}
+	}
+
+	return nil
+
+}
+
 //Do the service call with UBF buffer
 func UBFCall(ac *atmi.ATMICtx, cmd string, svc string, times string) error {
 
@@ -292,6 +347,8 @@ func apprun(ac *atmi.ATMICtx) error {
 	case "view_request1", "view_request1_tout":
 
 		return VIEWCallREQUEST1(ac, cmd, svc, times)
+	case "bigmsg":
+		return BigMsg(ac, cmd, svc, times)
 	default:
 		return errors.New(fmt.Sprintf("Invalid test case: [%s]", cmd))
 	}

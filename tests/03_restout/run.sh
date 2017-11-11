@@ -21,9 +21,17 @@ cd runtime
 # So we need to add some demo server
 # We need to add server process here + we need to register ubftab (test.fd)
 #
+msgsizemax=56000
+if [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
+        echo "Running on linux => Using 1M message buffer"
+        # set to 1M + 1024
+        msgsize=1049600
+fi
+
 xadmin provision -d \
         -vaddubf=test.fd \
         -vtimeout=15
+        -vmsgsizemax=$msgsizemax
 
 cd conf
 

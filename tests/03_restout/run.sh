@@ -17,22 +17,29 @@ cd runtime
 # Create the env..
 #
 
+MACHINE_TYPE=`uname -m`
+OS=$(expr substr $(uname -s) 1 5)
+
 runbigmsg=0
 #
 # So we need to add some demo server
 # We need to add server process here + we need to register ubftab (test.fd)
 #
 msgsizemax=56000
-if [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
+
+echo "OS=[$OS] matchine=[$MACHINE_TYPE]"
+if [[ ( "X$OS" == "XLinux" || "X$OS" == "XFreeB" ) && ( "X$MACHINE_TYPE" == "Xx86_64" || "X$MACHINE_TYPE" == "Xamd64" ) ]]; then
         echo "Running on linux => Using 1M message buffer"
         # set to 1M + 1024
-        msgsize=1049600
+        msgsizemax=1049600
         runbigmsg=1
 fi
 
+echo "Message size: $msgsizemax bytes"
+
 xadmin provision -d \
         -vaddubf=test.fd \
-        -vtimeout=15
+        -vtimeout=15 \
         -vmsgsizemax=$msgsizemax
 
 cd conf

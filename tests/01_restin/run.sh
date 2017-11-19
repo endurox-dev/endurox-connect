@@ -6,7 +6,8 @@
 
 pushd .
 
-rm runtime/log/* 2>/dev/null
+rm runtime/log* 2>/dev/null
+mkdir runtime/log 
 
 cd runtime
 

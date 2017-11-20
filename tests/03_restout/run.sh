@@ -32,6 +32,7 @@ if [[ ( "X$OS" == "XLinux" || "X$OS" == "XFreeB" ) && ( "X$MACHINE_TYPE" == "Xx8
         echo "Running on linux => Using 1M message buffer"
         # set to 1M + 1024
         msgsizemax=1049600
+	ulimit -s 30751
         runbigmsg=1
 fi
 

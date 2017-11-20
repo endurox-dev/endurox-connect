@@ -18,7 +18,7 @@ cd runtime
 #
 
 MACHINE_TYPE=`uname -m`
-OS=$(expr substr $(uname -s) 1 5)
+OS=`uname -s`
 
 runbigmsg=0
 #
@@ -28,7 +28,7 @@ runbigmsg=0
 msgsizemax=56000
 
 echo "OS=[$OS] matchine=[$MACHINE_TYPE]"
-if [[ ( "X$OS" == "XLinux" || "X$OS" == "XFreeB" ) && ( "X$MACHINE_TYPE" == "Xx86_64" || "X$MACHINE_TYPE" == "Xamd64" ) ]]; then
+if [[ ( "X$OS" == "XLinux" || "X$OS" == "XFreeBSD" ) && ( "X$MACHINE_TYPE" == "Xx86_64" || "X$MACHINE_TYPE" == "Xamd64" ) ]]; then
         echo "Running on linux => Using 1M message buffer"
         # set to 1M + 1024
         msgsizemax=1049600

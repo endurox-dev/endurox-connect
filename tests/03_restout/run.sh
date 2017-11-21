@@ -28,7 +28,8 @@ runbigmsg=0
 msgsizemax=56000
 
 echo "OS=[$OS] matchine=[$MACHINE_TYPE]"
-if [[ ( "X$OS" == "XLinux" || "X$OS" == "XFreeBSD" ) && ( "X$MACHINE_TYPE" == "Xx86_64" || "X$MACHINE_TYPE" == "Xamd64" ) ]]; then
+# Added - in front of freebsd, as currently not possible to use large messages with golang...
+if [[ ( "X$OS" == "XLinux" || "X$OS" == "X-FreeBSD" ) && ( "X$MACHINE_TYPE" == "Xx86_64" || "X$MACHINE_TYPE" == "Xamd64" ) ]]; then
         echo "Running on linux => Using 1M message buffer"
         # set to 1M + 1024
         msgsizemax=1049600

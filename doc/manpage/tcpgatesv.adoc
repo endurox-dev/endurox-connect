@@ -447,7 +447,7 @@ The default is *5*.
 
 *req_reply* = 'REQUEST_MODE'::
 Request reply mode. This basically tells the *tcpgatesv* role and the mode
-in which gateway will operate. Following modes are defined: 
+in which gateway will operate. Default is *0*. Following modes are defined: 
 
 *0* - Persistent connection mode, asynchronous messages, including sync with correlation.
 Supported connection 'type' active (*A*) and passive (*P*). In active mode

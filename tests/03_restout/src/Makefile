@@ -10,3 +10,7 @@ clean:
 	$(MAKE) -C testcl clean
 	$(MAKE) -C viewdir clean
 	$(MAKE) -C bigmsgsv clean
+
+
+.PHONY: clean all
+

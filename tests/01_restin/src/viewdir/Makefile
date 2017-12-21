@@ -9,4 +9,4 @@ restin.V: restin.v_in
 
 
 clean:
-	rm *.V
+	-rm *.V

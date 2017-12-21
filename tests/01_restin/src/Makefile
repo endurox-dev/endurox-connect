@@ -10,3 +10,4 @@ clean:
 	$(MAKE) -C viewdir clean
 
 
+.PHONY: clean all

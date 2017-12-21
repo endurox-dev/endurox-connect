@@ -9,4 +9,5 @@ clean:
 	$(MAKE) -C ubftab clean
 	$(MAKE) -C testsv clean
 	$(MAKE) -C testcl clean
-	cd github.com/endurox-dev/endurox-go && git pull
+
+.PHONY: clean all

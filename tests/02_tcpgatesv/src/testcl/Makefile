@@ -1,4 +1,3 @@
-
 SOURCEDIR=.
 SOURCES := $(shell find $(SOURCEDIR) -name '*.go')
 
@@ -18,5 +17,6 @@ install:
 	go install ${LDFLAGS} ./...
 
 .PHONY: clean
+
 clean:
 	if [ -f ${BINARY} ] ; then rm ${BINARY} ; fi

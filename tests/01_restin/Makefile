@@ -5,7 +5,7 @@ all:
 
 clean:
 	rm -rf pkg bin
-	$(MAKE) -C src
+	$(MAKE) -C src clean
 
 
 

@@ -219,7 +219,37 @@
 			<max>1</max>
 			<srvid>290</srvid>
 			<sysopt>-e ${NDRX_APPHOME}/log/tcpgatesv-async-passive-idlerstact.log -r</sysopt>
-		</server>		
+		</server>
+        
+        <server name="tcpgatesv">
+            <cctag>pers/sync_offset_incl/active</cctag>
+            <min>1</min>
+            <max>1</max>
+            <srvid>300</srvid>
+            <sysopt>-e ${NDRX_APPHOME}/log/tcpgatesv-pers-sync-offset_incl-active.log -r</sysopt>
+        </server>
+        <server name="tcpgatesv">
+            <cctag>pers/sync_offset_incl/passive</cctag>
+            <min>1</min>
+            <max>1</max>
+            <srvid>310</srvid>
+            <sysopt>-e ${NDRX_APPHOME}/log/tcpgatesv-pers-sync-offset_incl-passive.log -r</sysopt>
+        </server>
+        
+        <server name="tcpgatesv">
+            <cctag>pers/sync_offset/active</cctag>
+            <min>1</min>
+            <max>1</max>
+            <srvid>320</srvid>
+            <sysopt>-e ${NDRX_APPHOME}/log/tcpgatesv-pers-sync-offset-active.log -r</sysopt>
+        </server>
+        <server name="tcpgatesv">
+            <cctag>pers/sync_offset/passive</cctag>
+            <min>1</min>
+            <max>1</max>
+            <srvid>330</srvid>
+            <sysopt>-e ${NDRX_APPHOME}/log/tcpgatesv-pers-sync-offset-passive.log -r</sysopt>
+        </server>
 		<server name="cpmsrv">
 			<min>1</min>
 			<max>1</max>

@@ -481,6 +481,155 @@ func apprun(ac *atmi.ATMICtx) error {
 		/* Call sync service test the request and resposne data
 		 * we will send 300 bytes and we will receive 400 bytes
 		 */
+		ac.TpLogInfo("Command: [%s] 2", command)
+		if len(os.Args) < 5 {
+			return errors.New(fmt.Sprintf("Missing count: %s offsetsync <count> <gateway> <len_incl>",
+				os.Args[0]))
+		}
+
+		nrOfTimes, err := strconv.Atoi(os.Args[2])
+
+		gw := os.Args[3]
+
+		if err != nil {
+			return err
+		}
+
+		//Len of full header we have offset 4 + len bytes 4 => 8
+		inclLen, err := strconv.Atoi(os.Args[4])
+
+		if err != nil {
+			return err
+		}
+
+		//Send the stuff out!!!
+		//To async target
+		for i := 0; i < nrOfTimes; i++ {
+
+			ba := make([]byte, 300)
+
+			if inclLen > 0 {
+				ba[0] = 1
+			} else {
+				ba[0] = 0
+			}
+
+			ba[1] = 0x12
+			ba[2] = 0x13
+			ba[3] = 0x15
+
+			for i := 4; i < len(ba); i++ {
+				ba[i] = byte(i % 256)
+			}
+
+			//OK Realloc buffer back
+			ub, errA := ac.NewUBF(3000)
+
+			if nil != errA {
+				ac.TpLogError("Failed to allocate UBF buffer %d:%s",
+					errA.Code(), errA.Message())
+				return errors.New(errA.Message())
+			}
+
+			if errA := ub.BChg(u.EX_NETDATA, 0, ba); nil != errA {
+				ac.TpLogError("Failed to set EX_NETDATA %d:%s",
+					errA.Code(), errA.Message())
+				return errors.New(errA.Message())
+			}
+
+			//The reply here kills the buffer,
+			//Thus we need a copy...
+			ub.TpLogPrintUBF(atmi.LOG_INFO, "Calling server")
+			if _, errA = ac.TpCall(gw, ub, 0); nil != errA {
+				ac.TpLogError("Failed to call [%s] %d:%s",
+					gw, errA.Code(), errA.Message())
+			}
+
+			//The response should succeed
+			if rsp_code, err := ub.BGetInt(u.EX_NERROR_CODE, 0); nil != err {
+				ac.TpLogError("TESTERROR: Failed to get EX_NERROR_CODE: %s",
+					err.Message())
+				return errors.New(err.Message())
+			} else if rsp_code != 0 {
+				ac.TpLogError("TESTERROR: Response code must be 0 but got %d!",
+					rsp_code)
+				return errors.New("Invalid response code")
+			}
+
+			//Verify response
+			arrRsp, err := ub.BGetByteArr(u.EX_NETDATA, 0)
+
+			if err != nil {
+				ac.TpLogError("Failed to get EX_NETDATA: %s", err.Message())
+				return errors.New("Failed to get EX_NETDATA!")
+			}
+
+			//Test the header in response, must match!
+			for i := 0; i < 4; i++ {
+				if arrRsp[i] != ba[i] {
+					ac.TpLogError("TESTERROR at index %d, expected %d got %d",
+						i, ba[i], arrRsp[i])
+					return errors.New("TESTERROR in header!")
+				}
+			}
+
+			//The lenght  of response packet is 400 bytes, thus verify the
+			//header bytes. As we swap the halves and it was little endian
+			//then first two bytes should be in front
+
+			rsp_len := 400
+
+			if inclLen <= 0 {
+				rsp_len -= 8
+			}
+			first_byte := byte((rsp_len >> 8) & 0xff)
+			second_byte := byte(rsp_len & 0xff)
+
+			if inclLen > 0 {
+				//In this case we swap bytes too
+
+				if first_byte != arrRsp[4] {
+					ac.TpLogError("TESTERROR LEN ind  at index %d, expected %d got %d",
+						4, first_byte, arrRsp[4])
+					return errors.New("TESTERROR in header!")
+				}
+
+				if second_byte != arrRsp[5] {
+					ac.TpLogError("TESTERROR LEN ind at index %d, expected %d got %d",
+						5, first_byte, arrRsp[5])
+					return errors.New("TESTERROR in header!")
+				}
+			} else {
+
+				if first_byte != arrRsp[5] {
+					ac.TpLogError("TESTERROR (2) LEN ind  at index %d, expected %d got %d",
+						5, first_byte, arrRsp[5])
+					return errors.New("TESTERROR in header!")
+				}
+
+				if second_byte != arrRsp[6] {
+					ac.TpLogError("TESTERROR (2) LEN ind at index %d, expected %d got %d",
+						6, first_byte, arrRsp[6])
+					return errors.New("TESTERROR in header!")
+				}
+			}
+
+			if len(ba) != 400 {
+				ac.TpLogError("Invalid response len: expected 400, got: %d", len(ba))
+				return errors.New("Invalid response len!")
+			}
+
+			//Test the msg
+			for i := 8; i < len(ba); i++ {
+				exp := byte(int(i+1) % 256)
+
+				if arrRsp[i] != exp {
+					ac.TpLogError("TESTERROR at index %d, expected %d got %d",
+						i, exp, arrRsp[i])
+					return errors.New("TESTERROR in content!")
+				}
+			}
+		}
 		break
 	}
 

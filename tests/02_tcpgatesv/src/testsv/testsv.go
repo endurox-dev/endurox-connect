@@ -92,6 +92,141 @@ func CORSVC(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 
 }
 
+//TESTOFFSETI service, process the offset, include len bytes
+//@param ac ATMI Context
+//@param svc Service call information
+func TESTOFFSET(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
+
+	ret := SUCCEED
+
+	//Return to the caller
+	defer func() {
+
+		ac.TpLogCloseReqFile()
+		if SUCCEED == ret {
+			ac.TpReturn(atmi.TPSUCCESS, 0, &svc.Data, 0)
+		} else {
+			ac.TpReturn(atmi.TPFAIL, 0, &svc.Data, 0)
+		}
+	}()
+
+	//Get UBF Handler
+	ub, _ := ac.CastToUBF(&svc.Data)
+
+	//Print the buffer to stdout
+	//fmt.Println("Incoming request:")
+	ub.TpLogPrintUBF(atmi.LOG_DEBUG, "TESTSVC: Incoming request:")
+
+	used, _ := ub.BUsed()
+	//Resize buffer, to have some more space
+	if err := ub.TpRealloc(used + 1024); err != nil {
+		ac.TpLogError("TpRealloc() Got error: %d:[%s]\n", err.Code(), err.Message())
+		ret = FAIL
+		return
+	}
+
+	ba, err := ub.BGetByteArr(u.EX_NETDATA, 0)
+
+	if err != nil {
+		ac.TpLogError("Failed to get EX_NETDATA: %s", err.Message())
+		ret = FAIL
+		return
+	}
+
+	//Check the header
+	inclLen := ba[0]
+
+	ac.TpLogInfo("Len bytes included: %d", ba[0])
+
+	if ba[1] != 0x12 {
+		ac.TpLogError("Invalid header byte at idx 1 got exptected %d got %d", 0x12, ba[2])
+		ret = FAIL
+		return
+	}
+
+	if ba[2] != 0x13 {
+		ac.TpLogError("Invalid header byte at idx 2 got exptected %d got %d", 0x13, ba[2])
+		ret = FAIL
+		return
+	}
+
+	if ba[3] != 0x15 {
+		ac.TpLogError("Invalid header byte at idx 3 got exptected %d got %d", 0x15, ba[3])
+		ret = FAIL
+		return
+	}
+
+	rsp_len := 300
+
+	if inclLen <= 0 {
+		rsp_len -= 8
+	}
+	first_byte := byte((rsp_len >> 8) & 0xff)
+	second_byte := byte(rsp_len & 0xff)
+
+	if inclLen > 0 {
+		//In this case we swap bytes too
+
+		if first_byte != ba[4] {
+			ac.TpLogError("TESTERROR LEN ind  at index %d, expected %d got %d",
+				4, first_byte, ba[4])
+			ret = FAIL
+			return
+		}
+
+		if second_byte != ba[5] {
+			ac.TpLogError("TESTERROR LEN ind at index %d, expected %d got %d",
+				5, first_byte, ba[5])
+			ret = FAIL
+			return
+		}
+	} else {
+
+		if first_byte != ba[5] {
+			ac.TpLogError("TESTERROR (2) LEN ind  at index %d, expected %d got %d",
+				5, first_byte, ba[5])
+			ret = FAIL
+			return
+		}
+
+		if second_byte != ba[6] {
+			ac.TpLogError("TESTERROR (2) LEN ind at index %d, expected %d got %d",
+				6, first_byte, ba[6])
+			ret = FAIL
+			return
+		}
+	}
+
+	// OK now check the data
+	for i := 4; i < 300; i++ {
+		if ba[i] != byte(i%256) {
+			ac.TpLogError("Invalid data recevied, expected: %d but got %d",
+				byte(i%256), ba[i])
+			ret = FAIL
+			return
+		}
+	}
+
+	//prepare outgoing buffer
+
+	rsp := make([]byte, 400)
+
+	for i := 8; i < len(rsp); i++ {
+		rsp[i] = byte(int(i+1) % 256)
+	}
+
+	if errA := ub.BChg(u.EX_NETDATA, 0, rsp); nil != errA {
+		ac.TpLogError("Failed to set EX_NETDATA %d:%s",
+			errA.Code(), errA.Message())
+		ret = FAIL
+		return
+	}
+
+	ub.TpLogPrintUBF(atmi.LOG_DEBUG, "Reply buffer")
+
+	return
+}
+
 //TESTSVC service
 //@param ac ATMI Context
 //@param svc Service call information
@@ -263,6 +398,12 @@ func Init(ac *atmi.ATMICtx) int {
 			err.Code(), err.Message())
 		return atmi.FAIL
 	}
+
+	if err := ac.TpAdvertise("TESTOFFSET", "TESTOFFSET", TESTOFFSET); err != nil {
+		ac.TpLogError("Failed to Advertise: ATMI Error %d:[%s]\n",
+			err.Code(), err.Message())
+		return atmi.FAIL
+        }
 
 	return SUCCEED
 }

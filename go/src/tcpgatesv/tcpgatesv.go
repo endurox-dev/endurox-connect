@@ -54,9 +54,13 @@ var MGateway string = "TCPGATE"
 var MFraming string = "llll"
 var MFramingCode rune = FRAME_LITTLE_ENDIAN
 var MFramingLen int = len(MFraming)
+var MFramingLenReal int = len(MFraming)
 var MFamingInclPfxLen bool = false //Does len format include prefix length it self?
 var MFramingMaxMsgLen int = 0      //Max message len (checked if >0)
 var MFramingHalfSwap bool = false  //Should we swap on the half incoming length bytes
+var MFramingKeepHdr bool = false   //Should we keep the len header?
+//This does count in the header
+var MFramingOffset int = 0 //Number of bytes to ignore after which header follows
 
 //In case if framing is "d"
 var MDelimStart byte = 0x02       //can be optional
@@ -268,6 +272,29 @@ func Init(ac *atmi.ATMICtx) int {
 			MDelimStop = byte(val)
 			ac.TpLogInfo("etx=[%x]", MDelimStop)
 			break
+		case "framing_offset":
+
+			MFramingOffset, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
+			ac.TpLogDebug("Got [%s] = [%d] ", fldName, MFramingOffset)
+
+			if MFramingOffset < 0 {
+				ac.TpLogError("Invalid framing offset, must be >=0, but: %d",
+					MFramingOffset)
+				return atmi.FAIL
+			}
+
+			MFramingKeepHdr = true
+			break
+		case "framing_keephdr":
+
+			tmp, _ := buf.BGetString(u.EX_CC_VALUE, occ)
+			ac.TpLogDebug("Got [%s] = [%s] ", fldName, tmp)
+
+			if "Y" == string(tmp[0]) || "y" == string(tmp[0]) {
+				MFramingKeepHdr = true
+			}
+
+			break
 		case "type":
 			MType, _ = buf.BGetString(u.EX_CC_VALUE, occ)
 			ac.TpLogDebug("Got [%s] = [%s] ", fldName, MType)
@@ -392,12 +419,6 @@ func Init(ac *atmi.ATMICtx) int {
 
 	ac.TpLogInfo("Period housekeeping: scan_time - %d", MScanTime)
 
-	if errS := ConfigureNumberOfBytes(ac); errS != nil {
-		ac.TpLogError("Failed to configure number of bytes to use for "+
-			"message frame: %s", errS.Error())
-		return FAIL
-	}
-
 	if MFramingHalfSwap && MFramingLen%2 > 0 {
 		ac.TpLogWarn("Using half swap of framing bytes, but byte length is odd: %d",
 			MFramingLen)
@@ -494,7 +515,15 @@ func Init(ac *atmi.ATMICtx) int {
 		}
 	}
 
+	ac.TpLogInfo("Keep framing header: %t", MFramingKeepHdr)
+	ac.TpLogInfo("Framing offset: %d", MFramingOffset)
 	ac.TpLogInfo("Periodic status broadcast: %d", MStatusRefresh)
+
+	if errS := ConfigureNumberOfBytes(ac); errS != nil {
+		ac.TpLogError("Failed to configure number of bytes to use for "+
+			"message frame: %s", errS.Error())
+		return FAIL
+	}
 
 	MZeroStopwatch.Reset()
 	MStatusRefreshStopWatch.Reset()

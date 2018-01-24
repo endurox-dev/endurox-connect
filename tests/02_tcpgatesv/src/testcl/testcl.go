@@ -15,7 +15,6 @@ import (
 */
 import "C"
 
-
 var Mdone chan bool
 
 func runMany(gw string, n int) {
@@ -32,7 +31,7 @@ func runMany(gw string, n int) {
 
 	for i := 2; i < len(ba); i++ {
 		ba[i] = byte(i % 256)
-		
+
 		//Avoid stx/etx for later tests
 		if ba[i] == 2 {
 			ba[i] = 5
@@ -41,7 +40,7 @@ func runMany(gw string, n int) {
 		if ba[i] == 3 {
 			ba[i] = 6
 		}
-		
+
 	}
 
 	//OK Realloc buffer back
@@ -66,14 +65,14 @@ func runMany(gw string, n int) {
 	if errA := ub.BChg(u.EX_NETCORR, 0, correl); nil != errA {
 		ac.TpLogError("TESTERROR: Failed to set EX_NETCORR %d:%s",
 			errA.Code(), errA.Message())
-		Mdone <-false
+		Mdone <- false
 		return
 	}
 
 	if errA := ub.BChg(u.EX_NETDATA, 0, ba); nil != errA {
 		ac.TpLogError("TESTERROR: Failed to set EX_NETDATA %d:%s",
 			errA.Code(), errA.Message())
-		Mdone <-false
+		Mdone <- false
 		return
 	}
 
@@ -84,7 +83,7 @@ func runMany(gw string, n int) {
 	if _, errA = ac.TpCall(gw, ub, 0); nil != errA {
 		ac.TpLogError("TESTERROR: Failed to call [%s] %d:%s",
 			gw, errA.Code(), errA.Message())
-		Mdone <-false
+		Mdone <- false
 		return
 	}
 	ac.TpLogWarn("#%d [%s] After server call", n, correl)
@@ -93,12 +92,12 @@ func runMany(gw string, n int) {
 	if rsp_code, err := ub.BGetInt(u.EX_NERROR_CODE, 0); nil != err {
 		ac.TpLogError("TESTERROR: Failed to get EX_NERROR_CODE: %s",
 			err.Message())
-		Mdone <-false
+		Mdone <- false
 		return
 	} else if rsp_code != 0 {
 		ac.TpLogError("TESTERROR: Response code must be 0 but got %d!",
 			rsp_code)
-		Mdone <-false
+		Mdone <- false
 		return
 	}
 
@@ -107,7 +106,7 @@ func runMany(gw string, n int) {
 
 	if err != nil {
 		ac.TpLogError("TESTERRO: Failed to get EX_NETDATA: %s", err.Message())
-		Mdone <-false
+		Mdone <- false
 		return
 	}
 
@@ -116,12 +115,11 @@ func runMany(gw string, n int) {
 
 	ac.TpLogInfo("Built got [%s]", correlGot)
 
-
-	if (correlGot!=correl) {
+	if correlGot != correl {
 		ac.TpLogError("TESTERROR: Correl sent: [%s] got [%s]", correlGot, correl)
-		ac.TpLogDump(atmi.LOG_ERROR, "TESTERROR Message sent", ba, len(ba));
-		ac.TpLogDump(atmi.LOG_ERROR, "TESTERROR Message received", arrRsp, len(arrRsp));
-		Mdone <-false
+		ac.TpLogDump(atmi.LOG_ERROR, "TESTERROR Message sent", ba, len(ba))
+		ac.TpLogDump(atmi.LOG_ERROR, "TESTERROR Message received", arrRsp, len(arrRsp))
+		Mdone <- false
 		return
 	}
 
@@ -129,33 +127,33 @@ func runMany(gw string, n int) {
 		if arrRsp[i] != ba[i] {
 			ac.TpLogError("TESTERROR at index %d, expected %d got %d",
 				i, ba[i], arrRsp[i])
-			Mdone <-false
+			Mdone <- false
 			return
 		}
 	}
 
 	for i := 4; i < len(ba); i++ {
 		exp := byte((int(ba[i]+1) % 256))
-        //Avoid stx/etx for later tests
-        if exp == 2 {
-            exp = 5
-        }
+		//Avoid stx/etx for later tests
+		if exp == 2 {
+			exp = 5
+		}
 
-        if exp == 3 {
-            exp = 6
-        }
+		if exp == 3 {
+			exp = 6
+		}
 
 		if arrRsp[i] != exp {
 			ac.TpLogError("TESTERROR at index %d, expected %d got %d",
 				i, exp, arrRsp[i])
-			Mdone <-false
+			Mdone <- false
 			return
 		}
 	}
 
 	ac.TpLogInfo("#%d done..", n)
 
-	Mdone <-true
+	Mdone <- true
 
 	ac.TpLogInfo("#%d done.. (return)", n)
 
@@ -274,13 +272,13 @@ func apprun(ac *atmi.ATMICtx) error {
 			return err
 		}
 
-		for i:=0; i<nrOfTimes; i++ {
+		for i := 0; i < nrOfTimes; i++ {
 			go runMany(gw, i)
 		}
 
-		for i:=0; i<nrOfTimes; i++ {
+		for i := 0; i < nrOfTimes; i++ {
 			ac.TpLogInfo("Waiting for reply of thread #%d", i)
-			result:=<-Mdone
+			result := <-Mdone
 
 			if !result {
 				return errors.New(fmt.Sprintf("Thread %d failed", i))
@@ -394,14 +392,14 @@ func apprun(ac *atmi.ATMICtx) error {
 			for i := 4; i < len(ba); i++ {
 				exp := byte((int(ba[i]+1) % 256))
 
-                //Avoid stx/etx for later tests
-                if exp == 2 {
-                    exp = 5
-                }
+				//Avoid stx/etx for later tests
+				if exp == 2 {
+					exp = 5
+				}
 
-                if exp == 3 {
-                    exp = 6
-                }
+				if exp == 3 {
+					exp = 6
+				}
 
 				if arrRsp[i] != exp {
 					ac.TpLogError("TESTERROR at index %d, expected %d got %d",
@@ -477,6 +475,12 @@ func apprun(ac *atmi.ATMICtx) error {
 			return errors.New("TESTERROR: Invalid response code")
 		}
 
+		break
+
+	case "offsetsync":
+		/* Call sync service test the request and resposne data
+		 * we will send 300 bytes and we will receive 400 bytes
+		 */
 		break
 	}
 

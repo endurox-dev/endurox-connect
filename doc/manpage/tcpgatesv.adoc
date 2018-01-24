@@ -379,6 +379,22 @@ If using framing format *d* or *D* this byte will indicate the message
 terminator symbol. The syntax for the field is in hex for .e.g "0x03".
 The default value is *0x03* ETX symbol.
 
+*framing_keephdr* = 'MESSAGE_KEEP_HEADER'::
+If set to 'y' or 'Y' indicates that received message should be delivered to target
+service as is with message length prefix included. Also this means that if message
+is send to network, then *tcpgatesv* shall receive full message length (at-least)
+with message length bytes included, which might be dummy as tpc gateway will re-write
+len indicator. Default is *n*.
+
+*framing_offset* = 'MESSAGE_FRAMING_OFFSET'::
+Number of bytes to skip in header to search for the message length bytes. If value
+is greater than zero, then 'framing_keephdr' is automatically enabled. Also with this
+mode it is required that full message (including offset data and length bytes
+(which can be dummy)) must be present when sending message out. *tcpgatesv* will
+overwrite the bytes at offset to with calculated message length according to
+framing scheme. In case of periodic zero messages, the offset which is not the
+length part is filled with zero 0x00 bytes. Default is *0* - no offset used.
+
 *type* = 'ACTIVE_PASSIVE_MODE'::
 Gateway operation mode either it is passive (*P*) - waiting for incoming
 TCP connection, or it is active (*A*) - tcp client doing connection to

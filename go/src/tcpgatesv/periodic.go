@@ -51,6 +51,12 @@ func RunZeroOverOpenCons(ac *atmi.ATMICtx) {
 
 		if v.is_open {
 			var block DataBlock
+
+			if MFramingOffset > 0 {
+				//Go by default set to 0
+				block.data = make([]byte, MFramingLen)
+			}
+
 			p_block := &block
 			ac.TpLogInfo("Sending zero length message to id:%d conn_id: %d ",
 				v.id, v.id_comp)

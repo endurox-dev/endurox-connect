@@ -110,16 +110,39 @@ func ConfigureNumberOfBytes(ac *atmi.ATMICtx) error {
 	case FRAME_DELIM_STOP:
 		MFramingLen = 0
 		ac.TpLogInfo("Stopping delimiter: %x", MDelimStop)
+
+		if MFramingKeepHdr {
+			ac.TpLogError("Invalid config: framing_keephdr not support with delimiters!")
+			return errors.New("Invalid config: framing_keephdr not support with delimiters!")
+		}
+
 		break
 	case FRAME_DELIM_BOTH:
 		MFramingLen = 0
 		ac.TpLogInfo("Start delimiter %x, Stop delimiter: %x",
 			MDelimStart, MDelimStop)
+
+		if MFramingKeepHdr {
+			ac.TpLogError("Invalid config: framing_keephdr not support with delimiters!")
+			return errors.New("Invalid config: framing_keephdr not support with delimiters!")
+		}
+
 		break
 	default:
 		ac.TpLogError("Invalid framing...")
 		return errors.New("Invalid message framing...")
 	}
+
+	MFramingLenReal = MFramingLen
+
+	if MFramingLen > 0 && MFramingOffset > 0 {
+		ac.TpLogInfo("Incrementing message prefix len from %d to %d due to offset",
+			MFramingLen, MFramingLen+MFramingOffset)
+
+		MFramingLen += MFramingOffset
+	}
+
+	ac.TpLogInfo("Framing header bytes %d len bytes %d", MFramingLen, MFramingLenReal)
 
 	return nil
 }
@@ -171,7 +194,7 @@ func GetMessage(ac *atmi.ATMICtx, con *ExCon) ([]byte, error) {
 		//Decode the length now...
 		if MFramingCode != FRAME_ASCII && MFramingCode != FRAME_ASCII_ILEN {
 
-			for i := 0; i < MFramingLen; i++ {
+			for i := MFramingOffset; i < MFramingLen; i++ {
 				//Move the current byte to front
 				mlen <<= 8
 				switch MFramingCode {
@@ -240,9 +263,18 @@ func GetMessage(ac *atmi.ATMICtx, con *ExCon) ([]byte, error) {
 			return nil, errors.New(emsg)
 		}
 
-		ac.TpLogDump(atmi.LOG_DEBUG, "Message read", data, len(data))
+		if MFramingKeepHdr {
+			ac.TpLogDump(atmi.LOG_DEBUG, "Message (no len hdr) read",
+				data, len(data))
+			return data, nil
+		} else {
+			datafull := append(header, data...)
 
-		return data, nil
+			ac.TpLogDump(atmi.LOG_DEBUG, "FULL (incl len hdr) Message read",
+				datafull, len(datafull))
+			return datafull, nil
+		}
+
 	} else {
 		ac.TpLogInfo("About to read message until delimiter 0x%x", MDelimStop)
 
@@ -255,12 +287,12 @@ func GetMessage(ac *atmi.ATMICtx, con *ExCon) ([]byte, error) {
 				MDelimStop, err.Error())
 			return nil, err
 		}
-		
+
 		// Bug #103, seems like the data returned by ReadSlice is somehow shared
-		// and not reallocated... Thus make a new buffer 
-		data :=make([]byte, len(idata))
+		// and not reallocated... Thus make a new buffer
+		data := make([]byte, len(idata))
 		copy(data, idata)
-		
+
 		ac.TpLogDump(atmi.LOG_DEBUG, "Got the message with end seperator",
 			data, len(data))
 
@@ -289,25 +321,47 @@ func GetMessage(ac *atmi.ATMICtx, con *ExCon) ([]byte, error) {
 //Put message on socket
 func PutMessage(ac *atmi.ATMICtx, con *ExCon, data []byte) error {
 
-	ac.TpLogInfo("Building outgoing message: len %d", MFramingLen)
+	ac.TpLogInfo("Building outgoing message: len hdr bytes %d (real: %d)",
+		MFramingLen, MFramingLenReal)
 
-	ac.TpLogDump(atmi.LOG_DEBUG, "Preparing message for sending", data, len(data))
+	ac.TpLogDump(atmi.LOG_DEBUG, "Preparing message for sending",
+		data, len(data))
 
 	if MFramingLen > 0 {
 		var mlen int64 = int64(len(data))
-		header := make([]byte, MFramingLen)
+		header := make([]byte, MFramingLenReal)
+
+		//Test that we have a place for length bytes to be installed
+		if MFramingKeepHdr && mlen < int64(MFramingLen) {
+			errMsg := fmt.Sprintf("No space outoing message to install offset/len "+
+				"pfx: offset: %d pfx len: %d full header: %d",
+				MFramingOffset, MFramingLenReal, MFramingLen)
+			ac.TpLogError(errMsg)
+			return errors.New(errMsg)
+		}
 
 		if MFamingInclPfxLen {
-			mlen += int64(MFramingLen)
+			if !MFramingKeepHdr {
+				mlen += int64(MFramingLen)
+			}
+		} else {
+
+			if MFramingKeepHdr {
+				//Do not include length bytes including offset as this is already
+				//filled init
+				mlen -= int64(MFramingLen)
+			}
 		}
+
+		ac.TpLogDebug("Message len set to %d", mlen)
 
 		//Generate the header
 		if MFramingCode != FRAME_ASCII && MFramingCode != FRAME_ASCII_ILEN {
-			for i := 0; i < MFramingLen; i++ {
+			for i := 0; i < MFramingLenReal; i++ {
 				switch MFramingCode {
 				case FRAME_LITTLE_ENDIAN, FRAME_LITTLE_ENDIAN_ILEN:
 					//So the least significant byte goes to end the array
-					header[(MFramingLen-1)-i] = byte(mlen & 0xff)
+					header[(MFramingLenReal-1)-i] = byte(mlen & 0xff)
 					break
 				case FRAME_BIG_ENDIAN, FRAME_BIG_ENDIAN_ILEN:
 					//So the least significant byte goes in front of the array
@@ -327,7 +381,7 @@ func PutMessage(ac *atmi.ATMICtx, con *ExCon, data []byte) error {
 		if MFramingHalfSwap {
 			ac.TpLogDump(atmi.LOG_INFO, "Built message header (before swapping)",
 				header, len(header))
-			half := MFramingLen / 2
+			half := MFramingLenReal / 2
 			for i := 0; i < half; i++ {
 				tmp := header[i]
 				header[i] = header[half+i]
@@ -336,11 +390,24 @@ func PutMessage(ac *atmi.ATMICtx, con *ExCon, data []byte) error {
 		}
 
 		// Print len
-		ac.TpLogDump(atmi.LOG_INFO, "Built message header (final)",
+		ac.TpLogDump(atmi.LOG_INFO, "Built message header (final - len only)",
 			header, len(header))
 
 		//About to send message.
-		dataToSend := append(header[:], data[:]...)
+		dataToSend := []byte{}
+
+		if MFramingKeepHdr {
+
+			//In this case at specific offset we need to copy data from prepared
+			//len bytes
+			for i := 0; i < MFramingLenReal; i++ {
+				data[MFramingOffset+i] = header[i]
+			}
+
+			dataToSend = data
+		} else {
+			dataToSend = append(header[:], data...)
+		}
 
 		ac.TpLogDump(atmi.LOG_DEBUG, "Sending message, w len pfx",
 			dataToSend, len(dataToSend))

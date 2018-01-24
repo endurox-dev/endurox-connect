@@ -181,8 +181,8 @@ func GetMessage(ac *atmi.ATMICtx, con *ExCon) ([]byte, error) {
 		if MFramingHalfSwap {
 			ac.TpLogDump(atmi.LOG_DEBUG, "Got message prefix (before swapping)",
 				header, len(header))
-			half := MFramingLen / 2
-			for i := 0; i < half; i++ {
+			half := MFramingLenReal / 2
+			for i := MFramingOffset; i < half; i++ {
 				tmp := header[i]
 				header[i] = header[half+i]
 				header[half+i] = tmp
@@ -382,7 +382,7 @@ func PutMessage(ac *atmi.ATMICtx, con *ExCon, data []byte) error {
 			ac.TpLogDump(atmi.LOG_INFO, "Built message header (before swapping)",
 				header, len(header))
 			half := MFramingLenReal / 2
-			for i := 0; i < half; i++ {
+			for i := MFramingOffset; i < half; i++ {
 				tmp := header[i]
 				header[i] = header[half+i]
 				header[half+i] = tmp

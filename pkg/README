@@ -10,3 +10,4 @@ Releases:
 2.2.1 - (development version) Bug #225, works on restout view support
 2.2.2 - (stable version) Bug #227
 2.3.0 - Support for big message size
+2.4.0 - Support for message length offset and keep header - Feature #273

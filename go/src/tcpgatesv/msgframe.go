@@ -155,6 +155,7 @@ func GetMessage(ac *atmi.ATMICtx, con *ExCon) ([]byte, error) {
 	if MFramingLen > 0 {
 
 		header := make([]byte, MFramingLen)
+		headerSwapped := make([]byte, MFramingLen)
 		var mlen int64 = 0
 		var mlenStr = ""
 
@@ -177,19 +178,23 @@ func GetMessage(ac *atmi.ATMICtx, con *ExCon) ([]byte, error) {
 			return nil, errors.New(emsg)
 		}
 
+		//Copy off header bytes for swap manipulations
+		copy(headerSwapped, header[:])
+
 		//Swap bytes if needed
 		if MFramingHalfSwap {
 			ac.TpLogDump(atmi.LOG_DEBUG, "Got message prefix (before swapping)",
-				header, len(header))
+				headerSwapped, len(headerSwapped))
 			half := MFramingLenReal / 2
-			for i := MFramingOffset; i < half; i++ {
-				tmp := header[i]
-				header[i] = header[half+i]
-				header[half+i] = tmp
+			for i := 0; i < half; i++ {
+				tmp := headerSwapped[MFramingOffset+i]
+				headerSwapped[MFramingOffset+i] = headerSwapped[MFramingOffset+half+i]
+				headerSwapped[MFramingOffset+half+i] = tmp
 			}
 		}
 
-		ac.TpLogDump(atmi.LOG_DEBUG, "Got message prefix (final)", header, len(header))
+		ac.TpLogDump(atmi.LOG_DEBUG, "Got message prefix (final - for len proc)",
+			headerSwapped, len(headerSwapped))
 
 		//Decode the length now...
 		if MFramingCode != FRAME_ASCII && MFramingCode != FRAME_ASCII_ILEN {
@@ -200,16 +205,16 @@ func GetMessage(ac *atmi.ATMICtx, con *ExCon) ([]byte, error) {
 				switch MFramingCode {
 				case FRAME_LITTLE_ENDIAN, FRAME_LITTLE_ENDIAN_ILEN:
 					//Add current byte
-					mlen |= int64(header[i])
+					mlen |= int64(headerSwapped[i])
 					break
 				case FRAME_BIG_ENDIAN, FRAME_BIG_ENDIAN_ILEN:
 					//Add current byte, but take from older
-					mlen |= int64(header[int(MFramingLen-1)-i])
+					mlen |= int64(headerSwapped[int(MFramingLen-1)-i])
 					break
 				}
 			}
 		} else {
-			mlenStr = string(header)
+			mlenStr = string(headerSwapped)
 		}
 
 		if MFramingCode == FRAME_ASCII || MFramingCode == FRAME_ASCII_ILEN {
@@ -264,15 +269,15 @@ func GetMessage(ac *atmi.ATMICtx, con *ExCon) ([]byte, error) {
 		}
 
 		if MFramingKeepHdr {
-			ac.TpLogDump(atmi.LOG_DEBUG, "Message (no len hdr) read",
-				data, len(data))
-			return data, nil
-		} else {
 			datafull := append(header, data...)
 
 			ac.TpLogDump(atmi.LOG_DEBUG, "FULL (incl len hdr) Message read",
 				datafull, len(datafull))
 			return datafull, nil
+		} else {
+			ac.TpLogDump(atmi.LOG_DEBUG, "Message (no len hdr) read",
+				data, len(data))
+			return data, nil
 		}
 
 	} else {
@@ -382,7 +387,7 @@ func PutMessage(ac *atmi.ATMICtx, con *ExCon, data []byte) error {
 			ac.TpLogDump(atmi.LOG_INFO, "Built message header (before swapping)",
 				header, len(header))
 			half := MFramingLenReal / 2
-			for i := MFramingOffset; i < half; i++ {
+			for i := 0; i < half; i++ {
 				tmp := header[i]
 				header[i] = header[half+i]
 				header[half+i] = tmp

@@ -358,12 +358,14 @@ func ReadConData(con *ExCon, ch chan<- []byte, eCh chan<- error) {
 			return
 		}
 
-		ac.TpLogInfo("conn %d get message len: %d",
+		ac.TpLogInfo("conn %d got message len: %d",
 			con.id_comp, len(data))
 
 		con.inIdle.Reset() //Reset connection idle timer
 
-		if len(data) > 0 {
+		//Detect if it is zero len, then drop the header
+		dlen := len(data)
+		if dlen > 0 && (!MFramingKeepHdr || dlen > MFramingLen) {
 			// send data if we read some.
 			ch <- data
 		} else {

@@ -45,6 +45,36 @@ xadmin start -y
 sleep 10
 
 ################################################################################
+echo ">>> Run offset tests, len not included"
+################################################################################
+NROFCALLS=$(($NUMCALL+5))
+NROFCALLS_CMP=$NUMCALL
+COMMAND="offsetsync"
+testcl $COMMAND $NROFCALLS TCP_P_SYNCOFF_A 0
+RET=$?
+
+if [[ $RET != 0 ]]; then
+    echo "testcl $COMMAND $NROFCALLS TCP_P_SYNCOFF_A failed"
+    go_out 50
+fi
+
+################################################################################
+echo ">>> Run offset tests, swap bytes, len included"
+################################################################################
+NROFCALLS=$(($NUMCALL+5))
+NROFCALLS_CMP=$NUMCALL
+COMMAND="offsetsync"
+testcl $COMMAND $NROFCALLS TCP_P_SYNCOFFI_A 1
+
+RET=$?
+
+if [[ $RET != 0 ]]; then
+    echo "testcl $COMMAND $NROFCALLS TCP_P_SYNCOFFI_A failed"
+    go_out 50
+fi
+
+
+################################################################################
 echo ">>> Run async calls, sync invocation"
 ################################################################################
 NROFCALLS=$(($NUMCALL+5))

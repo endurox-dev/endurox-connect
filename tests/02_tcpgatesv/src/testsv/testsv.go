@@ -182,14 +182,14 @@ func TESTOFFSET(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 		}
 	} else {
 
-		if first_byte != ba[5] {
+		if first_byte != ba[6] {
 			ac.TpLogError("TESTERROR (2) LEN ind  at index %d, expected %d got %d",
 				5, first_byte, ba[5])
 			ret = FAIL
 			return
 		}
 
-		if second_byte != ba[6] {
+		if second_byte != ba[7] {
 			ac.TpLogError("TESTERROR (2) LEN ind at index %d, expected %d got %d",
 				6, first_byte, ba[6])
 			ret = FAIL
@@ -198,7 +198,7 @@ func TESTOFFSET(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	}
 
 	// OK now check the data
-	for i := 4; i < 300; i++ {
+	for i := 8; i < 300; i++ {
 		if ba[i] != byte(i%256) {
 			ac.TpLogError("Invalid data recevied, expected: %d but got %d",
 				byte(i%256), ba[i])
@@ -210,6 +210,8 @@ func TESTOFFSET(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	//prepare outgoing buffer
 
 	rsp := make([]byte, 400)
+
+	copy(rsp, ba[0:7])
 
 	for i := 8; i < len(rsp); i++ {
 		rsp[i] = byte(int(i+1) % 256)
@@ -403,7 +405,7 @@ func Init(ac *atmi.ATMICtx) int {
 		ac.TpLogError("Failed to Advertise: ATMI Error %d:[%s]\n",
 			err.Code(), err.Message())
 		return atmi.FAIL
-        }
+	}
 
 	return SUCCEED
 }

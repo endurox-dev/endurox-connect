@@ -601,26 +601,26 @@ func apprun(ac *atmi.ATMICtx) error {
 				}
 			} else {
 
-				if first_byte != arrRsp[5] {
+				if first_byte != arrRsp[6] {
 					ac.TpLogError("TESTERROR (2) LEN ind  at index %d, expected %d got %d",
-						5, first_byte, arrRsp[5])
+						6, first_byte, arrRsp[6])
 					return errors.New("TESTERROR in header!")
 				}
 
-				if second_byte != arrRsp[6] {
+				if second_byte != arrRsp[7] {
 					ac.TpLogError("TESTERROR (2) LEN ind at index %d, expected %d got %d",
-						6, first_byte, arrRsp[6])
+						7, first_byte, arrRsp[7])
 					return errors.New("TESTERROR in header!")
 				}
 			}
 
-			if len(ba) != 400 {
-				ac.TpLogError("Invalid response len: expected 400, got: %d", len(ba))
+			if len(arrRsp) != 400 {
+				ac.TpLogError("Invalid response len: expected 400, got: %d", len(arrRsp))
 				return errors.New("Invalid response len!")
 			}
 
 			//Test the msg
-			for i := 8; i < len(ba); i++ {
+			for i := 8; i < len(arrRsp); i++ {
 				exp := byte(int(i+1) % 256)
 
 				if arrRsp[i] != exp {

@@ -668,6 +668,10 @@ func main() {
 
 	ac, errA := atmi.NewATMICtx()
 
+        C.signal(11, nil)
+        C.signal(6, nil)
+
+
 	if nil != errA {
 		fmt.Fprintf(os.Stderr, "Failed to allocate cotnext %d:%s!\n",
 			errA.Code(), errA.Message())

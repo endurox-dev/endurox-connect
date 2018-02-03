@@ -115,10 +115,10 @@ func RunStatusRefresh(ac *atmi.ATMICtx) {
 
 		if nil != MConnectionsSimple[i] {
 			ac.TpLogInfo("REFRESH: Notify connection %d UP", i)
-			NotifyStatus(ac, i, FLAG_CON_ESTABLISHED)
+			NotifyStatus(ac, i, MConnectionsSimple[i].id_comp, FLAG_CON_ESTABLISHED)
 		} else {
 			ac.TpLogInfo("REFRESH: Notify connection %d DOWN", i)
-			NotifyStatus(ac, i, FLAG_CON_DISCON)
+			NotifyStatus(ac, i, atmi.FAIL, FLAG_CON_DISCON)
 		}
 	}
 

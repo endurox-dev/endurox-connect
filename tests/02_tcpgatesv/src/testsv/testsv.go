@@ -36,10 +36,39 @@ func CONSTAT(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 
 	gateway, _ := ub.BGetString(u.EX_NETGATEWAY, 0)
 	con, _ := ub.BGetInt64(u.EX_NETCONNID, 0)
+
 	flag, _ := ub.BGetString(u.EX_NETFLAGS, 0)
 
-	ac.TpLogInfo("CONSTAT: Gatway %s Connection %d status %s",
-		gateway, con, flag)
+	var comp int64 = atmi.FAIL
+
+	if ub.BPres(u.EX_NETCONNIDCOMP, 0) {
+		comp, _ = ub.BGetInt64(u.EX_NETCONNIDCOMP, 0)
+	}
+
+	ac.TpLogInfo("CONSTAT: Gatway %s Connection %d (comp: %d) status %s",
+		gateway, comp, con, flag)
+	//Test the composite value
+
+	if "C" == flag {
+
+		if atmi.FAIL == comp {
+			ac.TpLogError("CONSTAT: TESTERROR! Missing EX_NETCONNIDCOMP for connect!")
+			ret = FAIL
+			return
+		}
+
+		//Test that it matches basic id
+
+		plain_from_comp := comp & 0xffffff
+
+		if con != plain_from_comp {
+			ac.TpLogError("CONSTAT: TESTERROR! Invalid connection ids plain "+
+				"from comp (EX_NETCONNIDCOMP 0xffffff) = [%d] plain = [%d]!",
+				plain_from_comp, con)
+			ret = FAIL
+			return
+		}
+	}
 }
 
 //Correlation service

@@ -11,3 +11,4 @@ Releases:
 2.2.2 - (stable version) Bug #227
 2.3.0 - Support for big message size
 2.4.0 - Support for message length offset and keep header - Feature #273
+2.4.2 - Feature #278 - provide compiled connection id to status service

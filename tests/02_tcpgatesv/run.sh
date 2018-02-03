@@ -361,6 +361,15 @@ if [ "X$RESET_OUT" != "X" ]; then
 	go_out 19
 fi
 
+################################################################################
+echo ">>> Test for any log errors"
+################################################################################
+
+# Catch is there is test error!!!
+if [ "X`grep TESTERROR log/*.log`" != "X" ]; then
+        echo "Test error detected!"
+        go_out 20
+fi
 
 xadmin stop -c -y
 

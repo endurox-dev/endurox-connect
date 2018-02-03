@@ -404,7 +404,7 @@ func HandleConnection(con *ExCon) {
 	 */
 
 	//Connection open...
-	NotifyStatus(ac, con.id, FLAG_CON_ESTABLISHED)
+	NotifyStatus(ac, con.id, con.id_comp, FLAG_CON_ESTABLISHED)
 
 	go ReadConData(con, dataIn, dataInErr)
 
@@ -558,7 +558,7 @@ func HandleConnection(con *ExCon) {
 	delete(MConnectionsComp, con.id_comp)
 
 	//Connection closed...
-	NotifyStatus(ac, con.id, FLAG_CON_DISCON)
+	NotifyStatus(ac, con.id, con.id_comp, FLAG_CON_DISCON)
 
 	MConnMutex.Unlock()
 
@@ -667,7 +667,7 @@ func GoDial(con *ExCon, block *DataBlock) {
 }
 
 //Call the status service if defined
-func NotifyStatus(ac *atmi.ATMICtx, id int64, flags string) {
+func NotifyStatus(ac *atmi.ATMICtx, id int64, idcomp int64, flags string) {
 
 	if MStatussvc == "" {
 		return
@@ -688,6 +688,13 @@ func NotifyStatus(ac *atmi.ATMICtx, id int64, flags string) {
 	if err = buf.BChg(u.EX_NETCONNID, 0, id); err != nil {
 		ac.TpLogError("Failed to set EX_NETCONNID %d: %s", err.Code(), err.Message())
 		return
+	}
+
+	if idcomp != atmi.FAIL {
+		if err = buf.BChg(u.EX_NETCONNIDCOMP, 0, idcomp); err != nil {
+			ac.TpLogError("Failed to set EX_NETCONNIDCOMP %d: %s", err.Code(), err.Message())
+			return
+		}
 	}
 
 	if err = buf.BChg(u.EX_NETFLAGS, 0, flags); err != nil {

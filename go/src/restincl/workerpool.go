@@ -456,7 +456,7 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter, req
 	var buf atmi.TypedBuffer
 	var err atmi.ATMIError
 	reqlogOpen := false
-	ac.TpLog(atmi.LOG_DEBUG, "Got URL [%s]", req.URL)
+	ac.TpLog(atmi.LOG_DEBUG, "Got URL [%s], caller: %s", req.URL, req.RemoteAddr)
 
 	if "" != svc.Svc || svc.Echo {
 

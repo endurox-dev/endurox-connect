@@ -5,7 +5,7 @@
 ## 
 ## -----------------------------------------------------------------------------
 ## Enduro/X Middleware Platform for Distributed Transaction Processing
-## Copyright (C) 2015, ATR Baltic, Ltd. All Rights Reserved.
+## Copyright (C) 2018, ATR Baltic, Ltd. All Rights Reserved.
 ## This software is released under one of the following licenses:
 ## GPL or ATR Baltic's license for commercial use.
 ## -----------------------------------------------------------------------------
@@ -32,7 +32,7 @@
 
 cmake_minimum_required (VERSION 2.6) 
 project (ENDUROXCONNECT) 
-set(VERSION "2.4.2")
+set(VERSION "2.4.3")
 set(PROJ_NAME "Enduro/X Connectivity Module")
 set(RELEASE "1")
 

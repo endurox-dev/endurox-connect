@@ -234,7 +234,9 @@ func apprun(ac *atmi.ATMICtx) error {
 //Init function, read config (with CCTAG)
 
 func dispatchRequest(w http.ResponseWriter, req *http.Request) {
-	M_ac.TpLog(atmi.LOG_DEBUG, "URL [%s] getting free goroutine", req.URL)
+
+	M_ac.TpLog(atmi.LOG_DEBUG, "URL [%s] getting free goroutine caller: %s",
+		req.URL, req.RemoteAddr)
 
 	nr := <-M_freechan
 

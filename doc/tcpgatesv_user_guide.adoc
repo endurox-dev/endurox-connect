@@ -340,7 +340,13 @@ following data is present in status request messages:
 
 - EX_NETFLAGS - contains the event code. "C" - connected, "D" - disconnected
 
-- EX_NETCONNID - contains the compiled connection id.
+- EX_NETCONNID - contains the simple connection id (number starting from 1).
+
+- EX_NETCONNIDCOMP - contains the compiled connection id (64bit number). Contains
+simple connection id and timestamp. The first 24bits are simple conn id, the last 40
+bits are Epoch milliseconds. Field is present when connection is established (always
+present). Field also is presnet with connection is closed. Field is not present
+in "closed" status refresh messages.
 
 In case of server starting up and we are running in active mode (*type*='A') we shall
 send for all *max_connection* the status that connection is closed.

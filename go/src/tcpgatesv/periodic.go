@@ -113,7 +113,7 @@ func RunStatusRefresh(ac *atmi.ATMICtx) {
 
 	for i = 1; i <= MMaxConnections; i++ {
 
-		if nil != MConnectionsSimple[i] {
+		if nil != MConnectionsSimple[i] && MConnectionsSimple[i].is_open {
 			ac.TpLogInfo("REFRESH: Notify connection %d UP", i)
 			NotifyStatus(ac, i, MConnectionsSimple[i].id_comp, FLAG_CON_ESTABLISHED,
 				MConnectionsSimple[i])
@@ -156,6 +156,7 @@ func CheckDial(ac *atmi.ATMICtx) {
 		//when they are not connect but new ids are generated?
 		/*
 			mvitolin 2017/01/25 do it when connection is established in GoDial*/
+
 		MConnectionsSimple[con.id] = &con
 		MConnectionsComp[con.id_comp] = &con
 

@@ -433,10 +433,6 @@ func HandleConnection(con *ExCon) {
 	 */
 
 	//Connection open...
-
-	SetIPPort(ac, con.con.LocalAddr().String(), &con.ourip, &con.outport)
-	SetIPPort(ac, con.con.RemoteAddr().String(), &con.theirip, &con.theirport)
-
 	NotifyStatus(ac, con.id, con.id_comp, FLAG_CON_ESTABLISHED, con)
 
 	go ReadConData(con, dataIn, dataInErr)
@@ -681,6 +677,10 @@ func GoDial(con *ExCon, block *DataBlock) {
 	MConnectionsComp[con.id_comp] = con
 	MConnMutex.Unlock()
 	*/
+
+	SetIPPort(ac, con.con.LocalAddr().String(), &con.ourip, &con.outport)
+	SetIPPort(ac, con.con.RemoteAddr().String(), &con.theirip, &con.theirport)
+
 	con.is_open = true
 
 	//Have buffered read/write API to socket
@@ -845,6 +845,12 @@ func PassiveConnectionListener() {
 			//1. Prepare connection block
 			MConnMutex.Lock()
 			con.id, con.id_stamp, con.id_comp = GetNewConnectionId(ac)
+
+			//Fill conn details here!
+
+			SetIPPort(ac, con.con.LocalAddr().String(), &con.ourip, &con.outport)
+			SetIPPort(ac, con.con.RemoteAddr().String(), &con.theirip, &con.theirport)
+
 			//Here it is open for 100%
 			con.is_open = true
 
@@ -861,6 +867,7 @@ func PassiveConnectionListener() {
 			}
 
 			//2. Add to hash
+
 			MConnectionsSimple[con.id] = &con
 			MConnectionsComp[con.id_comp] = &con
 			MConnMutex.Unlock()

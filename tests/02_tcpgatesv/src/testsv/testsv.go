@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	u "ubftab"
@@ -13,6 +14,74 @@ const (
 	FAIL        = atmi.FAIL
 	PROGSECTION = "testsv"
 )
+
+//Validate the IP/PORT settings in UBF buffer
+func validate_ip(ac *atmi.ATMICtx, ub *atmi.TypedUBF) error {
+
+	//Test the IP and port existence
+	if !ub.BPres(u.EX_NETOURIP, 0) {
+		ac.TpLogError("CONSTAT: TESTERROR! Missing EX_NETOURIP!")
+		return errors.New("CONSTAT: TESTERROR! Missing EX_NETOURIP!")
+	}
+
+	if !ub.BPres(u.EX_NETOURPORT, 0) {
+		ac.TpLogError("CONSTAT: TESTERROR! Missing our EX_NETOURPORT!")
+		return errors.New("CONSTAT: TESTERROR! Missing our EX_NETOURPORT!")
+	}
+
+	//Test the format of the values...
+	ourip, _ := ub.BGetString(u.EX_NETOURIP, 0)
+
+	if ourip == "" {
+		ac.TpLogError("CONSTAT: TESTERROR! EX_NETOURPORT is empty!")
+		return errors.New("CONSTAT: TESTERROR! EX_NETOURPORT is empty!")
+	}
+
+	ourport, _ := ub.BGetInt(u.EX_NETOURPORT, 0)
+
+	if ourport <= 0 {
+		ac.TpLogError("CONSTAT: TESTERROR! EX_NETOURPORT <=0!")
+		return errors.New("CONSTAT: TESTERROR! EX_NETOURPORT <=0!")
+	}
+
+	if !ub.BPres(u.EX_NETTHEIRIP, 0) {
+		ac.TpLogError("CONSTAT: TESTERROR! Missing EX_NETTHEIRIP!")
+		return errors.New("CONSTAT: TESTERROR! Missing EX_NETTHEIRIP!")
+	}
+
+	if !ub.BPres(u.EX_NETTHEIRPORT, 0) {
+		ac.TpLogError("CONSTAT: TESTERROR! Missing our EX_NETTHEIRPORT!")
+
+		return errors.New("CONSTAT: TESTERROR! Missing our EX_NETTHEIRPORT!")
+	}
+
+	//Test the format of the values...
+	theirip, _ := ub.BGetString(u.EX_NETTHEIRIP, 0)
+
+	if theirip == "" {
+		ac.TpLogError("CONSTAT: TESTERROR! EX_NETTHEIRIP is empty!")
+		return errors.New("CONSTAT: TESTERROR! EX_NETTHEIRIP is empty!")
+	}
+
+	theirport, _ := ub.BGetInt(u.EX_NETTHEIRPORT, 0)
+
+	if theirport <= 0 {
+		ac.TpLogError("CONSTAT: TESTERROR! EX_NETTHEIRPORT <=0!")
+		return errors.New("CONSTAT: TESTERROR! EX_NETTHEIRPORT <=0!")
+	}
+
+	//Validate connection mode
+
+	conmode, _ := ub.BGetString(u.EX_NETCONMODE, 0)
+
+	if conmode != "A" && conmode != "P" {
+		ac.TpLogError("CONSTAT: TESTERROR! EX_NETCONMODE invalid value, "+
+			"expected: A,B got: %s!", conmode)
+		return errors.New("CONSTAT: TESTERROR! EX_NETCONMODE invalid value")
+	}
+
+	return nil
+}
 
 //Connection status service
 func CONSTAT(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
@@ -65,6 +134,11 @@ func CONSTAT(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 			ac.TpLogError("CONSTAT: TESTERROR! Invalid connection ids plain "+
 				"from comp (EX_NETCONNIDCOMP 0xffffff) = [%d] plain = [%d]!",
 				plain_from_comp, con)
+			ret = FAIL
+			return
+		}
+
+		if nil != validate_ip(ac, ub) {
 			ret = FAIL
 			return
 		}
@@ -282,6 +356,14 @@ func TESTSVC(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	//Print the buffer to stdout
 	//fmt.Println("Incoming request:")
 	ub.TpLogPrintUBF(atmi.LOG_DEBUG, "TESTSVC: Incoming request:")
+
+	//Test IP/PORt
+
+	if nil != validate_ip(ac, ub) {
+		ac.TpLogError("Failed to validate IP/PORT in incoming buffer!")
+		ret = FAIL
+		return
+	}
 
 	used, _ := ub.BUsed()
 	//Resize buffer, to have some more space

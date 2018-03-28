@@ -76,6 +76,33 @@ func AllocReplyDataBuffer(ac *atmi.ATMICtx, con *ExCon, corr string, data []byte
 		}
 	}
 
+	//Setup IP/port our/their and role
+	if err = buf.BChg(u.EX_NETOURIP, 0, con.ourip); err != nil {
+		ac.TpLogError("Failed to set EX_NETOURIP %d: %s", err.Code(), err.Message())
+		return nil, err
+	}
+
+	if err = buf.BChg(u.EX_NETOURPORT, 0, con.outport); err != nil {
+		ac.TpLogError("Failed to set EX_NETOURPORT %d: %s", err.Code(), err.Message())
+		return nil, err
+	}
+
+	//Setup IP/port our/their and role
+	if err = buf.BChg(u.EX_NETTHEIRIP, 0, con.theirip); err != nil {
+		ac.TpLogError("Failed to set EX_NETTHEIRIP %d: %s", err.Code(), err.Message())
+		return nil, err
+	}
+
+	if err = buf.BChg(u.EX_NETTHEIRPORT, 0, con.theirport); err != nil {
+		ac.TpLogError("Failed to set EX_NETTHEIRPORT %d: %s", err.Code(), err.Message())
+		return nil, err
+	}
+
+	if err = buf.BChg(u.EX_NETCONMODE, 0, con.conmode); err != nil {
+		ac.TpLogError("Failed to set EX_NETCONMODE %d: %s", err.Code(), err.Message())
+		return nil, err
+	}
+
 	if isRsp {
 		buf.BChg(u.EX_NERROR_CODE, 0, 0)
 		buf.BChg(u.EX_NERROR_MSG, 0, "SUCCEED")

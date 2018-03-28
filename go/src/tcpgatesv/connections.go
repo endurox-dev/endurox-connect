@@ -37,6 +37,8 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -100,6 +102,14 @@ type ExCon struct {
 	outgoing chan *DataBlock //This is for outgoing
 	shutdown chan bool       //This is if we get shutdown messages
 	is_open  bool            //Is connection open?
+
+	theirip   string //Remote IP address
+	theirport int    //Remote Port
+
+	ourip   string //Local IP address
+	outport int    //Local Port
+
+	conmode string //Connection mode, [A]ctive or [P]assive
 
 	inIdle exutil.StopWatch //Max idle time
 }
@@ -391,6 +401,25 @@ func MarkConnAsFree(ac *atmi.ATMICtx, con *ExCon) {
 	}
 }
 
+//Set IP Addreess
+//@param address ip address is format ip:port
+//@param ip (out) ip address - parsed
+//@param port (out) port parsed
+func SetIPPort(ac *atmi.ATMICtx, address string, ip *string, port *int) {
+
+	//Set IP/PORT
+	tmpip := strings.Split(address, ":")
+
+	*ip = tmpip[0]
+
+	if len(tmpip) > 1 {
+		*port, _ = strconv.Atoi(tmpip[1])
+	}
+
+	ac.TpLogDebug("Parsing [%s] got %s:%d", address, *ip, *port)
+
+}
+
 //Operate with open connection
 func HandleConnection(con *ExCon) {
 
@@ -404,7 +433,11 @@ func HandleConnection(con *ExCon) {
 	 */
 
 	//Connection open...
-	NotifyStatus(ac, con.id, con.id_comp, FLAG_CON_ESTABLISHED)
+
+	SetIPPort(ac, con.con.LocalAddr().String(), &con.ourip, &con.outport)
+	SetIPPort(ac, con.con.RemoteAddr().String(), &con.theirip, &con.theirport)
+
+	NotifyStatus(ac, con.id, con.id_comp, FLAG_CON_ESTABLISHED, con)
 
 	go ReadConData(con, dataIn, dataInErr)
 
@@ -558,7 +591,7 @@ func HandleConnection(con *ExCon) {
 	delete(MConnectionsComp, con.id_comp)
 
 	//Connection closed...
-	NotifyStatus(ac, con.id, con.id_comp, FLAG_CON_DISCON)
+	NotifyStatus(ac, con.id, con.id_comp, FLAG_CON_DISCON, con)
 
 	MConnMutex.Unlock()
 
@@ -654,6 +687,7 @@ func GoDial(con *ExCon, block *DataBlock) {
 	con.writer = bufio.NewWriter(con.con)
 	con.reader = bufio.NewReader(con.con)
 
+	con.conmode = CON_TYPE_ACTIVE
 	HandleConnection(con)
 
 	//Close connection
@@ -667,7 +701,7 @@ func GoDial(con *ExCon, block *DataBlock) {
 }
 
 //Call the status service if defined
-func NotifyStatus(ac *atmi.ATMICtx, id int64, idcomp int64, flags string) {
+func NotifyStatus(ac *atmi.ATMICtx, id int64, idcomp int64, flags string, con *ExCon) {
 
 	if MStatussvc == "" {
 		return
@@ -700,6 +734,31 @@ func NotifyStatus(ac *atmi.ATMICtx, id int64, idcomp int64, flags string) {
 	if err = buf.BChg(u.EX_NETFLAGS, 0, flags); err != nil {
 		ac.TpLogError("Failed to set EX_NETFLAGS %d: %s", err.Code(), err.Message())
 		return
+	}
+
+	if nil != con {
+
+		//Setup IP/port our/their and role (optional):
+		if err = buf.BChg(u.EX_NETOURIP, 0, con.ourip); err != nil {
+			ac.TpLogError("Failed to set EX_NETOURIP %d: %s", err.Code(), err.Message())
+		}
+
+		if err = buf.BChg(u.EX_NETOURPORT, 0, con.outport); err != nil {
+			ac.TpLogError("Failed to set EX_NETOURPORT %d: %s", err.Code(), err.Message())
+		}
+
+		//Setup IP/port our/their and role
+		if err = buf.BChg(u.EX_NETTHEIRIP, 0, con.theirip); err != nil {
+			ac.TpLogError("Failed to set EX_NETTHEIRIP %d: %s", err.Code(), err.Message())
+		}
+
+		if err = buf.BChg(u.EX_NETTHEIRPORT, 0, con.theirport); err != nil {
+			ac.TpLogError("Failed to set EX_NETTHEIRPORT %d: %s", err.Code(), err.Message())
+		}
+
+		if err = buf.BChg(u.EX_NETCONMODE, 0, con.conmode); err != nil {
+			ac.TpLogError("Failed to set EX_NETCONMODE %d: %s", err.Code(), err.Message())
+		}
 	}
 
 	buf.TpLogPrintUBF(atmi.LOG_DEBUG, "Sending notification")
@@ -805,7 +864,7 @@ func PassiveConnectionListener() {
 			MConnectionsSimple[con.id] = &con
 			MConnectionsComp[con.id_comp] = &con
 			MConnMutex.Unlock()
-
+			con.conmode = CON_TYPE_PASSIVE
 			go HandleConnection(&con)
 		}
 	}

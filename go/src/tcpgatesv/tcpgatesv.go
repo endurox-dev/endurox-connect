@@ -549,7 +549,7 @@ func Init(ac *atmi.ATMICtx) int {
 			var i int64
 			for i = 1; i <= MMaxConnections; i++ {
 				ac.TpLogInfo("Notify connection %d down", i)
-				NotifyStatus(ac, i, atmi.FAIL, FLAG_CON_DISCON)
+				NotifyStatus(ac, i, atmi.FAIL, FLAG_CON_DISCON, nil)
 			}
 		}
 	}

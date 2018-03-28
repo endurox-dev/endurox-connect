@@ -15,7 +15,7 @@ DESCRIPTION
 -----------
 Use programmable tcp gateway. The server gives for programmer abstraction over the tcp
 sockets. This module gives programmer abstraction over of the socket to the next level - 
-XATMI services. By using tpcgateway for programmer to send network message, it is sufficient
+XATMI services. By using tpc gateway for programmer to send network message, it is sufficient
 for dong the XATMI service invocation with specific UBF buffer, containing the message to
 be sent to network. The network address now is abstracted to XATMI service name. All other
 details technical details of socket operations are covered by *tcpgatesv*.
@@ -242,6 +242,12 @@ EX_NERROR_MSG	SUCCEED
 EX_NETGATEWAY	TCP_P_ASYNC_P
 EX_NETCORR	AELL
 EX_NETDATA	AELLP!XPSME\01\11\12\13\14UFTU\00
+EX_NETOURPORT	53972
+EX_NETTHEIRPORT	29999
+EX_NETCONMODE	A
+EX_NETOURIP	127.0.0.1
+EX_NETTHEIRIP	127.0.0.1
+
 --------------------------------------------------------------------------------
 
 
@@ -253,6 +259,12 @@ incoming service (see after this dump).
 EX_NETCONNID    6481138401943748609
 EX_NETGATEWAY   TCP_P_ASYNC_A
 EX_NETDATA      AELLO WORLD\00\10\11\12\13TEST\ff
+EX_NETOURPORT	29999
+EX_NETTHEIRPORT	53972
+EX_NETCONMODE	A
+EX_NETOURIP	127.0.0.1
+EX_NETTHEIRIP	127.0.0.1
+
 --------------------------------------------------------------------------------
 
 Incoming request at server ('incoming_svc'):
@@ -262,6 +274,11 @@ EX_NETCONNID    6481138401943748609
 EX_NETGATEWAY   TCP_P_ASYNC_A
 EX_NETCORR      AELL
 EX_NETDATA      AELLO WORLD\00\10\11\12\13TEST\ff
+EX_NETOURPORT	29999
+EX_NETTHEIRPORT	53972
+EX_NETCONMODE	A
+EX_NETOURIP	127.0.0.1
+EX_NETTHEIRIP	127.0.0.1
 --------------------------------------------------------------------------------
 
 Note that when message is received back from other host, it is sent for 
@@ -273,12 +290,22 @@ N:NDRX:5:26407:7f21c98357c0:000:20170131:010926331:_tplog.c:0099:CORSVC: Incomin
 EX_NETCONNID    6481138401960525826
 EX_NETGATEWAY   TCP_P_ASYNC_P
 EX_NETDATA      AELLP!XPSME\01\11\12\13\14UFTU\00
+EX_NETOURPORT	29999
+EX_NETTHEIRPORT	53972
+EX_NETCONMODE	A
+EX_NETOURIP	127.0.0.1
+EX_NETTHEIRIP	127.0.0.1
 t:USER:4:26407:7f21c98357c0:000:20170131:010926331:estsv.go:0081:Extracted correlator: [AELL]
 N:NDRX:5:26407:7f21c98357c0:000:20170131:010926331:_tplog.c:0099:Reply buffer afrer correl
 EX_NETCONNID    6481138401960525826
 EX_NETGATEWAY   TCP_P_ASYNC_P
 EX_NETCORR      AELL
 EX_NETDATA      AELLP!XPSME\01\11\12\13\14UFTU\00
+EX_NETOURPORT	29999
+EX_NETTHEIRPORT	53972
+EX_NETCONMODE	A
+EX_NETOURIP	127.0.0.1
+EX_NETTHEIRIP	127.0.0.1
 --------------------------------------------------------------------------------
 
 
@@ -292,6 +319,10 @@ EX_NETGATEWAY   TCP_P_SYNC_A
 EX_NETFLAGS     D
 --------------------------------------------------------------------------------
 
+Note that connection related fields: EX_NETOURPORT/EX_NETTHEIRPORT/
+EX_NETCONMODE/EX_NETOURIP/EX_NETTHEIRIP are present always when connection is
+established. In case if connection is closed, then these fields are optional and
+may not be present.
 
 
 CONFIGURATION

@@ -223,6 +223,27 @@ for doing reply to exact connection.
 'EX_NERROR_MSG' - Corresponding error message.
 
 
+*Network endpoints identification*
+
+When connection is established, and when Enduro/X sends incoming data buffer to
+XATMI target or correlation service, the UBF buffer includes following meta-data:
+
+. *EX_NETOURIP* - IP Address of our/local side (either we are client or server).
+
+. *EX_NETOURPORT* - Port of the our/local side.
+
+. *EX_NETTHEIRIP* - Remote IP address.
+
+. *EX_NETTHEIRPORT* - Remote port.
+
+. *EX_NETCONMODE* - Connection mode. *A* - means local is client. *P* - means
+local is server.
+
+The identification data is available for established connections. When reporting
+connection statuses, and connection is down (disconnected), then fields are
+optional. In case if included, then data is from last established connection.
+
+
 *Sync service req/reply - example*
 
 Request/reply example (from client perspective - in this example server process

@@ -235,7 +235,6 @@
             <srvid>310</srvid>
             <sysopt>-e ${NDRX_APPHOME}/log/tcpgatesv-pers-sync-offset_incl-passive.log -r</sysopt>
         </server>
-        
         <server name="tcpgatesv">
             <cctag>pers/sync_offset/active</cctag>
             <min>1</min>
@@ -250,6 +249,20 @@
             <srvid>330</srvid>
             <sysopt>-e ${NDRX_APPHOME}/log/tcpgatesv-pers-sync-offset-passive.log -r</sysopt>
         </server>
+		<server name="tcpgatesv">
+			<cctag>pers/sequence/active</cctag>
+			<min>1</min>
+			<max>1</max>
+			<srvid>340</srvid>
+			<sysopt>-e ${NDRX_APPHOME}/log/tcpgatesv-sequence-active.log -r</sysopt>
+		</server>
+		<server name="tcpgatesv">
+			<cctag>pers/sequence/passive</cctag>
+			<min>1</min>
+			<max>1</max>
+			<srvid>350</srvid>
+			<sysopt>-e ${NDRX_APPHOME}/log/tcpgatesv-sequence-passive.log -r</sysopt>
+		</server>
 		<server name="cpmsrv">
 			<min>1</min>
 			<max>1</max>

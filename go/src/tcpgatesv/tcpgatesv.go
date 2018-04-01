@@ -1,3 +1,33 @@
+/*
+** This module is responsible for connections handling
+**
+** @file connections.go
+** -----------------------------------------------------------------------------
+** Enduro/X Middleware Platform for Distributed Transaction Processing
+** Copyright (C) 2015, ATR Baltic, Ltd. All Rights Reserved.
+** This software is released under one of the following licenses:
+** GPL or ATR Baltic's license for commercial use.
+** -----------------------------------------------------------------------------
+** GPL license:
+**
+** This program is free software; you can redistribute it and/or modify it under
+** the terms of the GNU General Public License as published by the Free Software
+** Foundation; either version 2 of the License, or (at your option) any later
+** version.
+**
+** This program is distributed in the hope that it will be useful, but WITHOUT ANY
+** WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+** PARTICULAR PURPOSE. See the GNU General Public License for more details.
+**
+** You should have received a copy of the GNU General Public License along with
+** this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+** Place, Suite 330, Boston, MA 02111-1307 USA
+**
+** -----------------------------------------------------------------------------
+** A commercial use license is available from ATR Baltic, Ltd
+** contact@atrbaltic.com
+** -----------------------------------------------------------------------------
+ */
 package main
 
 import (
@@ -89,6 +119,11 @@ var MInIdleMax int64 = 0     //By default no connection restart
 var MInIdleCheck int64 = 0   //Time into which check idle seconds
 var MScanTime = 1            //Seconds for housekeeping
 
+var MSeqOut bool = false //Use outgoing sequence of messages (by connection number)
+//Basically process incoming messages in single threaded mode as no reason to put in queue
+//We shall wait for service to complete to serve next message anyway
+var MSeqIn bool = false
+
 //Correlator service for incoming messages
 //This is used case if driver operates in sync mode over the persistently conneced lines
 var MCorrSvc = ""
@@ -145,7 +180,7 @@ func TCPGATE(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	//Pack the request data to pass to thread
 	ctxData, err := ac.TpSrvGetCtxData()
 	if nil != err {
-		ac.TpLogError("Failed to get context data - dropping request",
+		ac.TpLogError("Failed to get context data - dropping request %d:%s",
 			err.Code(), err.Message())
 		ret = FAIL
 		return
@@ -154,7 +189,31 @@ func TCPGATE(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	ac.TpLogInfo("Waiting for free XATMI out object")
 	nr := getFreeXChan(ac, &MoutXPool)
 	ac.TpLogInfo("Got XATMI out object")
-	go XATMIDispatchCall(&MoutXPool, nr, ctxData, ub, svc.Cd)
+
+	//If connection ID is present, then serialise all
+	//in queue. We could make somehow chained go routines.
+
+	//we shall create dynamic queue. if there is already started with
+	//Q then it shall finish it...
+	if MSeqOut && ub.BPres(u.EX_NETCONNID, 0) {
+
+		id, err := ub.BGetInt64(u.EX_NETCONNID, 0)
+
+		if nil != err {
+			ac.TpLogError("Failed to get EX_NETCONNID - dropping request: %d:%s",
+				err.Code(), err.Message())
+			ret = FAIL
+			return
+		}
+		//Run sequencing
+		//Firstly we need to understand is this first message in queue or
+		//there is queue already in progress...
+		XATMIDispatchCallSeq(id, &MoutXPool, nr, ctxData, ub, svc.Cd)
+
+	} else {
+		//No sequencing...
+		go XATMIDispatchCall(&MoutXPool, nr, ctxData, ub, svc.Cd)
+	}
 
 	//runtime.GC()
 
@@ -238,6 +297,20 @@ func Init(ac *atmi.ATMICtx) int {
 			if 1 == tmpSwap {
 				ac.TpLogInfo("Will swap framing bytes in half")
 				MFramingHalfSwap = true
+			}
+		case "seqout":
+			tmpseq, _ := buf.BGetInt(u.EX_CC_VALUE, occ)
+
+			if 1 == tmpseq {
+				ac.TpLogInfo("Outoing messages be sent in sequence")
+				MSeqOut = true
+			}
+		case "seqin":
+			tmpseq, _ := buf.BGetInt(u.EX_CC_VALUE, occ)
+
+			if 1 == tmpseq {
+				ac.TpLogInfo("Incoming message from network will be in sequence")
+				MSeqIn = true
 			}
 
 		case "max_msg_len":
@@ -404,6 +477,8 @@ func Init(ac *atmi.ATMICtx) int {
 
 	MinXPool.nrWorkers = MworkersIn
 	MoutXPool.nrWorkers = MWorkersOut
+
+	MSeqOutMsgs = make(map[int64][]*ATMIOutBlock)
 
 	MAddr = MIp + ":" + strconv.Itoa(MPort)
 

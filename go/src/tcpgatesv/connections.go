@@ -544,7 +544,13 @@ func HandleConnection(con *ExCon) {
 			nr := getFreeXChan(ac, &MinXPool)
 			ac.TpLogInfo("Got XATMI in object")
 
-			go NetDispatchCall(&MinXPool, nr, con, preAllocUBF, inCorr, dataIncoming)
+			//We might want to sync incoming messages
+			//Wait for dispatch to finish
+			if MSeqIn {
+				NetDispatchCall(&MinXPool, nr, con, preAllocUBF, inCorr, dataIncoming)
+			} else {
+				go NetDispatchCall(&MinXPool, nr, con, preAllocUBF, inCorr, dataIncoming)
+			}
 
 			break
 		case err := <-dataInErr:

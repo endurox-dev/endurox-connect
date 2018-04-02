@@ -45,6 +45,20 @@ xadmin start -y
 sleep 10
 
 ################################################################################
+echo ">>> Running sequence tests"
+################################################################################
+NROFCALLS=40000
+COMMAND="seq"
+testcl $COMMAND $NROFCALLS TCP_P_SEQ_A
+RET=$?
+
+if [[ $RET != 0 ]]; then
+    echo "testcl $COMMAND $NROFCALLS TCP_P_SEQ_A failed"
+    go_out 52
+fi
+
+
+################################################################################
 echo ">>> Run offset tests, len not included"
 ################################################################################
 NROFCALLS=$(($NUMCALL+5))
@@ -55,7 +69,7 @@ RET=$?
 
 if [[ $RET != 0 ]]; then
     echo "testcl $COMMAND $NROFCALLS TCP_P_SYNCOFF_A failed"
-    go_out 50
+    go_out 51
 fi
 
 ################################################################################

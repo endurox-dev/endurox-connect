@@ -169,6 +169,65 @@ func apprun(ac *atmi.ATMICtx) error {
 
 	ac.TpLogInfo("Command: [%s]", command)
 	switch command {
+
+	case "seq":
+
+		//case "nocon":
+		ac.TpLogInfo("Command: [%s] 2", command)
+		if len(os.Args) < 4 {
+			return errors.New(fmt.Sprintf("Missing count: %s seq <count> <gateway>",
+				os.Args[0]))
+		}
+
+		nrOfTimes, err := strconv.Atoi(os.Args[2])
+
+		gw := os.Args[3]
+
+		if err != nil {
+			return err
+		}
+
+		ba := make([]byte, 1)
+
+		ba[0] = 0
+
+		ub, errA := ac.NewUBF(3000)
+
+		if errA := ub.BChg(u.EX_NETCONNID, 0, "2"); nil != errA {
+			ac.TpLogError("Failed to set EX_NETDATA %d:%s",
+				errA.Code(), errA.Message())
+			return errors.New(errA.Message())
+		}
+
+		//Send the stuff out!!!
+		//To async target
+		for i := 0; i < nrOfTimes; i++ {
+
+			if nil != errA {
+				ac.TpLogError("Failed to allocate UBF buffer %d:%s",
+					errA.Code(), errA.Message())
+				return errors.New(errA.Message())
+			}
+
+			if errA := ub.BChg(u.EX_NETDATA, 0, ba); nil != errA {
+				ac.TpLogError("Failed to set EX_NETDATA %d:%s",
+					errA.Code(), errA.Message())
+				return errors.New(errA.Message())
+			}
+
+			//The reply here kills the buffer,
+			//Thus we need a copy...
+			ub.TpLogPrintUBF(atmi.LOG_INFO, "Calling server")
+			if _, errA := ac.TpACall(gw, ub, atmi.TPNOREPLY); nil != errA {
+				ac.TpLogError("Failed to call [%s] %d:%s",
+					gw, errA.Code(), errA.Message())
+				return errors.New(errA.Message())
+			}
+
+			ba[0]++
+		}
+
+		break
 	case "async_call", "nocon":
 		//case "nocon":
 		ac.TpLogInfo("Command: [%s] 2", command)
@@ -668,9 +727,8 @@ func main() {
 
 	ac, errA := atmi.NewATMICtx()
 
-        C.signal(11, nil)
-        C.signal(6, nil)
-
+	C.signal(11, nil)
+	C.signal(6, nil)
 
 	if nil != errA {
 		fmt.Fprintf(os.Stderr, "Failed to allocate cotnext %d:%s!\n",

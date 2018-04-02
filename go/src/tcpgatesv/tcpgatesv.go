@@ -212,7 +212,7 @@ func TCPGATE(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 
 	} else {
 		//No sequencing...
-		go XATMIDispatchCall(&MoutXPool, nr, ctxData, ub, svc.Cd)
+		go XATMIDispatchCall(&MoutXPool, nr, ctxData, ub, svc.Cd, true)
 	}
 
 	//runtime.GC()

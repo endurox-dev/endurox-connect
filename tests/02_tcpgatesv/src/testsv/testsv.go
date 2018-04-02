@@ -518,6 +518,12 @@ func Init(ac *atmi.ATMICtx) int {
 		return atmi.FAIL
 	}
 
+	if err := ac.TpAdvertise("SEQTEST", "SEQTEST", SEQTEST); err != nil {
+		ac.TpLogError("Failed to Advertise: ATMI Error %d:[%s]\n",
+			err.Code(), err.Message())
+		return atmi.FAIL
+	}
+
 	return SUCCEED
 }
 

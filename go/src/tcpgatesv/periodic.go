@@ -62,10 +62,21 @@ func RunZeroOverOpenCons(ac *atmi.ATMICtx) {
 				v.id, v.id_comp)
 
 			//Remove connection from free list
-			MarkConnAsBusy(ac, v)
+			//Maybe we can leave it as un-used?
+                        //If we wait for connection here, we get deadlock!!!!
+                        //Thus if connection is busy then message is going to that side
+                        //already, thus no need to send here.
+			stat := MarkConnAsBusy(ac, v, true)
 
-			//Send the data block.
-			v.outgoing <- p_block
+			if stat {
+
+				ac.TpLogInfo("Send the data block")
+				v.outgoing <- p_block
+			} else {
+				ac.TpLogInfo("Connection busy -> not sending zero message")
+			}
+
+			//Where we make free the connection
 		} else {
 			ac.TpLogInfo("conn %d/%d is not yet open - not sending zero msg",
 				v.id, v.id_comp)

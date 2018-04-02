@@ -111,6 +111,7 @@ type ExCon struct {
 
 	conmode string //Connection mode, [A]ctive or [P]assive
 
+	busy   bool             //Is connection busy?
 	inIdle exutil.StopWatch //Max idle time
 }
 
@@ -137,11 +138,18 @@ var MfreeconsLock sync.Mutex
 var MPassiveLisener net.Listener
 
 //Remove given connection from channel list (if found there)
-func MarkConnAsBusy(ac *atmi.ATMICtx, con *ExCon) {
+//@return false -> already locked, true -> locked ok
+func MarkConnAsBusy(ac *atmi.ATMICtx, con *ExCon, dontWait bool) bool {
 
 	connList := []*ExCon{}
 	in_list := true
 	MfreeconsLock.Lock()
+
+	if dontWait && con.busy {
+		MfreeconsLock.Unlock()
+		return false
+	}
+	con.busy = true
 
 	//So we need to pull all connections to the list
 	//Remove our selves
@@ -170,8 +178,6 @@ func MarkConnAsBusy(ac *atmi.ATMICtx, con *ExCon) {
 		}
 	}
 
-	MfreeconsLock.Unlock()
-
 	ac.TpLogInfo("Removal of connection %d/%d from Mfreeconns channel done",
 		con.id, con.id_comp)
 
@@ -183,6 +189,9 @@ func MarkConnAsBusy(ac *atmi.ATMICtx, con *ExCon) {
 		Mfreeconns <- element
 	}
 
+	MfreeconsLock.Unlock()
+
+	return true
 }
 
 //Get open connection
@@ -191,7 +200,9 @@ func MarkConnAsBusy(ac *atmi.ATMICtx, con *ExCon) {
 func GetOpenConnection(ac *atmi.ATMICtx) *ExCon {
 	ok := false
 	var con *ExCon
-	MfreeconsLock.Lock()
+
+	//Why?
+	//MfreeconsLock.Lock()
 
 	//Have a timout object
 	ac.TpLogInfo("GetOpenConnection: Setting alarm clock to: %d", MConnWaitTime)
@@ -211,7 +222,7 @@ func GetOpenConnection(ac *atmi.ATMICtx) *ExCon {
 		case <-timeout:
 			// the read from ch has timed out
 			ac.TpLogError("Timeout waiting for connection!")
-			MfreeconsLock.Unlock()
+			//MfreeconsLock.Unlock()
 			return nil
 		}
 
@@ -234,7 +245,7 @@ func GetOpenConnection(ac *atmi.ATMICtx) *ExCon {
 		MConnMutex.Unlock()
 	}
 
-	MfreeconsLock.Unlock()
+	//MfreeconsLock.Unlock()
 
 	return con
 }
@@ -263,7 +274,7 @@ func GetConnectionByID(ac *atmi.ATMICtx, connid int64) *ExCon {
 			return nil
 		}
 
-		MarkConnAsBusy(ac, ret)
+		MarkConnAsBusy(ac, ret, false)
 
 		return ret
 	} else {
@@ -277,7 +288,7 @@ func GetConnectionByID(ac *atmi.ATMICtx, connid int64) *ExCon {
 			ac.TpLogError("Connection by id %d not found", connid)
 		}
 
-		MarkConnAsBusy(ac, ret)
+		MarkConnAsBusy(ac, ret, false)
 
 		return ret
 	}
@@ -386,6 +397,11 @@ func ReadConData(con *ExCon, ch chan<- []byte, eCh chan<- error) {
 }
 
 func MarkConnAsFree(ac *atmi.ATMICtx, con *ExCon) {
+
+	MfreeconsLock.Lock()
+	con.busy = false
+	MfreeconsLock.Unlock()
+
 	//Connection ready, submit to list of available conns
 	//(if last msg wast not) ougoing
 	if MReqReply == RR_PERS_ASYNC_INCL_CORR ||
@@ -465,7 +481,7 @@ func HandleConnection(con *ExCon) {
 
 			//Well we are busy here too, we shall remove our selves from
 			//Connection list...
-			MarkConnAsBusy(ac, con)
+			MarkConnAsBusy(ac, con, false)
 
 			block := MConWaiter[con.id_comp]
 			if nil != block {
@@ -598,7 +614,7 @@ func HandleConnection(con *ExCon) {
 	MConnMutex.Unlock()
 
 	//Remove from channel
-	MarkConnAsBusy(ac, con)
+	MarkConnAsBusy(ac, con, false)
 
 }
 

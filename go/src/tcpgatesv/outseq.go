@@ -62,7 +62,13 @@ func XATMIDispatchCallNext(id int64) *ATMIOutBlock {
 
 	MSeqOutMsgs[id] = append(MSeqOutMsgs[id][:0], MSeqOutMsgs[id][1:]...)
 
-	ret = MSeqOutMsgs[id][0]
+	if len(MSeqOutMsgs[id]) == 0 {
+		MSeqOutMsgs[id] = nil
+	}
+
+	if nil != MSeqOutMsgs[id] {
+		ret = MSeqOutMsgs[id][0]
+	}
 
 	MSeqOutMutex.Unlock()
 
@@ -76,9 +82,16 @@ func XATMIDispatchCallRunner(id int64, block *ATMIOutBlock) {
 
 	var nextBlock *ATMIOutBlock
 
+	nrOurs := block.nr
+	pool := block.pool //pool shall no change here amog the enqueued objects
+
 	for nextBlock = block; nil != nextBlock; nextBlock = XATMIDispatchCallNext(id) {
-		XATMIDispatchCall(nextBlock.pool, nextBlock.nr, nextBlock.ctxData, nextBlock.buf, nextBlock.cd)
+		XATMIDispatchCall(nextBlock.pool, nrOurs,
+			nextBlock.ctxData, nextBlock.buf, nextBlock.cd, false)
 	}
+
+	//Free up the chan
+	pool.freechan <- nrOurs
 }
 
 //Sequenced message dispatching
@@ -97,6 +110,7 @@ func XATMIDispatchCallSeq(id int64, pool *XATMIPool, nr int, ctxData *atmi.TPSRV
 	startNew := false
 
 	block := ATMIOutBlock{id: id, pool: pool, nr: nr, ctxData: ctxData, buf: buf, cd: cd}
+
 	if nil == MSeqOutMsgs[id] {
 		startNew = true
 	}
@@ -104,6 +118,9 @@ func XATMIDispatchCallSeq(id int64, pool *XATMIPool, nr int, ctxData *atmi.TPSRV
 
 	if startNew {
 		go XATMIDispatchCallRunner(id, &block)
+	} else {
+		//We shall release the channel as runner will work with his chan
+		pool.freechan <- nr
 	}
 
 	MSeqOutMutex.Unlock()

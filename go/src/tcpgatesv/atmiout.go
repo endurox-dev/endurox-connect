@@ -87,8 +87,9 @@ func GenErrorUBF(ac *atmi.ATMICtx, id_comp int64, code int, message string) (*at
 //@param nr	XATMI client number
 //@param ctxData	Context data for request
 //@param buf	ATMI buffer with request data
+//@param[in] releaseChan should we release channel here?
 func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
-	buf *atmi.TypedUBF, cd int) {
+	buf *atmi.TypedUBF, cd int, releaseChan bool) {
 
 	ret := SUCCEED
 	ac := pool.ctxs[nr]
@@ -109,7 +110,9 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 		//!!!! MUST Be last, otherwise while tpreturn completes
 		//Other thread can take this object, and that makes race condition +
 		//Corrpuption !!!!
-		pool.freechan <- nr
+		if releaseChan {
+			pool.freechan <- nr
+		}
 	}()
 
 	ac.TpLogInfo("About to restore context data in goroutine...")

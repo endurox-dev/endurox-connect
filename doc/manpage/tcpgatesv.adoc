@@ -612,13 +612,11 @@ time is reached with no response, the caller will get back UBF response with
 'EX_NERROR_CODE'=*8* (timeout).
 The default is *60* seconds.
 
-
 *scan_time* = 'SCAN_TIME'::
 The number of seconds where main Enduro/X dispatcher thread is interrupted in order
 to run time-out scans. For outgoing correlated connections (either by correlator id
 or by connection).
 The default is *1* - every second.
-
 
 *conn_wait_time* = 'CONNECTION_WAIT_TIME'::
 This is time-out time in seconds waiting for connection from connection pool (when
@@ -626,7 +624,6 @@ connection is not identified by 'EX_NETCONNID'. The parameter is effective only 
 'req_reply' modes *0* and *1*. In case if timeout is reached, the error *NENOCONN*
 error *9* will be generated.
 The default is *60* seconds.
-
 
 *corr_svc* = 'CORRELATION_SERVICE'::
 Correlation service to invoke for incoming requests. This parameter is optional.
@@ -643,6 +640,21 @@ The default value for this field is *unset* (i.e. empty parameter - not used).
 *debug* = 'DEBUG_STRING'::
 Enduro/X standard debug string, see *ndrxdebug.conf(5)* manpage. The sample value
 could look like:
+
+*seqin* = 'SEQIN'::
+If set to *1* dispatch incoming messages from network to XATMI service 
+in the same connection thread. Thus ensuring the sequence of the messages to be
+according to the message sequence in socket. The default is *0* - disabled,
+meaning that incoming messages are processed in out of order sequence (processed
+by multiple threads).
+
+*seqout* = 'SEQOUT'::
+If set to *1*, send outgoing messages in guaranteed fifo order aggregated by 
+'EX_NETCONNID'. 'EX_NETCONNID' can be compiled or simple id. The fifo will be
+performed by this number. It is up to programmer to ensure that same class of IDs
+are used otherwise two competing queues can be create and fifo order will be
+disrupted. The default value is *0* - disabled, meaning that outgoing messages
+are processed in out of order sequence.
 
 --------------------------------------------------------------------------------
 

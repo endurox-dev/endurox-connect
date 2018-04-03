@@ -286,9 +286,10 @@ func GetConnectionByID(ac *atmi.ATMICtx, connid int64) *ExCon {
 
 		if ret == nil {
 			ac.TpLogError("Connection by id %d not found", connid)
-		}
 
-		MarkConnAsBusy(ac, ret, false)
+		} else {
+			MarkConnAsBusy(ac, ret, false)
+		}
 
 		return ret
 	}
@@ -590,7 +591,7 @@ func HandleConnection(con *ExCon) {
 					": %s - terminating", err)
 				ok = false
 			}
-			//If the is non-persistent Net->EX, then shutdown the conn
+			//If the is non-persistent Net->EX, then shutdow
 
 			if MReqReply == RR_NONPERS_NET2EX {
 				ac.TpLogInfo("CONN: %d - send_and_shut recieved - terminating",
@@ -646,13 +647,13 @@ func GoDial(con *ExCon, block *DataBlock) {
 
 	//Free up the slot once we are done
 	defer func() {
-		MConnMutex.Lock()
+		//		MConnMutex.Lock()
 
 		if nil != con.ctx {
 			ac.TpLogWarn("Terminating connection object: id=%d, "+
 				"tstamp=%d, id_comp=%d", con.id, con.id_stamp, con.id_comp)
 		}
-		MConnMutex.Unlock()
+		//		MConnMutex.Unlock()
 
 	}()
 

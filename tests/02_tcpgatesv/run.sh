@@ -42,7 +42,7 @@ cd ..
 xadmin start -y
 
 # Let connections to establish
-sleep 10
+sleep 60
 
 ################################################################################
 echo ">>> Running sequence tests"

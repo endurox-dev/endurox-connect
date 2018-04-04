@@ -304,8 +304,17 @@ func GetConnectionByID(ac *atmi.ATMICtx, connid int64) *ExCon {
 func CloseAllConnections(ac *atmi.ATMICtx) {
 	ac.TpLogInfo("Closing all open connections...")
 
+        var ch map[int64]*ExCo
+        ch = make(map[int64]*ExCon)
+
 	MConnMutex.Lock()
-	for k, v := range MConnectionsSimple {
+        for k,v := range MConnectionsSimple {
+                ch[k] = v
+        }
+	MConnMutex.Unlock()
+
+        //Will run in non locked mode...
+	for k, v := range ch {
 
 		ac.TpLogInfo("Closing %d (%d)", k, v.id)
 
@@ -321,7 +330,6 @@ func CloseAllConnections(ac *atmi.ATMICtx) {
 		}
 
 	}
-	MConnMutex.Unlock()
 }
 
 //This assumes that MConnections is locked

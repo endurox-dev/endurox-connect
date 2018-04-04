@@ -54,9 +54,21 @@ RET=$?
 
 if [[ $RET != 0 ]]; then
     echo "testcl $COMMAND $NROFCALLS TCP_P_SEQ_A failed"
-    go_out 52
+    go_out 53
 fi
 
+echo ">>> Running sequence tests (2)"
+
+testcl $COMMAND $NROFCALLS TCP_P_SEQ_A
+RET=$?
+
+if [[ $RET != 0 ]]; then
+    echo "testcl $COMMAND $NROFCALLS TCP_P_SEQ_A failed (2)"
+    go_out 53
+fi
+
+echo "Sleep 90 - let async calls to complete..."
+sleep 90
 
 ################################################################################
 echo ">>> Run offset tests, len not included"

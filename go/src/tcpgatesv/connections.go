@@ -304,7 +304,7 @@ func GetConnectionByID(ac *atmi.ATMICtx, connid int64) *ExCon {
 func CloseAllConnections(ac *atmi.ATMICtx) {
 	ac.TpLogInfo("Closing all open connections...")
 
-        var ch map[int64]*ExCo
+        var ch map[int64]*ExCon
         ch = make(map[int64]*ExCon)
 
 	MConnMutex.Lock()

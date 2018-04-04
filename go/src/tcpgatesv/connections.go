@@ -88,6 +88,7 @@ type DataBlock struct {
 
 //Enduro/X connection
 type ExCon struct {
+	mu sync.Mutex
 	con net.Conn
 
 	reader *bufio.Reader
@@ -153,8 +154,10 @@ func MarkConnAsBusy(ac *atmi.ATMICtx, con *ExCon, dontWait bool) bool {
 
 	//So we need to pull all connections to the list
 	//Remove our selves
+	con.mu.Lock()
 	ac.TpLogInfo("Removing connection %d/%d from Mfreeconns channel",
 		con.id, con.id_comp)
+	con.mu.Unlock()
 
 	for in_list {
 		select {
@@ -322,12 +325,16 @@ func CloseAllConnections(ac *atmi.ATMICtx) {
 		//No need these will be closed when go threads exit...
 		//NotifyStatus(ac, v.id, FLAG_CON_DISCON)
 
-		if err := v.con.Close(); err != nil {
-			ac.TpLogError("Failed to close connection id %d: %s",
+		v.mu.Lock()
+		if nil!=v.con {
+			if err := v.con.Close(); err != nil {
+				ac.TpLogError("Failed to close connection id %d: %s",
 				k, err.Error())
-		} else {
-			ac.TpLogInfo("Connection closed ok")
+			} else {
+				ac.TpLogInfo("Connection closed ok")
+			}
 		}
+		v.mu.Unlock()
 
 	}
 }
@@ -675,7 +682,9 @@ func GoDial(con *ExCon, block *DataBlock) {
 		"tstamp=%d, id_comp=%d doing connect to: %s", con.id, con.id_stamp, con.id_comp, MAddr)
 
 	//Get the ATMI Context
+	con.mu.Lock()
 	con.con, err = net.Dial("tcp", MAddr)
+	con.mu.Unlock()
 
 	if err != nil {
 		// handle error

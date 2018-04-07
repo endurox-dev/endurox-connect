@@ -501,7 +501,7 @@ The default is *0* meaning functionality is disabled. If feature is enabled the
 it must be configured with 'in_idle_check' parameter.
 
 
-'in_idle_check' = 'IN_IDLE_CHECK'::
+*in_idle_check* = 'IN_IDLE_CHECK'::
 Number of seconds within 'scan_time' to perform Inbound idle connection tests
 ('in_idle_max') and connection reset if needed. If configured then 'in_idle_max'
 must be set too.
@@ -643,18 +643,18 @@ could look like:
 
 *seqin* = 'SEQIN'::
 If set to *1* dispatch incoming messages from network to XATMI service 
-in the same connection thread. Thus ensuring the sequence of the messages to be
-according to the message sequence in socket. The default is *0* - disabled,
-meaning that incoming messages are processed in out of order sequence (processed
+in one thread mode. Thus ensuring the order of the messages to be
+according to the message order in socket. The default is *0* - disabled,
+meaning that incoming messages are processed in out of order manner (processed
 by multiple threads).
 
 *seqout* = 'SEQOUT'::
 If set to *1*, send outgoing messages in guaranteed fifo order aggregated by 
 'EX_NETCONNID'. 'EX_NETCONNID' can be compiled or simple id. The fifo will be
 performed by this number. It is up to programmer to ensure that same class of IDs
-are used otherwise two competing queues can be create and fifo order will be
+are used, otherwise two competing queues can be create and fifo order will be
 disrupted. The default value is *0* - disabled, meaning that outgoing messages
-are processed in out of order sequence.
+are processed in out of order manner (by multiple concurrent threads).
 
 --------------------------------------------------------------------------------
 

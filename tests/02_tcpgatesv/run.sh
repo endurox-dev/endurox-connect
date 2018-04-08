@@ -397,7 +397,8 @@ if [ "X`grep TESTERROR log/*.log`" != "X" ]; then
         go_out 20
 fi
 
-xadmin stop -c -y
+# The go_out will do the shutdown!
+#xadmin stop -c -y
 
 go_out 0
 

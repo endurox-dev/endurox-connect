@@ -1097,7 +1097,8 @@ http://localhost:8080/longop/ok`
 done
 
 
-xadmin stop -c -y
+# go_out alreay doing stop
+#xadmin stop -c -y
 
 
 go_out 0

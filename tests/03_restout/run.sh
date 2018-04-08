@@ -559,7 +559,8 @@ fi
 echo "Done"
 ###############################################################################
 
-xadmin stop -c -y
+# go_out will shutdown
+#xadmin stop -c -y
 
 
 go_out 0

@@ -88,7 +88,7 @@ type DataBlock struct {
 
 //Enduro/X connection
 type ExCon struct {
-	mu sync.Mutex
+	mu  sync.Mutex
 	con net.Conn
 
 	reader *bufio.Reader
@@ -307,16 +307,16 @@ func GetConnectionByID(ac *atmi.ATMICtx, connid int64) *ExCon {
 func CloseAllConnections(ac *atmi.ATMICtx) {
 	ac.TpLogInfo("Closing all open connections...")
 
-        var ch map[int64]*ExCon
-        ch = make(map[int64]*ExCon)
+	var ch map[int64]*ExCon
+	ch = make(map[int64]*ExCon)
 
 	MConnMutex.Lock()
-        for k,v := range MConnectionsSimple {
-                ch[k] = v
-        }
+	for k, v := range MConnectionsSimple {
+		ch[k] = v
+	}
 	MConnMutex.Unlock()
 
-        //Will run in non locked mode...
+	//Will run in non locked mode...
 	for k, v := range ch {
 
 		ac.TpLogInfo("Closing %d (%d)", k, v.id)
@@ -326,10 +326,10 @@ func CloseAllConnections(ac *atmi.ATMICtx) {
 		//NotifyStatus(ac, v.id, FLAG_CON_DISCON)
 
 		v.mu.Lock()
-		if nil!=v.con {
+		if nil != v.con {
 			if err := v.con.Close(); err != nil {
 				ac.TpLogError("Failed to close connection id %d: %s",
-				k, err.Error())
+					k, err.Error())
 			} else {
 				ac.TpLogInfo("Connection closed ok")
 			}
@@ -721,13 +721,22 @@ func GoDial(con *ExCon, block *DataBlock) {
 	SetIPPort(ac, con.con.LocalAddr().String(), &con.ourip, &con.outport)
 	SetIPPort(ac, con.con.RemoteAddr().String(), &con.theirip, &con.theirport)
 
-	con.is_open = true
+	//Bug #304
+	//con.is_open = true
 
 	//Have buffered read/write API to socket
 	con.writer = bufio.NewWriter(con.con)
 	con.reader = bufio.NewReader(con.con)
 
 	con.conmode = CON_TYPE_ACTIVE
+
+	//Bug #304
+	//The last thing we want is to mark connection open, otherwise periodic
+	//peridic message sender might pick up not yet prepared object and send
+	//invalid data to network (like connection mode - got empty string...!)
+	//The true/false is atomic, should be ok with periodic..
+	con.is_open = true
+
 	HandleConnection(con)
 
 	//Close connection

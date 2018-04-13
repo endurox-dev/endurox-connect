@@ -63,9 +63,9 @@ func RunZeroOverOpenCons(ac *atmi.ATMICtx) {
 
 			//Remove connection from free list
 			//Maybe we can leave it as un-used?
-                        //If we wait for connection here, we get deadlock!!!!
-                        //Thus if connection is busy then message is going to that side
-                        //already, thus no need to send here.
+			//If we wait for connection here, we get deadlock!!!!
+			//Thus if connection is busy then message is going to that side
+			//already, thus no need to send here.
 			stat := MarkConnAsBusy(ac, v, true)
 
 			if stat {
@@ -126,6 +126,7 @@ func RunStatusRefresh(ac *atmi.ATMICtx) {
 
 		if nil != MConnectionsSimple[i] && MConnectionsSimple[i].is_open {
 			ac.TpLogInfo("REFRESH: Notify connection %d UP", i)
+
 			NotifyStatus(ac, i, MConnectionsSimple[i].id_comp, FLAG_CON_ESTABLISHED,
 				MConnectionsSimple[i])
 		} else {

@@ -76,7 +76,7 @@ func validate_ip(ac *atmi.ATMICtx, ub *atmi.TypedUBF) error {
 
 	if conmode != "A" && conmode != "P" {
 		ac.TpLogError("CONSTAT: TESTERROR! EX_NETCONMODE invalid value, "+
-			"expected: A,B got: %s!", conmode)
+			"expected: A,P got: %s!", conmode)
 		return errors.New("CONSTAT: TESTERROR! EX_NETCONMODE invalid value")
 	}
 

@@ -84,6 +84,7 @@ type DataBlock struct {
 
 	tstamp_sent   int64 //Timestamp messag sent, TODO: We need cleanup monitor...
 	send_and_shut bool  //Send and shutdown
+	nolock        bool  //Object is not locked
 }
 
 //Enduro/X connection
@@ -142,9 +143,14 @@ var MPassiveLisener net.Listener
 //@return false -> already locked, true -> locked ok
 func MarkConnAsBusy(ac *atmi.ATMICtx, con *ExCon, dontWait bool) bool {
 
+	MfreeconsLock.Lock()
+
+	//Bug #305
+	//Copy was not locked, thus we could get the list copied twice and appended
+	//channel twice with the same connections.
+
 	connList := []*ExCon{}
 	in_list := true
-	MfreeconsLock.Lock()
 
 	if dontWait && con.busy {
 		MfreeconsLock.Unlock()
@@ -455,6 +461,7 @@ func SetIPPort(ac *atmi.ATMICtx, address string, ip *string, port *int) {
 //Operate with open connection
 func HandleConnection(con *ExCon) {
 
+	nolock := false
 	dataIn := make(chan []byte)
 	dataInErr := make(chan error)
 	ok := true
@@ -473,9 +480,12 @@ func HandleConnection(con *ExCon) {
 
 		var preAllocUBF *atmi.TypedUBF = nil
 
-		MarkConnAsFree(ac, con)
+		if !nolock {
+			MarkConnAsFree(ac, con)
+		}
 
 		//Add the connection to
+		nolock = false
 		ac.TpLogInfo("Conn: %d polling...", con.id_comp)
 		select {
 		case dataIncoming := <-dataIn:
@@ -492,12 +502,13 @@ func HandleConnection(con *ExCon) {
 			//If this is connect per call, then we should keep the track
 			//of the calls that wait for specific connetions to be replied
 
-			//1. Check that we do have some reply waiters on connection
-			MConWaiterMutex.Lock()
-
 			//Well we are busy here too, we shall remove our selves from
 			//Connection list...
 			MarkConnAsBusy(ac, con, false)
+
+			//1. Check that we do have some reply waiters on connection
+			//Reduce the lock range...
+			MConWaiterMutex.Lock()
 
 			block := MConWaiter[con.id_comp]
 			if nil != block {
@@ -590,6 +601,7 @@ func HandleConnection(con *ExCon) {
 			ok = false
 			break
 		case shutdown := <-con.shutdown:
+			nolock = true
 			if shutdown {
 				ac.TpLogWarn("Shutdown notification received - terminating")
 				ok = false
@@ -597,6 +609,8 @@ func HandleConnection(con *ExCon) {
 			break
 		case dataOutgoing := <-con.outgoing:
 
+			//Do not unlock as message was not locked
+			nolock = dataOutgoing.nolock
 			//The caller did remove our selves from connection list...
 			//Thos conn is already locked to him.
 

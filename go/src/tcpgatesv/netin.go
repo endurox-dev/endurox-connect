@@ -186,6 +186,9 @@ func NetDispatchCall(pool *XATMIPool, nr int, con *ExCon,
 					len(b.data))
 				//Maybe send to channel for reply
 				//And then shutdown (if needed, will by done by con it self)
+				//How about locking, connection is already locked!!!!
+				ac.TpLogDebug("No lock mode")
+				b.nolock = true
 				con.outgoing <- &b
 			}
 		}

@@ -1,34 +1,36 @@
-/*
-** Parse the incoming json message and read the fields cotnaining json string & Number
-** This will use Enduro/X provided Exparson package. Due to fact that there are
-** problems with golang to dynamicall parse the string & number in one step.
-**
-** @file jsonerror.go
-** -----------------------------------------------------------------------------
-** Enduro/X Middleware Platform for Distributed Transaction Processing
-** Copyright (C) 2015, ATR Baltic, Ltd. All Rights Reserved.
-** This software is released under one of the following licenses:
-** GPL or ATR Baltic's license for commercial use.
-** -----------------------------------------------------------------------------
-** GPL license:
-**
-** This program is free software; you can redistribute it and/or modify it under
-** the terms of the GNU General Public License as published by the Free Software
-** Foundation; either version 2 of the License, or (at your option) any later
-** version.
-**
-** This program is distributed in the hope that it will be useful, but WITHOUT ANY
-** WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
-** PARTICULAR PURPOSE. See the GNU General Public License for more details.
-**
-** You should have received a copy of the GNU General Public License along with
-** this program; if not, write to the Free Software Foundation, Inc., 59 Temple
-** Place, Suite 330, Boston, MA 02111-1307 USA
-**
-** -----------------------------------------------------------------------------
-** A commercial use license is available from ATR Baltic, Ltd
-** contact@atrbaltic.com
-** -----------------------------------------------------------------------------
+/**
+ * @brief Parse the incoming json message and read the fields cotnaining json string & Number
+ *   This will use Enduro/X provided Exparson package. Due to fact that there are
+ *   problems with golang to dynamicall parse the string & number in one step.
+ *
+ * @file jsonerror.go
+ */
+/* -----------------------------------------------------------------------------
+ * Enduro/X Middleware Platform for Distributed Transaction Processing
+ * Copyright (C) 2009-2016, ATR Baltic, Ltd. All Rights Reserved.
+ * Copyright (C) 2017-2018, Mavimax, Ltd. All Rights Reserved.
+ * This software is released under one of the following licenses:
+ * GPL or Mavimax's license for commercial use.
+ * -----------------------------------------------------------------------------
+ * GPL license:
+ * 
+ * This program is free software; you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation; either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+ * PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+ * Place, Suite 330, Boston, MA 02111-1307 USA
+ *
+ * -----------------------------------------------------------------------------
+ * A commercial use license is available from Mavimax, Ltd
+ * contact@mavimax.com
+ * -----------------------------------------------------------------------------
  */
 package main
 
@@ -90,3 +92,4 @@ func JSONErrorGet(ac *atmi.ATMICtx, json *string, jcodefld string, jmessagefld s
 
 	return FAIL, "", errors.New("Invalid JSON (3)");
 }
+/* vim: set ts=4 sw=4 et smartindent: */

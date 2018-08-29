@@ -644,3 +644,4 @@ func main() {
 
 	unInit(M_ac, atmi.SUCCEED)
 }
+/* vim: set ts=4 sw=4 et smartindent: */

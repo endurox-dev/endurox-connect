@@ -81,3 +81,4 @@ func Periodic(ac *atmi.ATMICtx) int {
 
 	return ret
 }
+/* vim: set ts=4 sw=4 et smartindent: */

@@ -92,3 +92,4 @@ func JSONErrorGet(ac *atmi.ATMICtx, json *string, jcodefld string, jmessagefld s
 
 	return FAIL, "", errors.New("Invalid JSON (3)");
 }
+/* vim: set ts=4 sw=4 et smartindent: */

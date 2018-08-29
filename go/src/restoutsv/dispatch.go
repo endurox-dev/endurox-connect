@@ -793,3 +793,4 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 		}
 	}
 }
+/* vim: set ts=4 sw=4 et smartindent: */

@@ -255,3 +255,4 @@ func NetGetCorID(ac *atmi.ATMICtx, buf *atmi.TypedUBF) (string, atmi.ATMIError) 
 
 	return ret, nil
 }
+/* vim: set ts=4 sw=4 et smartindent: */

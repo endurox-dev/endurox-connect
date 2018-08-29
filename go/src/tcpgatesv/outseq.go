@@ -128,3 +128,4 @@ func XATMIDispatchCallSeq(id int64, pool *XATMIPool, nr int, ctxData *atmi.TPSRV
 	MSeqOutMutex.Unlock()
 
 }
+/* vim: set ts=4 sw=4 et smartindent: */

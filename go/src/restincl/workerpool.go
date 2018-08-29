@@ -628,3 +628,4 @@ func initPool(ac *atmi.ATMICtx) error {
 	}
 	return nil
 }
+/* vim: set ts=4 sw=4 et smartindent: */

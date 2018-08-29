@@ -334,3 +334,4 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 }
 
 //TODO: Allow to broadcast message over all open connections
+/* vim: set ts=4 sw=4 et smartindent: */

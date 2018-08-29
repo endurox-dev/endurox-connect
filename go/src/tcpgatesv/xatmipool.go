@@ -111,3 +111,4 @@ func getFreeXChan(ac *atmi.ATMICtx, pool *XATMIPool) int {
 
 	return nr
 }
+/* vim: set ts=4 sw=4 et smartindent: */

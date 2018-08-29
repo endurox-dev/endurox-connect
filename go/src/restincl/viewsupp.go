@@ -203,3 +203,4 @@ func VIEWGenDefaultResponse(ac *atmi.ATMICtx, svc *ServiceMap, atmiErr atmi.ATMI
 		return nil
 	}
 }
+/* vim: set ts=4 sw=4 et smartindent: */

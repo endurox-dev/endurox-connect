@@ -124,3 +124,4 @@ func VIEWResetEchoError(ac *atmi.ATMICtx, s *ServiceMap, v *atmi.TypedVIEW) atmi
 
 	return nil
 }
+/* vim: set ts=4 sw=4 et smartindent: */

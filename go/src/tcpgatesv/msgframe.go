@@ -474,3 +474,4 @@ func PutMessage(ac *atmi.ATMICtx, con *ExCon, data []byte) error {
 
 	return nil
 }
+/* vim: set ts=4 sw=4 et smartindent: */

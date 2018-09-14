@@ -1107,8 +1107,8 @@ do
 http://localhost:8080/regexp/empty`
 
 
-        RSP_EXPECTED="{\"T_STRING_FLD\":\"REGEXP\"\
-\"EX_IF_URL\":\"/regexp/empty\"}"
+        RSP_EXPECTED="{\"EX_IF_URL\":\"\/regexp\/empty\",\"T_STRING_FLD\":\"REGEXP\",\
+\"error_code\":0,\"error_message\":\"SUCCEED\"}"
 
 	echo "Response: [$RSP]"
 
@@ -1126,11 +1126,11 @@ do
 
         RSP=`curl -H "Content-Type: application/json" -X POST -d \
 "{\"T_STRING_FLD\":\"REGEXP\"}" \
-http://localhost:8080/regexp/valid/ufb_test`
+http://localhost:8080/regexp/valid/ubf_test`
 
 
-        RSP_EXPECTED="{\"T_STRING_FLD\":\"REGEXP\"\
-\"EX_NETGATEWAY\":\"/regexp/valid/ufb_test\"}"
+        RSP_EXPECTED="{\"EX_NETGATEWAY\":\"\/regexp\/valid\/ubf_test\",\
+\"T_STRING_FLD\":\"REGEXP\",\"error_code\":0,\"error_message\":\"SUCCEED\"}"
 
 	echo "Response: [$RSP]"
 
@@ -1151,8 +1151,8 @@ do
 http://localhost:8080/regexp/valid/json_test`
 
 
-        RSP_EXPECTED="{\"string\":\"REGEXP\"\
-\"Url\":\"/regexp/valid/json_test\"}"
+        RSP_EXPECTED="{\"Url\":\"/regexp/valid/json_test\",\"string\":\"REGEXP\",\
+\"error_code\":0,\"error_message\":\"SUCCEED\"}"
 
 	echo "Response: [$RSP]"
 
@@ -1173,7 +1173,7 @@ do
 http://localhost:8080/regexp/invalid/test`
 
 
-        RSP_EXPECTED="{\"T_STRING_FLD\":\"REGEXP\"}"
+        RSP_EXPECTED="404 page not found"
 
 	echo "Response: [$RSP]"
 
@@ -1182,8 +1182,6 @@ http://localhost:8080/regexp/invalid/test`
 		go_out 4
 	fi
 done
-
-
 
 # go_out alreay doing stop
 #xadmin stop -c -y

@@ -155,8 +155,8 @@ type ServiceMap struct {
 	Noreqfilersp            bool `json:"noreqfilersp"` //Do not sent request file in respones
 	Echo                    bool `json:"echo"`         //Echo request buffer back
 	//URL format
-	Format		string	`json:"format"`		// "r" or "regexp" for regexp format
-	UrlField	string	`json:"urlfield"`	//Field for URL in case of CONV_JSON2UBF and CONV_JSON
+	Format   string `json:"format"`   // "r" or "regexp" for regexp format
+	UrlField string `json:"urlfield"` //Field for URL in case of CONV_JSON2UBF and CONV_JSON
 }
 
 //Route information structure
@@ -224,7 +224,7 @@ func (h *RegexpHandler) HandleFunc(pattern *regexp.Regexp, svc ServiceMap) {
 
 func (h *RegexpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	svc := h.urlMap[r.URL.Path]
-	if svc.Svc != "" {
+	if svc.Svc != "" || svc.Echo {
 		h.defaultHandler[r.URL.Path].ServeHTTP(w, r)
 		return
 	}

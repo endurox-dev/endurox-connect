@@ -494,9 +494,11 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter, req
 				return atmi.FAIL
 			}
 			if svc.Format == "r" || svc.Format == "regexp" {
-				if id, err := ac.BFldId(svc.UrlField); err == nil {
+				if id, err := ac.BFldId(svc.UrlField); err == nil && id != 0 {
+					ac.TpLogInfo("Setting field: [%d] with value [%s]", id, req.URL.Path)
 					bufu.BAdd(id, req.URL.Path)
 				} else {
+					ac.TpLogInfo("Setting field: [EX_IF_URL] with value [%s]", req.URL.Path)
 					bufu.BAdd(ubftab.EX_IF_URL, req.URL.Path)
 				}
 			}

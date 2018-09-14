@@ -11,7 +11,7 @@
  * GPL or Mavimax's license for commercial use.
  * -----------------------------------------------------------------------------
  * GPL license:
- * 
+ *
  * This program is free software; you can redistribute it and/or modify it under
  * the terms of the GNU General Public License as published by the Free Software
  * Foundation; either version 3 of the License, or (at your option) any later
@@ -33,6 +33,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -492,6 +493,15 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter, req
 				genRsp(ac, nil, svc, w, err1, false)
 				return atmi.FAIL
 			}
+			if svc.Format == "r" || svc.Format == "regexp" {
+				if id, err := ac.BFldId(svc.UrlField); err == nil && id != 0 {
+					ac.TpLogInfo("Setting field: [%d] with value [%s]", id, req.URL.Path)
+					bufu.BAdd(id, req.URL.Path)
+				} else {
+					ac.TpLogInfo("Setting field: [EX_IF_URL] with value [%s]", req.URL.Path)
+					bufu.BAdd(ubftab.EX_IF_URL, req.URL.Path)
+				}
+			}
 
 			buf = bufu
 			break
@@ -555,6 +565,32 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter, req
 					err1.Code(), err1.Message())
 				genRsp(ac, nil, svc, w, err1, false)
 				return atmi.FAIL
+			}
+
+			if svc.Format == "r" || svc.Format == "regexp" {
+				var jsonObj interface{}
+				if err := json.Unmarshal([]byte(bufj.GetJSON()), &jsonObj); err != nil {
+					ac.TpLogError("Failed to unmarshal JSON: %v", err.Error())
+					return atmi.FAIL
+				}
+				obj := jsonObj.(map[string]interface{})
+
+				if svc.UrlField != "" {
+					obj[svc.UrlField] = req.URL.Path
+				} else {
+					obj["EX_IF_URL"] = req.URL.Path
+				}
+
+				if barr, err2 := json.Marshal(obj); err2 == nil {
+					if err = bufj.SetJSON(barr); err != nil {
+						ac.TpLogError("Failed to set JSON: %v", err.Error())
+						return atmi.FAIL
+					}
+				} else {
+					ac.TpLogError("Failed to marshal JSON: %v", err2.Error())
+					return atmi.FAIL
+				}
+
 			}
 
 			buf = bufj
@@ -628,4 +664,5 @@ func initPool(ac *atmi.ATMICtx) error {
 	}
 	return nil
 }
+
 /* vim: set ts=4 sw=4 et smartindent: */

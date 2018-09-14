@@ -1096,6 +1096,92 @@ http://localhost:8080/longop/ok`
 	fi
 done
 
+###############################################################################
+echo "Empty regexp test"
+###############################################################################
+for i in {1..1000}
+do
+
+        RSP=`curl -H "Content-Type: application/json" -X POST -d \
+"{\"T_STRING_FLD\":\"REGEXP\"}" \
+http://localhost:8080/regexp/empty`
+
+
+        RSP_EXPECTED="{\"EX_IF_URL\":\"\/regexp\/empty\",\"T_STRING_FLD\":\"REGEXP\",\
+\"error_code\":0,\"error_message\":\"SUCCEED\"}"
+
+	echo "Response: [$RSP]"
+
+	if [ "X$RSP" != "X$RSP_EXPECTED" ]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 4
+	fi
+done
+
+###############################################################################
+echo "Valid UBF test with Regexp"
+###############################################################################
+for i in {1..1000}
+do
+
+        RSP=`curl -H "Content-Type: application/json" -X POST -d \
+"{\"T_STRING_FLD\":\"REGEXP\"}" \
+http://localhost:8080/regexp/valid/ubf_test`
+
+
+        RSP_EXPECTED="{\"EX_NETGATEWAY\":\"\/regexp\/valid\/ubf_test\",\
+\"T_STRING_FLD\":\"REGEXP\",\"error_code\":0,\"error_message\":\"SUCCEED\"}"
+
+	echo "Response: [$RSP]"
+
+	if [ "X$RSP" != "X$RSP_EXPECTED" ]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 4
+	fi
+done
+
+###############################################################################
+echo "Valid JSON test with Regexp"
+###############################################################################
+for i in {1..1000}
+do
+
+        RSP=`curl -H "Content-Type: application/json" -X POST -d \
+"{\"string\":\"REGEXP\"}" \
+http://localhost:8080/regexp/valid/json_test`
+
+
+        RSP_EXPECTED="{\"Url\":\"/regexp/valid/json_test\",\"string\":\"REGEXP\",\
+\"error_code\":0,\"error_message\":\"SUCCEED\"}"
+
+	echo "Response: [$RSP]"
+
+	if [ "X$RSP" != "X$RSP_EXPECTED" ]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 4
+	fi
+done
+
+###############################################################################
+echo "Invalid regexp test" 
+###############################################################################
+for i in {1..1000}
+do
+
+        RSP=`curl -H "Content-Type: application/json" -X POST -d \
+"{\"T_STRING_FLD\":\"REGEXP\"}" \
+http://localhost:8080/regexp/invalid/test`
+
+
+        RSP_EXPECTED="404 page not found"
+
+	echo "Response: [$RSP]"
+
+	if [ "X$RSP" != "X$RSP_EXPECTED" ]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 4
+	fi
+done
 
 # go_out alreay doing stop
 #xadmin stop -c -y

@@ -11,7 +11,7 @@
  * GPL or Mavimax's license for commercial use.
  * -----------------------------------------------------------------------------
  * GPL license:
- * 
+ *
  * This program is free software; you can redistribute it and/or modify it under
  * the terms of the GNU General Public License as published by the Free Software
  * Foundation; either version 3 of the License, or (at your option) any later
@@ -154,11 +154,27 @@ type ServiceMap struct {
 	Errors_fmt_http_map     map[string]int
 	Noreqfilersp            bool `json:"noreqfilersp"` //Do not sent request file in respones
 	Echo                    bool `json:"echo"`         //Echo request buffer back
+	//URL format
+	Format   string `json:"format"`   // "r" or "regexp" for regexp format
+	UrlField string `json:"urlfield"` //Field for URL in case of CONV_JSON2UBF and CONV_JSON
+}
+
+//Route information structure
+type route struct {
+	pattern *regexp.Regexp
+	handler http.Handler
+	//service ServiceMap
+}
+
+//Custom handler to handle regexp and simple URLs
+type RegexpHandler struct {
+	regexpRoutes   []*route
+	urlMap         map[string]ServiceMap
+	defaultHandler map[string]http.Handler
 }
 
 var M_port int = atmi.FAIL
 var M_ip string
-var M_url_map map[string]ServiceMap
 
 //map the atmi error code (numbers + *) to some http error
 //We shall provide default mappings.
@@ -182,6 +198,46 @@ var M_convs = map[string]int{
 
 var M_workers int
 var M_ac *atmi.ATMICtx //Mainly shared for logging....
+var M_handler RegexpHandler
+
+func (h *RegexpHandler) Handler(pattern *regexp.Regexp, handler http.Handler, svc ServiceMap) {
+	if pattern != nil {
+		h.regexpRoutes = append(h.regexpRoutes, &route{pattern, handler})
+	} else {
+		h.urlMap[svc.Url] = svc
+		h.defaultHandler[svc.Url] = handler
+	}
+}
+
+func (h *RegexpHandler) HandleFunc(pattern *regexp.Regexp, svc ServiceMap) {
+	if svc.Format == "regexp" || svc.Format == "r" {
+		h.regexpRoutes = append(h.regexpRoutes, &route{pattern, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			dispatchRequest(w, r, svc)
+		})})
+	} else {
+		h.urlMap[svc.Url] = svc
+		h.defaultHandler[svc.Url] = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			dispatchRequest(w, r, svc)
+		})
+	}
+}
+
+func (h *RegexpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	svc := h.urlMap[r.URL.Path]
+	if svc.Svc != "" || svc.Echo {
+		h.defaultHandler[r.URL.Path].ServeHTTP(w, r)
+		return
+	}
+
+	for _, route := range h.regexpRoutes {
+		if route.pattern.MatchString(r.URL.Path) {
+			route.handler.ServeHTTP(w, r)
+			return
+		}
+	}
+	// no pattern matched; send 404 response
+	http.NotFound(w, r)
+}
 
 //Remap the error from string to int constant
 //for better performance...
@@ -223,10 +279,10 @@ func apprun(ac *atmi.ATMICtx) error {
 		/* To prepare cert (self-signed) do following steps:
 		 * - TODO
 		 */
-		err = http.ListenAndServeTLS(listenOn, M_tls_cert_file, M_tls_key_file, nil)
+		err = http.ListenAndServeTLS(listenOn, M_tls_cert_file, M_tls_key_file, &M_handler)
 		ac.TpLog(atmi.LOG_ERROR, "ListenAndServeTLS() failed: %s", err)
 	} else {
-		err = http.ListenAndServe(listenOn, nil)
+		err = http.ListenAndServe(listenOn, &M_handler)
 		ac.TpLog(atmi.LOG_ERROR, "ListenAndServe() failed: %s", err)
 	}
 
@@ -235,14 +291,12 @@ func apprun(ac *atmi.ATMICtx) error {
 
 //Init function, read config (with CCTAG)
 
-func dispatchRequest(w http.ResponseWriter, req *http.Request) {
+func dispatchRequest(w http.ResponseWriter, req *http.Request, svc ServiceMap) {
 
 	M_ac.TpLog(atmi.LOG_DEBUG, "URL [%s] getting free goroutine caller: %s",
 		req.URL, req.RemoteAddr)
 
 	nr := <-M_freechan
-
-	svc := M_url_map[req.URL.String()]
 
 	M_ac.TpLogInfo("Got free goroutine, nr %d", nr)
 
@@ -312,8 +366,8 @@ func printSvcSummary(ac *atmi.ATMICtx, svc *ServiceMap) {
 //Un-init function
 func appinit(ac *atmi.ATMICtx) error {
 	//runtime.LockOSThread()
-
-	M_url_map = make(map[string]ServiceMap)
+	M_handler.urlMap = make(map[string]ServiceMap)
+	M_handler.defaultHandler = make(map[string]http.Handler)
 
 	//Setup default configuration
 	M_defaults.Errors_int = ERRORS_DEFAULT
@@ -493,15 +547,21 @@ func appinit(ac *atmi.ATMICtx) error {
 
 				printSvcSummary(ac, &tmp)
 
-				M_url_map[fldName] = tmp
-
+				ac.TpLogInfo("Checking if service uses regexp")
 				//Add to HTTP listener
-				http.HandleFunc(fldName, dispatchRequest)
-
+				if tmp.Format == "regexp" || tmp.Format == "r" {
+					if r, err := regexp.Compile(fldName); err == nil {
+						ac.TpLogInfo("Regexp compiled")
+						M_handler.HandleFunc(r, tmp)
+					} else {
+						ac.TpLogInfo("Failed to compile regexp [%s]", err.Error())
+					}
+				} else {
+					M_handler.HandleFunc(nil, tmp)
+				}
 			}
 			break
 		}
-
 	}
 
 	if atmi.FAIL == M_port || "" == M_ip {
@@ -644,4 +704,5 @@ func main() {
 
 	unInit(M_ac, atmi.SUCCEED)
 }
+
 /* vim: set ts=4 sw=4 et smartindent: */

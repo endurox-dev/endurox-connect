@@ -597,6 +597,15 @@ In echo mode the incoming request buffer is directly sent back to caller in resp
 message. This is useful for making link testing routines.
 The default value for parameter is *false*.
 
+*format* = 'ROUT_FORMAT'::
+Format of the provided rout. Possible values: *r*, *regexp*. Default or empty means
+that regexp compiler will not be used. *r* and *regexp* means that rout should have
+regular expression which will be used to map url. Regular expression matching will
+be used in case exact path is not found.
+
+*urlfield* = 'URL_FIELD'::
+Field to store URL path for *json* and *json2ubf* conversion methods in case regular
+expression format is used. Default value is 'EX_IF_URL'.
 
 EXIT STATUS
 -----------

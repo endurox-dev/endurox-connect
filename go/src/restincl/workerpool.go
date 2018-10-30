@@ -125,13 +125,13 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 					err.Code(), err.Message())
 
 				if e1 := bufu.BChg(ubftab.EX_IF_ECODE, 0, err.Code()); nil != e1 {
-					ac.TpLogError("Failed to set EX_IF_ECODE: %s/%s ",
+					ac.TpLogError("Failed to set EX_IF_ECODE: %d/%s ",
 						e1.Code(), e1.Message())
 
 				}
 
 				if e2 := bufu.BChg(ubftab.EX_IF_EMSG, 0, err.Message()); nil != e2 {
-					ac.TpLogError("Failed to set EX_IF_EMSG: %s/%s ",
+					ac.TpLogError("Failed to set EX_IF_EMSG: %d/%s ",
 						e2.Code(), e2.Message())
 				}
 			}
@@ -483,6 +483,25 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter, req
 			}
 
 			ac.TpLogDebug("Converting to UBF: [%s]", body)
+
+			// Add header data to UBF fields
+			if svc.Parseheaders {
+				for k, v := range req.Header {
+					ac.TpLogDebug("Header field %s, Value %+v", k, v)
+					hv := fmt.Sprintf("%s", v)
+					bufu.BAdd(ubftab.EX_IF_REQHN, k)
+					bufu.BAdd(ubftab.EX_IF_REQHV, hv)
+					// Add Cookies data to UBF
+					if svc.Parsecookies {
+						for _, cookie := range req.Cookies() {
+							ac.TpLogDebug("cookie.Name=[%s]", cookie.Name)
+							ac.TpLogDebug("cookie.Value=[%s]", cookie.Value)
+							bufu.BAdd(ubftab.EX_IF_REQCN, cookie.Name)
+							bufu.BAdd(ubftab.EX_IF_REQCN, cookie.Value)
+						}
+					}
+				}
+			}
 
 			if err1 := bufu.TpJSONToUBF(string(body)); err1 != nil {
 				ac.TpLogError("Failed to conver from JSON to UBF %d:[%s]\n",

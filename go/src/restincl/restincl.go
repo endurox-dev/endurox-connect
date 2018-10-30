@@ -157,6 +157,10 @@ type ServiceMap struct {
 	//URL format
 	Format   string `json:"format"`   // "r" or "regexp" for regexp format
 	UrlField string `json:"urlfield"` //Field for URL in case of CONV_JSON2UBF and CONV_JSON
+
+	// Parsing request headers/Cookies
+	Parseheaders bool `json:"parseheaders"` // Default false
+	Parsecookies bool `json:"parsecookies"` // Default false
 }
 
 //Route information structure
@@ -577,6 +581,10 @@ func appinit(ac *atmi.ATMICtx) error {
 			"(%s) or keyfile (%s) ", M_tls_cert_file, M_tls_key_file)
 
 		return errors.New("Invalid config: missing ip or port")
+	}
+
+	if M_defaults.Parsecookies && !M_defaults.Parseheaders {
+		return errors.New("Invalid config: parsecoockies works only in parseheader mode")
 	}
 
 	//Add the default erorr mappings

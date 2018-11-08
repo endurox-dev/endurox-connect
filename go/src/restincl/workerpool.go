@@ -180,19 +180,20 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 				if svc.Parsecookies {
 					ck := http.Cookie{}
 					occ := 0
+					var e error
 					//Print the buffer to stdout
 					bufu.TpLogPrintUBF(atmi.LOG_DEBUG, "Incoming request:")
 					ac.TpLogInfo("Setting Response Cookies")
 					if bufu.BPres(ubftab.EX_IF_RSPCN, occ) {
-						CookieName, ret_Name := bufu.BGetString(ubftab.EX_IF_RSPCN, occ)
-						if nil != ret_Name {
+						CookieName, retName := bufu.BGetString(ubftab.EX_IF_RSPCN, occ)
+						if nil != retName {
 							ac.TpLog(atmi.LOG_ERROR, "Failed to get field "+
 								"%d occ %d", ubftab.EX_IF_RSPCN, occ)
 						} else {
 							ck.Name = CookieName
 						}
-						CookieValue, ret_Value := bufu.BGetString(ubftab.EX_IF_RSPCV, occ)
-						if nil != ret_Value {
+						CookieValue, retValue := bufu.BGetString(ubftab.EX_IF_RSPCV, occ)
+						if nil != retValue {
 							ac.TpLog(atmi.LOG_ERROR, "Failed to get field "+
 								"%d occ %d", ubftab.EX_IF_RSPCN, occ)
 						} else {
@@ -201,8 +202,8 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 								ck.Value = CookieValue
 							}
 						}
-						CookiePath, ret_Path := bufu.BGetString(ubftab.EX_IF_RSPCPATH, occ)
-						if nil != ret_Path {
+						CookiePath, retPath := bufu.BGetString(ubftab.EX_IF_RSPCPATH, occ)
+						if nil != retPath {
 							ac.TpLog(atmi.LOG_ERROR, "Failed to get field "+
 								"%d occ %d", ubftab.EX_IF_RSPCN, occ)
 						} else {
@@ -211,8 +212,8 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 								ck.Path = CookiePath
 							}
 						}
-						CookieDomain, ret_Domain := bufu.BGetString(ubftab.EX_IF_RSPCDOMAIN, occ)
-						if nil != ret_Domain {
+						CookieDomain, retDomain := bufu.BGetString(ubftab.EX_IF_RSPCDOMAIN, occ)
+						if nil != retDomain {
 							ac.TpLog(atmi.LOG_ERROR, "Failed to get field "+
 								"%d occ %d", ubftab.EX_IF_RSPCN, occ)
 						} else {
@@ -220,40 +221,56 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 								ck.Domain = CookieDomain
 							}
 						}
-						CookieExpires, ret_Expires := bufu.BGetString(ubftab.EX_IF_RSPCEXPIRES, occ)
-						if nil != ret_Expires {
+						CookieExpires, retExpires := bufu.BGetString(ubftab.EX_IF_RSPCEXPIRES, occ)
+						if nil != retExpires {
 							ac.TpLog(atmi.LOG_ERROR, "Failed to get field "+
 								"%d occ %d", ubftab.EX_IF_RSPCN, occ)
 						} else {
 							if CookieExpires != "" {
-								ck.Expires, _ = time.Parse(time.RFC1123, CookieExpires)
+								ck.Expires, e = time.Parse(time.RFC1123, CookieExpires)
+								if nil != e {
+									ac.TpLog(atmi.LOG_ERROR,
+										"Failed to parse Cookie Expire Time [%s]", CookieExpires)
+								}
 							}
 						}
-						CookieMaxAge, ret_MaxAge := bufu.BGetString(ubftab.EX_IF_RSPCMAXAGE, occ)
-						if nil != ret_MaxAge {
+						CookieMaxAge, retMaxAge := bufu.BGetString(ubftab.EX_IF_RSPCMAXAGE, occ)
+						if nil != retMaxAge {
 							ac.TpLog(atmi.LOG_ERROR, "Failed to get field "+
 								"%d occ %d", ubftab.EX_IF_RSPCN, occ)
 						} else {
 							if CookieMaxAge != "" {
-								ck.MaxAge, _ = strconv.Atoi(CookieMaxAge)
+								ck.MaxAge, e = strconv.Atoi(CookieMaxAge)
+								if nil != e {
+									ac.TpLog(atmi.LOG_ERROR,
+										"Failed to convert Cookie MaxAge [%s]", CookieMaxAge)
+								}
 							}
 						}
-						CookieSecure, ret_Secure := bufu.BGetString(ubftab.EX_IF_RSPCSECURE, occ)
-						if nil != ret_Secure {
+						CookieSecure, retSecure := bufu.BGetString(ubftab.EX_IF_RSPCSECURE, occ)
+						if nil != retSecure {
 							ac.TpLog(atmi.LOG_ERROR, "Failed to get field "+
 								"%d occ %d", ubftab.EX_IF_RSPCN, occ)
 						} else {
 							if CookieSecure != "" {
-								ck.Secure, _ = strconv.ParseBool(CookieSecure)
+								ck.Secure, e = strconv.ParseBool(CookieSecure)
+								if nil != e {
+									ac.TpLog(atmi.LOG_ERROR,
+										"Failed to parse Cookie Secure [%s]", CookieSecure)
+								}
 							}
 						}
-						CookieHttpOnly, ret_HttpOnly := bufu.BGetString(ubftab.EX_IF_RSPCHTTPONLY, occ)
-						if nil != ret_HttpOnly {
+						CookieHttpOnly, retHttpOnly := bufu.BGetString(ubftab.EX_IF_RSPCHTTPONLY, occ)
+						if nil != retHttpOnly {
 							ac.TpLog(atmi.LOG_ERROR, "Failed to get field "+
 								"%d occ %d", ubftab.EX_IF_RSPCN, occ)
 						} else {
 							if CookieHttpOnly != "" {
-								ck.HttpOnly, _ = strconv.ParseBool(CookieHttpOnly)
+								ck.HttpOnly, e = strconv.ParseBool(CookieHttpOnly)
+								if nil != e {
+									ac.TpLog(atmi.LOG_ERROR,
+										"Failed to parse Cookie HttpOnly [%s]", CookieHttpOnly)
+								}
 							}
 						}
 					}

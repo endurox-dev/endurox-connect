@@ -87,6 +87,7 @@ EX_CPMCOMMAND   100     string   -       CPM Command (bc - boot clt, sc - stop c
 EX_CPMOUTPUT    101     string   -       CPM output
 EX_CPMTAG       102     string   -       Tag
 EX_CPMSUBSECT   103     string   -       Sub-section
+EX_CPMWAIT      104     long     -       Wait milliseconds after batch processing
 
 # Generic fields
 EX_CLTID        	150	string	-	client identifier for originating client
@@ -94,6 +95,7 @@ EX_DATA                 151     carray  -       unified data field
 EX_DATA_BUFTYP          152     short   -       ATMI buffer type ID
 EX_TSTAMP1_STR          153     string   -      Time stamp, yyyyMMddHHmmssSSS
 EX_TSTAMP2_STR          154     string   -      Time stamp, yyyyMMddHHmmssSSS
+EX_DATA_STR             155     string  -       Generic string data
 
 ################################################################################
 # Persistant Queue:
@@ -132,6 +134,10 @@ EX_QNUMDEQ		    226 	long	-	Number of dequeues
 EX_NERROR_CODE           300         short  -        Result code (error code)
 EX_NERROR_MSG            301         string -        Result message
 EX_NREQLOGFILE           302         string -        Request log file
+
+EX_TPERRNO               350         long -          TP error number
+EX_TPURCODE              351         long -          TP user return code
+EX_TPSTRERROR            352         string -        TP error message
 ################################################################################
 # Fields for Common Config Server (ccsrv)
 # Config commands:
@@ -164,14 +170,89 @@ EX_CC_VALUE                 411         string -        Corresponding occurrence
 ################################################################################
 EX_IF_ECODE                 500         short  -        Result code (error code)
 EX_IF_EMSG                  501         string -        Result message
+
 # REST interface caller URL
 EX_IF_URL                   502         string -        Called URL for REST interface
+
+# Header fields, pairs for request
+EX_IF_REQHN                 503         string -        Request Header Name
+EX_IF_REQHV                 504         string -        Request header Value
+
+# Cookie request data
+EX_IF_REQCN                 505         string -        Request Cookie Name
+EX_IF_REQCV                 506         string -        Request Cookie Value
+
+# Header fields, pairs for response
+EX_IF_RSPHN                 507         string -        Response Header Name
+EX_IF_RSPHV                 508         string -        Response Header Value
+
+# Cookie response data
+EX_IF_RSPCN                 509         string -        Response Cookie Name
+EX_IF_RSPCV                 510         string -        Response Cookie Value
+
+EX_IF_RSPCPATH              511         string -        Response Cookie Path
+EX_IF_RSPCDOMAIN            512         string -        Response Cookie Domain
+EX_IF_RSPCEXPIRES           513         string -        Response Cookie Expires
+EX_IF_RSPCMAXAGE            514         string -        Response Cookie MaxAge
+EX_IF_RSPCSECURE            515         string -        Response Cookie Secure
+EX_IF_RSPCHTTPONLY          516         string -        Response Cookie HttpOnly
+
 ################################################################################
 # TCP Inter-connecting
 ################################################################################
-EX_TCPDATA                  550         carray -        TCP Data field
-EX_TCPGATEWAY               551         string -        TCP gateway service
-EX_TCPCONNID                552         long  -         TCP Connection id at gateway
+EX_NETDATA                  550         carray -        Network Data field
+EX_NETGATEWAY               551         string -        Network gateway service
+EX_NETCONNID                552         long  -         Network Connection id at gateway
+EX_NETCORR                  553         string  -       Network request correlator field
+EX_NETFLAGS                 554         string  -       Flags of the network call
+EX_NETCONNIDCOMP            555         long    -       Compiled connection id
+# Feature #288
+EX_NETOURIP                 556         string  -       Our client/server IP address
+EX_NETOURPORT               557         long    -       Our client/server port
+EX_NETTHEIRIP               558         string  -       Their client/server IP address
+EX_NETTHEIRPORT             559         long    -       Their client/server port
+#
+# A - we are client (Aactive, performing connect)
+# P - we are server (Passive, wait for incoming call)
+#
+EX_NETCONMODE               560         char    -       Connection mode (A - act/P - passive)
+
+################################################################################
+# View processing
+################################################################################
+EX_VIEW_NAME                600         string  -      Name of the view (if present the this is view buffer)
+#
+# Checksum is compared before target system processes the record from fb
+# the object checksum of the view must match. Otherwise target system will not accept the incoming message
+# and the server shall respond with error 10.
+# checksum is calculated as crc32, updated during the loading time..
+#
+EX_VIEW_CKSUM               601         long   -       Checksum calculate of type+cname+count+length
+# from left to right. The char index from left to right is the field number. All field numbers must be filled
+# the 0 -> field not included in the buffer.
+# the 1 -> field is included in buffer and must be installed back in structure.
+EX_VIEW_INCLFLDS            602         string -       Field include flags
+
+################################################################################
+# Cache processing
+################################################################################
+EX_CACHE_DBNAME             650         string -       Db name of cache
+EX_CACHE_OPEXPR             651         string -       Operation expression
+EX_CACHE_BUFTYP             652         short -        buffer type id
+EX_CACHE_DUMP               653         carray -       Data dump, carray
+EX_CACHE_TPERRNO            654         long -         TP Error code
+EX_CACHE_TPRUCODE           655         long -         TP Return code
+EX_CACHE_TIM                656         long -         Cache put epoch secs
+EX_CACHE_TIMUSEC            657         long -         Cache put epoch usecs
+EX_CACHE_HITT               658         long -         Cache hit epoch secs
+EX_CACHE_HITTU              659         long -         Cache hit epcoh usec
+EX_CACHE_NODEID             660         short -        Cache put source node id
+EX_CACHE_CMD                661         char -         Cache command
+EX_CACHE_FLAGS              662         long -         Command flags
+EX_CACHE_HITS               663         long -         Number of times cache was read
+EX_CACHE_NRDEL              664         long -         Number of records deleted
+EX_CACHE_NRDUPDEL           665         long -         Number of duplicates deleted
+EX_CACHE_BUFLEN             667         long -         Data len, bytes
 
 $#endif
 

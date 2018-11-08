@@ -8,22 +8,22 @@
  * Copyright (C) 2009-2016, ATR Baltic, Ltd. All Rights Reserved.
  * Copyright (C) 2017-2018, Mavimax, Ltd. All Rights Reserved.
  * This software is released under one of the following licenses:
- * AGPL or Mavimax's license for commercial use.
+ * GPL or Mavimax's license for commercial use.
  * -----------------------------------------------------------------------------
- * AGPL license:
- * 
+ * GPL license:
+ *
  * This program is free software; you can redistribute it and/or modify it under
- * the terms of the GNU Affero General Public License, version 3 as published
- * by the Free Software Foundation;
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation; either version 3 of the License, or (at your option) any later
+ * version.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT ANY
  * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
- * PARTICULAR PURPOSE. See the GNU Affero General Public License, version 3
- * for more details.
+ * PARTICULAR PURPOSE. See the GNU General Public License for more details.
  *
- * You should have received a copy of the GNU Affero General Public License along 
- * with this program; if not, write to the Free Software Foundation, Inc., 
- * 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ * You should have received a copy of the GNU General Public License along with
+ * this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+ * Place, Suite 330, Boston, MA 02111-1307 USA
  *
  * -----------------------------------------------------------------------------
  * A commercial use license is available from Mavimax, Ltd
@@ -40,6 +40,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 	"ubftab"
 
 	atmi "github.com/endurox-dev/endurox-go"
@@ -75,6 +76,22 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 	var err atmi.ATMIError
 	/*	application/json */
 	rspType := "text/plain"
+	// Header and Cookies fields to delete from buffer
+	delFldList := []int{ubftab.EX_IF_REQHN,
+		ubftab.EX_IF_REQHV,
+		ubftab.EX_IF_REQCN,
+		ubftab.EX_IF_REQCV,
+		// Response filed for Headers/Cookies
+		ubftab.EX_IF_RSPHN,
+		ubftab.EX_IF_RSPHV,
+		ubftab.EX_IF_RSPCN,
+		ubftab.EX_IF_RSPCV,
+		ubftab.EX_IF_RSPCPATH,
+		ubftab.EX_IF_RSPCDOMAIN,
+		ubftab.EX_IF_RSPCEXPIRES,
+		ubftab.EX_IF_RSPCMAXAGE,
+		ubftab.EX_IF_RSPCSECURE,
+		ubftab.EX_IF_RSPCHTTPONLY}
 
 	//Remove request logfile if was open and not needed in rsp.
 	if reqlogOpen && svc.Noreqfilersp {
@@ -135,6 +152,118 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 						e2.Code(), e2.Message())
 				}
 			}
+
+			// Parse and set response header Name/Value pairs
+			if svc.Parseheaders {
+				ac.TpLogInfo("Setting Response Headers")
+				occs, _ := bufu.BOccur(ubftab.EX_IF_RSPHN)
+				for occ := 0; occ < occs; occ++ {
+					HdrName, err1 := bufu.BGetString(ubftab.EX_IF_RSPHN, occ)
+					if nil != err1 {
+						strrsp := fmt.Sprintf(svc.Errfmt_text, err.Code(), err.Message())
+						ac.TpLog(atmi.LOG_ERROR, "Failed to get field "+
+							"%d occ %d", ubftab.EX_IF_RSPHN, occ)
+						//						return errors.New(err.Error())
+						ac.TpLogDebug("TEXT Response generated (2): [%s]", strrsp)
+						rsp = []byte(strrsp)
+					}
+					HdrValue, err2 := bufu.BGetString(ubftab.EX_IF_RSPHV, occ)
+					if nil != err2 {
+						ac.TpLog(atmi.LOG_ERROR, "Failed to get field "+
+							"%d occ %d", ubftab.EX_IF_RSPHV, occ)
+						//						return errors.New(err.Error())
+					}
+					w.Header().Set(HdrName, HdrValue)
+				}
+
+				// Parse and set response cookies
+				if svc.Parsecookies {
+					ck := http.Cookie{}
+					occ := 0
+					//Print the buffer to stdout
+					bufu.TpLogPrintUBF(atmi.LOG_DEBUG, "Incoming request:")
+					ac.TpLogInfo("Setting Response Cookies")
+					if bufu.BPres(ubftab.EX_IF_RSPCN, occ) {
+						CookieName, ret_Name := bufu.BGetString(ubftab.EX_IF_RSPCN, occ)
+						if nil != ret_Name {
+							ac.TpLog(atmi.LOG_ERROR, "Failed to get field "+
+								"%d occ %d", ubftab.EX_IF_RSPCN, occ)
+						} else {
+							ck.Name = CookieName
+						}
+						CookieValue, ret_Value := bufu.BGetString(ubftab.EX_IF_RSPCV, occ)
+						if nil != ret_Value {
+							ac.TpLog(atmi.LOG_ERROR, "Failed to get field "+
+								"%d occ %d", ubftab.EX_IF_RSPCN, occ)
+						} else {
+
+							if CookieValue != "" {
+								ck.Value = CookieValue
+							}
+						}
+						CookiePath, ret_Path := bufu.BGetString(ubftab.EX_IF_RSPCPATH, occ)
+						if nil != ret_Path {
+							ac.TpLog(atmi.LOG_ERROR, "Failed to get field "+
+								"%d occ %d", ubftab.EX_IF_RSPCN, occ)
+						} else {
+
+							if CookiePath != "" {
+								ck.Path = CookiePath
+							}
+						}
+						CookieDomain, ret_Domain := bufu.BGetString(ubftab.EX_IF_RSPCDOMAIN, occ)
+						if nil != ret_Domain {
+							ac.TpLog(atmi.LOG_ERROR, "Failed to get field "+
+								"%d occ %d", ubftab.EX_IF_RSPCN, occ)
+						} else {
+							if CookieDomain != "" {
+								ck.Domain = CookieDomain
+							}
+						}
+						CookieExpires, ret_Expires := bufu.BGetString(ubftab.EX_IF_RSPCEXPIRES, occ)
+						if nil != ret_Expires {
+							ac.TpLog(atmi.LOG_ERROR, "Failed to get field "+
+								"%d occ %d", ubftab.EX_IF_RSPCN, occ)
+						} else {
+							if CookieExpires != "" {
+								ck.Expires, _ = time.Parse(time.RFC1123, CookieExpires)
+							}
+						}
+						CookieMaxAge, ret_MaxAge := bufu.BGetString(ubftab.EX_IF_RSPCMAXAGE, occ)
+						if nil != ret_MaxAge {
+							ac.TpLog(atmi.LOG_ERROR, "Failed to get field "+
+								"%d occ %d", ubftab.EX_IF_RSPCN, occ)
+						} else {
+							if CookieMaxAge != "" {
+								ck.MaxAge, _ = strconv.Atoi(CookieMaxAge)
+							}
+						}
+						CookieSecure, ret_Secure := bufu.BGetString(ubftab.EX_IF_RSPCSECURE, occ)
+						if nil != ret_Secure {
+							ac.TpLog(atmi.LOG_ERROR, "Failed to get field "+
+								"%d occ %d", ubftab.EX_IF_RSPCN, occ)
+						} else {
+							if CookieSecure != "" {
+								ck.Secure, _ = strconv.ParseBool(CookieSecure)
+							}
+						}
+						CookieHttpOnly, ret_HttpOnly := bufu.BGetString(ubftab.EX_IF_RSPCHTTPONLY, occ)
+						if nil != ret_HttpOnly {
+							ac.TpLog(atmi.LOG_ERROR, "Failed to get field "+
+								"%d occ %d", ubftab.EX_IF_RSPCN, occ)
+						} else {
+							if CookieHttpOnly != "" {
+								ck.HttpOnly, _ = strconv.ParseBool(CookieHttpOnly)
+							}
+						}
+					}
+					http.SetCookie(w, &ck)
+
+				}
+			}
+
+			// Delete Header and Cookie data from buffer (req&rsp)
+			bufu.BDelete(delFldList)
 
 			ret, err1 := bufu.TpUBFToJSON()
 
@@ -446,6 +575,7 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 	ac.TpLogDump(atmi.LOG_DEBUG, "Sending response back", rsp, len(rsp))
 	w.Header().Set("Content-Length", strconv.Itoa(len(rsp)))
 	w.Header().Set("Content-Type", rspType)
+
 	w.Write(rsp)
 }
 
@@ -492,13 +622,14 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter, req
 					bufu.BAdd(ubftab.EX_IF_REQHN, k)
 					bufu.BAdd(ubftab.EX_IF_REQHV, hv)
 					// Add Cookies data to UBF
-					if svc.Parsecookies {
-						for _, cookie := range req.Cookies() {
-							ac.TpLogDebug("cookie.Name=[%s]", cookie.Name)
-							ac.TpLogDebug("cookie.Value=[%s]", cookie.Value)
-							bufu.BAdd(ubftab.EX_IF_REQCN, cookie.Name)
-							bufu.BAdd(ubftab.EX_IF_REQCN, cookie.Value)
-						}
+				}
+				if svc.Parsecookies {
+					for _, cookie := range req.Cookies() {
+						// Incoming request have Name and Value
+						ac.TpLogDebug("cookie.Name=[%s]", cookie.Name)
+						ac.TpLogDebug("cookie.Value=[%s]", cookie.Value)
+						bufu.BAdd(ubftab.EX_IF_REQCN, cookie.Name)
+						bufu.BAdd(ubftab.EX_IF_REQCV, cookie.Value)
 					}
 				}
 			}

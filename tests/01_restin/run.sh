@@ -1183,6 +1183,25 @@ http://localhost:8080/regexp/invalid/test`
 	fi
 done
 
+###############################################################################
+echo "Header/Cookie test" 
+###############################################################################
+for i in {1..1000}
+do
+
+        RSP=`curl -s -i -H "Content-Type: application/json" -X POST -d \
+"{\"T_STRING_FLD\":\"HEADER\"}" \
+http://localhost:8080/header/cookies`
+
+
+        RSP_EXPECTED="Set-Cookie"
+
+	echo "Response: [$RSP]"
+	if [[ "X$RSP" != *"$RSP_EXPECTED"* ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 4
+	fi
+done
 # go_out alreay doing stop
 #xadmin stop -c -y
 

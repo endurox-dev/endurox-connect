@@ -51,7 +51,7 @@ unset NDRX_CCTAG
 xadmin start -y
 
 # Let restin to start
-sleep 2
+sleep 12
 
 #
 # Generic exit function

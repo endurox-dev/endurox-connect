@@ -176,7 +176,7 @@ func CORSVC(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 		return
 	}
 	if arr[0] == 1 && arr[1] == 1 {
-		ac.TpLogInfo("Test case 11 - no need for correlation")
+		ac.TpLogError("Test case 11 - no need for correlation")
 	} else if len(arr) > 4 {
 
 		corr := string(arr[:4])
@@ -424,7 +424,7 @@ func TESTSVC(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 			}
 		}
 
-		ac.TpLogInfo("Test case 11 OK")
+		ac.TpLogError("Test case 11 OK")
 
 	} else {
 		//NOTE: This basically is dumped, because we do not do reply back

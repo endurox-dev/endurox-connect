@@ -497,7 +497,7 @@ restincl > ./log/restin-tls.log 2>&1 &
 RPID=$!
 
 # Let it start
-sleep 1
+sleep 10
 {
 for i in {1..1000}
 do
@@ -540,13 +540,13 @@ done
 } >> $LOGFILE 2>&1
 unset NDRX_CCTAG
 kill -2 $RPID
-sleep 1
+sleep 10
 
 # Start the non ssl version
 xadmin bc -t RESTIN
 
 # Let it open connection..
-sleep 2
+sleep 10
 
 ###############################################################################
 echo "Binary buffer, async, echo"

@@ -33,8 +33,9 @@ xadmin provision -d -vaddubf=test.fd
 cd conf
 . settest1
 # Fix some config (logging for testcl to file)
-echo "[@debug]" >> app.ini
-echo 'testcl= ndrx=3 ubf=1 tp=3 file=${NDRX_APPHOME}/log/testcl.log' >> app.ini
+# - moved to tcpgate config...
+#echo "[@debug]" >> app.ini
+#echo 'testcl= ndrx=3 ubf=1 tp=3 file=${NDRX_APPHOME}/log/testcl.log' >> app.ini
 
 cd ..
 

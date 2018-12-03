@@ -744,6 +744,7 @@ func main() {
 	ac.TpLogWarn("Init complete, processing...")
 
 	if err := apprun(ac); nil != err {
+		ac.TpLogError("apprun fail: %s", err)
 		unInit(ac, atmi.FAIL)
 	}
 

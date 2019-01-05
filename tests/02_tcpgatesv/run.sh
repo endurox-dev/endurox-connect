@@ -12,6 +12,7 @@ cd runtime
 
 
 NUMCALL=100
+
 #
 # Generic exit function
 #
@@ -36,6 +37,15 @@ cd conf
 # - moved to tcpgate config...
 #echo "[@debug]" >> app.ini
 #echo 'testcl= ndrx=3 ubf=1 tp=3 file=${NDRX_APPHOME}/log/testcl.log' >> app.ini
+
+OSX=`xadmin pmode | grep 'define EX_OS_DARWIN'`
+
+if [[ "X$OSX" != "X" ]]; then
+    # having some issues with OS/SSH limits for osx
+    NUMCALL=50
+fi
+
+echo "NUMCALL: $NUMCALL"
 
 cd ..
 

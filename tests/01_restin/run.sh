@@ -48,6 +48,8 @@ rm localhost* 2>/dev/null
 cd ..
 # Be on safe side...
 unset NDRX_CCTAG 
+# remove any left-overs...
+xadmin down -y
 xadmin start -y
 
 # Let restin to start

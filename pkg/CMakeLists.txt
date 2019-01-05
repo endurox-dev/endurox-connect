@@ -33,7 +33,7 @@
 
 cmake_minimum_required (VERSION 2.6) 
 project (ENDUROXCONNECT) 
-set(VERSION "2.4.10")
+set(VERSION "2.4.12")
 set(PROJ_NAME "Enduro/X Connectivity Module")
 set(RELEASE "1")
 
@@ -123,6 +123,23 @@ if(LSB_RELEASE_EXECUTABLE)
                 ERROR_QUIET
                 OUTPUT_STRIP_TRAILING_WHITESPACE)
         string(REPLACE "." "_" LSB_RELEASE_OUTPUT_VER ${_TMP_LSB_RELEASE_OUTPUT_VER})
+        #string(REGEX MATCH "^[0-9]+" LSB_RELEASE_OUTPUT_VER ${_TMP_LSB_RELEASE_OUTPUT_VER})
+elseif (EXISTS /etc/os-release)
+
+	execute_process(COMMAND bash -c "cat /etc/os-release | egrep '^NAME=' | cut -d '\"' -f2"
+                OUTPUT_VARIABLE _TMP_LSB_RELEASE_OUTPUT_OS
+                OUTPUT_STRIP_TRAILING_WHITESPACE)
+
+        string(TOLOWER 
+                ${_TMP_LSB_RELEASE_OUTPUT_OS}
+        LSB_RELEASE_OUTPUT_OS)
+        string(REPLACE " " "_" LSB_RELEASE_OUTPUT_OS ${LSB_RELEASE_OUTPUT_OS})
+
+        execute_process(COMMAND bash -c "cat /etc/os-release | egrep '^VERSION=' | cut -d '\"' -f2"
+                OUTPUT_VARIABLE _TMP_LSB_RELEASE_OUTPUT_VER
+                OUTPUT_STRIP_TRAILING_WHITESPACE)
+        string(REPLACE "." "_" LSB_RELEASE_OUTPUT_VER ${_TMP_LSB_RELEASE_OUTPUT_VER})
+        #string(REGEX MATCH "^[0-9]+" LSB_RELEASE_OUTPUT_VER ${_TMP_LSB_RELEASE_OUTPUT_VER})
 else ()
         #set(LSB_RELEASE_OUTPUT_OS "unknown")
         #set(LSB_RELEASE_OUTPUT_VER "0")

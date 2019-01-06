@@ -4,6 +4,9 @@
 # @(#) Integration tests
 #
 
+# have some limits... 
+ulimit -n 50000
+
 > ./test.out
 # Have some terminal output...
 tail -f test.out &

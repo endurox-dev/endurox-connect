@@ -1,8 +1,11 @@
 #!/bin/bash
 
 #
-# @(#) Test 01 - Rest-IN interface tests...
+# @(#) Test 02 - TCP Gate tests
 #
+
+# set limit, for osx have issues with ssh defaults
+ulimit -n 50000
 
 pushd .
 

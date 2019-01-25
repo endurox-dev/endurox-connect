@@ -11,7 +11,7 @@
  * AGPL or Mavimax's license for commercial use.
  * -----------------------------------------------------------------------------
  * AGPL license:
- * 
+ *
  * This program is free software; you can redistribute it and/or modify it under
  * the terms of the GNU Affero General Public License, version 3 as published
  * by the Free Software Foundation;
@@ -21,8 +21,8 @@
  * PARTICULAR PURPOSE. See the GNU Affero General Public License, version 3
  * for more details.
  *
- * You should have received a copy of the GNU Affero General Public License along 
- * with this program; if not, write to the Free Software Foundation, Inc., 
+ * You should have received a copy of the GNU Affero General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
  * 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
  * -----------------------------------------------------------------------------
@@ -185,6 +185,13 @@ func (s *ServiceMap) EchoJSON2UBF(ac *atmi.ATMICtx) atmi.ATMIError {
 //@param ac	ATMI Context
 //@return nil (all ok) or ATMI error
 func (s *ServiceMap) EchoJSON2VIEW(ac *atmi.ATMICtx) atmi.ATMIError {
+
+	//Bug #356
+	//Change the context to current one
+	//As from allocation it uses main thread's context.
+	//Also we need to think about changing the BV api approach to use context
+	//as part of the call parameters
+	s.echoVIEW.Buf.Ctx = ac
 
 	//Allocate the buffer
 	buf, errA := ac.NewVIEW(s.echoVIEW.BVName(), 0)
@@ -416,4 +423,5 @@ func (s *ServiceMap) Monitor() {
 
 	return
 }
+
 /* vim: set ts=4 sw=4 et smartindent: */

@@ -1,8 +1,11 @@
 #!/bin/bash
 
 #
-# @(#) Test 01 - Rest-IN interface tests...
+# @(#) Test 02 - TCP Gate tests
 #
+
+# set limit, for osx have issues with ssh defaults
+ulimit -n 50000
 
 pushd .
 
@@ -12,6 +15,7 @@ cd runtime
 
 
 NUMCALL=100
+
 #
 # Generic exit function
 #
@@ -33,8 +37,18 @@ xadmin provision -d -vaddubf=test.fd
 cd conf
 . settest1
 # Fix some config (logging for testcl to file)
-echo "[@debug]" >> app.ini
-echo 'testcl= ndrx=5 ubf=1 tp=5 file=${NDRX_APPHOME}/log/testcl.log' >> app.ini
+# - moved to tcpgate config...
+#echo "[@debug]" >> app.ini
+#echo 'testcl= ndrx=3 ubf=1 tp=3 file=${NDRX_APPHOME}/log/testcl.log' >> app.ini
+
+OSX=`xadmin pmode | grep 'define EX_OS_DARWIN'`
+
+if [[ "X$OSX" != "X" ]]; then
+    # having some issues with OS/SSH limits for osx
+    NUMCALL=50
+fi
+
+echo "NUMCALL: $NUMCALL"
 
 cd ..
 

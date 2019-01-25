@@ -60,9 +60,11 @@ cd ..
 unset NDRX_CCTAG 
 xadmin start -y
 
-# Let restout to start
-sleep 2
+# Let restin to start
+echo "Sleep 15 - let clients to boot..."
+sleep 15
 
+xadmin pc
 xadmin psc
 xadmin psvc
 xadmin pqa

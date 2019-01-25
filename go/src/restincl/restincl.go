@@ -11,7 +11,7 @@
  * AGPL or Mavimax's license for commercial use.
  * -----------------------------------------------------------------------------
  * AGPL license:
- * 
+ *
  * This program is free software; you can redistribute it and/or modify it under
  * the terms of the GNU Affero General Public License, version 3 as published
  * by the Free Software Foundation;
@@ -21,8 +21,8 @@
  * PARTICULAR PURPOSE. See the GNU Affero General Public License, version 3
  * for more details.
  *
- * You should have received a copy of the GNU Affero General Public License along 
- * with this program; if not, write to the Free Software Foundation, Inc., 
+ * You should have received a copy of the GNU Affero General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
  * 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
  * -----------------------------------------------------------------------------
@@ -157,6 +157,10 @@ type ServiceMap struct {
 	//URL format
 	Format   string `json:"format"`   // "r" or "regexp" for regexp format
 	UrlField string `json:"urlfield"` //Field for URL in case of CONV_JSON2UBF and CONV_JSON
+
+	// Parsing request headers/Cookies
+	Parseheaders bool `json:"parseheaders"` // Default false
+	Parsecookies bool `json:"parsecookies"` // Default false
 }
 
 //Route information structure
@@ -577,6 +581,10 @@ func appinit(ac *atmi.ATMICtx) error {
 			"(%s) or keyfile (%s) ", M_tls_cert_file, M_tls_key_file)
 
 		return errors.New("Invalid config: missing ip or port")
+	}
+
+	if M_defaults.Parsecookies && !M_defaults.Parseheaders {
+		return errors.New("Invalid config: parsecookies works only in parseheader mode")
 	}
 
 	//Add the default erorr mappings

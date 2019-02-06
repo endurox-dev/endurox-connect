@@ -87,6 +87,7 @@ const (
 	CONV_JSON      = 3
 	CONV_RAW       = 4
 	CONV_JSON2VIEW = 5
+	CONV_STATIC    = 6 //Serving static content
 )
 
 //Defaults
@@ -161,6 +162,9 @@ type ServiceMap struct {
 	// Parsing request headers/Cookies
 	Parseheaders bool `json:"parseheaders"` // Default false
 	Parsecookies bool `json:"parsecookies"` // Default false
+
+	StaticDir  string       `json:"staticdir"` //Static files directory
+	FileServer http.Handler //File server handler for static content
 }
 
 //Route information structure
@@ -198,6 +202,7 @@ var M_convs = map[string]int{
 	"json":      CONV_JSON,
 	"raw":       CONV_RAW,
 	"json2view": CONV_JSON2VIEW,
+	"static":    CONV_STATIC,
 }
 
 var M_workers int
@@ -216,12 +221,28 @@ func (h *RegexpHandler) Handler(pattern *regexp.Regexp, handler http.Handler, sv
 func (h *RegexpHandler) HandleFunc(pattern *regexp.Regexp, svc ServiceMap) {
 	if svc.Format == "regexp" || svc.Format == "r" {
 		h.regexpRoutes = append(h.regexpRoutes, &route{pattern, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			dispatchRequest(w, r, svc)
+
+			if CONV_STATIC == svc.Conv_int {
+				M_ac.TpLogInfo("Got Static request...")
+
+				http.StripPrefix(r.URL.Path, svc.FileServer).ServeHTTP(w, r)
+
+			} else {
+				M_ac.TpLogInfo("Got XATMI request...")
+				dispatchRequest(w, r, svc)
+			}
 		})})
 	} else {
 		h.urlMap[svc.Url] = svc
 		h.defaultHandler[svc.Url] = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			dispatchRequest(w, r, svc)
+			if CONV_STATIC == svc.Conv_int {
+				M_ac.TpLogInfo("Got Static request...")
+				//				svc.FileServer.ServeHTTP(w, r)
+				http.StripPrefix(r.URL.Path, svc.FileServer).ServeHTTP(w, r)
+			} else {
+				M_ac.TpLogInfo("Got XATMI request...")
+				dispatchRequest(w, r, svc)
+			}
 		})
 	}
 }
@@ -542,6 +563,31 @@ func appinit(ac *atmi.ATMICtx) error {
 
 				if tmp.Conv_int == 0 {
 					return fmt.Errorf("Invalid conv: %s", tmp.Conv)
+
+				} else if CONV_STATIC == tmp.Conv_int {
+
+					//Check that it is directory and we can read it
+					info, err := os.Stat(tmp.StaticDir)
+					if err != nil {
+						return fmt.Errorf("Failed to stat [%s] directoy - does it exists?",
+							tmp.StaticDir)
+					}
+
+					if !info.IsDir() {
+						return fmt.Errorf("Path [%s] is NOT a directoy! Cannot server files",
+							tmp.StaticDir)
+					}
+
+					tmp.FileServer = http.FileServer(http.Dir(tmp.StaticDir))
+
+					if nil == tmp.FileServer {
+						return fmt.Errorf("Failed to create static file server "+
+							"for [%s] directory",
+							tmp.StaticDir)
+					} else {
+						ac.TpLogInfo("Static file server [%s] OK", tmp.StaticDir)
+					}
+
 				}
 
 				//Validate view settings (if any)
@@ -558,7 +604,7 @@ func appinit(ac *atmi.ATMICtx) error {
 						ac.TpLogInfo("Regexp compiled")
 						M_handler.HandleFunc(r, tmp)
 					} else {
-						ac.TpLogInfo("Failed to compile regexp [%s]", err.Error())
+						ac.TpLogError("Failed to compile regexp [%s]", err.Error())
 					}
 				} else {
 					M_handler.HandleFunc(nil, tmp)

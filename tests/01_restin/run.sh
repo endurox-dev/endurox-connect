@@ -68,6 +68,109 @@ function go_out {
 }
 
 ###############################################################################
+echo "Static content... 5"
+###############################################################################
+{
+for i in {1..100}
+do
+	# Having a -i means to print the headers
+        RSP=`(curl -s http://localhost:8080/index.html 2>&1 )`
+
+	RSP_EXPECTED="<html><header><title>This is title</title></header><body>Hello world</body></html>"
+        echo "Response: [$RSP]"
+
+	if [[ "X$RSP" != "X$RSP_EXPECTED" ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 26
+	fi
+done
+} >> $LOGFILE 2>&1
+
+
+###############################################################################
+echo "Static content... 4"
+###############################################################################
+{
+for i in {1..100}
+do
+
+	# Having a -i means to print the headers
+        RSP=`(curl -s http://localhost:8080/ 2>&1 )`
+
+	RSP_EXPECTED="<html><header><title>This is title</title></header><body>Hello world</body></html>"
+        echo "Response: [$RSP]"
+
+	if [[ "X$RSP" != "X$RSP_EXPECTED" ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 25
+	fi
+done
+} >> $LOGFILE 2>&1
+
+
+###############################################################################
+echo "Static content... 3"
+###############################################################################
+{
+for i in {1..100}
+do
+
+	# Having a -i means to print the headers
+        RSP=`(curl -s http://localhost:8080/static/ 2>&1 )`
+
+	RSP_EXPECTED="<html><header><title>This is title</title></header><body>Hello world</body></html>"
+        echo "Response: [$RSP]"
+
+	if [[ "X$RSP" != "X$RSP_EXPECTED" ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 25
+	fi
+done
+} >> $LOGFILE 2>&1
+
+###############################################################################
+echo "Static content... 2"
+###############################################################################
+{
+for i in {1..100}
+do
+
+	# Having a -i means to print the headers
+        RSP=`(curl -s http://localhost:8080/static 2>&1 )`
+
+	RSP_EXPECTED="<html><header><title>This is title</title></header><body>Hello world</body></html>"
+        echo "Response: [$RSP]"
+
+	if [[ "X$RSP" != "X$RSP_EXPECTED" ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 25
+	fi
+done
+} >> $LOGFILE 2>&1
+
+
+###############################################################################
+echo "Static content... 1"
+###############################################################################
+{
+for i in {1..100}
+do
+
+	# Having a -i means to print the headers
+        RSP=`(curl -s http://localhost:8080/static/other.txt 2>&1 )`
+
+	RSP_EXPECTED="Some other file"
+        echo "Response: [$RSP]"
+
+	if [[ "X$RSP" != "X$RSP_EXPECTED" ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 24
+	fi
+done
+} >> $LOGFILE 2>&1
+
+
+###############################################################################
 echo "VIEW TEST - normal call, view errors"
 ###############################################################################
 {

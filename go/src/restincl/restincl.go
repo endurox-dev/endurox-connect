@@ -163,14 +163,15 @@ type ServiceMap struct {
 	Parsecookies bool `json:"parsecookies"` // Default false
 }
 
-//Route information structure
+//Route information structure for Handles with Regexp path
 type route struct {
 	pattern *regexp.Regexp
 	handler http.Handler
-	//service ServiceMap
 }
 
 //Custom handler to handle regexp and simple URLs
+//Simple URLs are stored in urlMap and http handler for them are stored in defaultHandler[]
+//If URL contains regexp, then regexpRoutes array is used which contains compiled pattern and handler
 type RegexpHandler struct {
 	regexpRoutes   []*route
 	urlMap         map[string]ServiceMap
@@ -202,17 +203,19 @@ var M_convs = map[string]int{
 
 var M_workers int
 var M_ac *atmi.ATMICtx //Mainly shared for logging....
-var M_handler RegexpHandler
 
-func (h *RegexpHandler) Handler(pattern *regexp.Regexp, handler http.Handler, svc ServiceMap) {
-	if pattern != nil {
-		h.regexpRoutes = append(h.regexpRoutes, &route{pattern, handler})
-	} else {
-		h.urlMap[svc.Url] = svc
-		h.defaultHandler[svc.Url] = handler
-	}
-}
+/*
+* Handler object, provides:
+* - ServeHTTP() for request handling (real time):
+* - HandleFunc() config time register routes to service with regexp masks.
+* registers handler funcs/callbacks into RegexpHandler.defaultHandler or RegexpHandler.regexpRoutes + regexp
+ */
+var M_handler RegexpHandler //Global HTTP call handler which contains regexp and simple handlers
 
+//HandleFunc Can be used to add regexp or exact match URLs which uses dispathRequest()
+// to handle request
+//if regexp patters is nil, then add exact match URL, otherwise add compiled regexp
+//and handler to global handler struct
 func (h *RegexpHandler) HandleFunc(pattern *regexp.Regexp, svc ServiceMap) {
 	if svc.Format == "regexp" || svc.Format == "r" {
 		h.regexpRoutes = append(h.regexpRoutes, &route{pattern, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -226,6 +229,12 @@ func (h *RegexpHandler) HandleFunc(pattern *regexp.Regexp, svc ServiceMap) {
 	}
 }
 
+//ServeHTTP function to satisfy http.Handler interface
+//This function is called when incomming request is received
+//It checks if urlMap contains exact match URL and if it does, calls corresponding
+// handler which calls dispatchRequest()
+//If URL is not in urlMap (exact match) ServeHTTP checks all compiled regexps
+//and calls dispatchRequest() on match.
 func (h *RegexpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	svc := h.urlMap[r.URL.Path]
 	if svc.Svc != "" || svc.Echo {
@@ -271,6 +280,7 @@ func remapErrors(svc *ServiceMap) error {
 }
 
 //Run the listener
+//Listener uses custom handler to support Regexp and simple URLs separatly
 func apprun(ac *atmi.ATMICtx) error {
 
 	var err error
@@ -294,7 +304,6 @@ func apprun(ac *atmi.ATMICtx) error {
 }
 
 //Init function, read config (with CCTAG)
-
 func dispatchRequest(w http.ResponseWriter, req *http.Request, svc ServiceMap) {
 
 	M_ac.TpLog(atmi.LOG_DEBUG, "URL [%s] getting free goroutine caller: %s",

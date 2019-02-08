@@ -205,10 +205,12 @@ var M_workers int
 var M_ac *atmi.ATMICtx //Mainly shared for logging....
 
 /*
-* Handler object, provides:
-* - ServeHTTP() for request handling (real time):
-* - HandleFunc() config time register routes to service with regexp masks.
-* registers handler funcs/callbacks into RegexpHandler.defaultHandler or RegexpHandler.regexpRoutes + regexp
+ * Handler object, provides:
+ * - ServeHTTP() for request handling (real time):
+ * - HandleFunc() config time register routes to service with regexp masks.
+ *   registers handler funcs/callbacks into RegexpHandler.defaultHandler or 
+ *   RegexpHandler.regexpRoutes + regexp
+ *   which later are used by real time ServeHTTP()  to resolve services/urls...
  */
 var M_handler RegexpHandler //Global HTTP call handler which contains regexp and simple handlers
 

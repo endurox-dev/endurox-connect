@@ -547,7 +547,9 @@ Request/response buffer conversion method. Available constants *json2ubf*, *json
 converts incoming JSON formatted document (with one level key:value (including arrays))
 to Enduro/X *UBF* buffer format. *json* makes the *JSON XATMI* data buffer, *text* makes
 *STRING XATMI* data buffer. The *raw* method load the data into *CARRAY* XATMI buffer.
-The default value for this parameter is *json2ubf*.
+The default value for this parameter is *json2ubf*. If static file serving is
+required then conv type shall be set to "static". For static serving parameter
+
 
 *reqlogsvc* = 'REQUEST_LOGGING_SERVICE'::
 Request logging service. If the service name is set and buffer conversion type is
@@ -568,6 +570,12 @@ which will override the default mode described above. The parameter is effective
 only in case if 'errors' parameter is set to 'http'. The syntax for the string
 is following:
 
+*staticdir* = 'STATIC_DIR_OF_FILES'::
+In case if 'conv' is set to *static*, then this parameter denotes the folder
+where static contents is kept. Note that if file name at the route does not match,
+then file server will attempt to to upload 'index.html'. If 'index.html' is not
+available, then directory listing will be provided back to caller.
+
 --------------------------------------------------------------------------------
 
 "errors_fmt_http_map":"<ATMI_ERROR_CODE_1>:<HTTP_STATUS_CODE_1>,...,
@@ -576,8 +584,11 @@ is following:
 --------------------------------------------------------------------------------
 
 for example:
+
 --------------------------------------------------------------------------------
+
 "errors_fmt_http_map":"13:404,*:200"
+
 --------------------------------------------------------------------------------
 
 means that XATMI error code 13 (time-out)
@@ -606,6 +617,31 @@ be used in case exact path is not found.
 *urlfield* = 'URL_FIELD'::
 Field to store URL path for *json* and *json2ubf* conversion methods in case regular
 expression format is used. Default value is 'EX_IF_URL'.
+
+STATIC ROUTES EXAMPLE
+---------------------
+
+For example
+
+--------------------------------------------------------------------------------
+
+/static.*={"svc":"@STATIC", "format":"regexp", "conv":"static", "staticdir":"${NDRX_APPHOME}/static"}
+/={"svc":"@STATIC", "conv":"static", "staticdir":"${NDRX_APPHOME}/static"}
+/index.html={"svc":"@STATIC", "conv":"static", "staticdir":"${NDRX_APPHOME}/static"}
+
+--------------------------------------------------------------------------------
+
+will perform following logic:
+
+. '/static.*' by regexp mask will provide any matched file name from "${NDRX_APPHOME}/static"
+sub-folder. For example /static/app1/test.ccs will be provided.
+
+. '/' will strictly on root host provide only 'index.html' from static 
+resources directory.
+
+. 'index.html' in the same way if at host root index is access then, will be provided from
+'static' folder.
+
 
 EXIT STATUS
 -----------

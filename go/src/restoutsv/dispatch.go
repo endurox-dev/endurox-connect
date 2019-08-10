@@ -139,7 +139,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 	//Change the buffer owning context
 	buf.GetBuf().TpSetCtxt(ac)
 
-	ac.TpLogWarn("Dispatching: [%s] -> %p", svcName, svc)
+	ac.TpLogInfo("Dispatching: [%s] -> %p", svcName, svc)
 
 	if nil == svc {
 		ac.TpLogError("Invalid service name [%s] - cannot resolve",
@@ -148,7 +148,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 		return
 	}
 
-	ac.TpLogInfo("Reallocating the incoming buffer for storing the RSP")
+	ac.TpLogDebug("Reallocating the incoming buffer for storing the RSP")
 
 	if errA := buf.TpRealloc(atmi.ATMIMsgSizeMax()); nil != errA {
 		ac.TpLogError("Failed to realloc buffer to: %s",
@@ -253,7 +253,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 		break
 	case "STRING":
 		content_type = "text/plain"
-		ac.TpLogInfo("STRING buffer, len %d", datalen)
+		ac.TpLogDebug("STRING buffer, len %d", datalen)
 
 		bufs, errA = ac.CastToString(buf)
 		if errA != nil {
@@ -282,7 +282,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 		break
 	case "JSON":
 		content_type = "application/json"
-		ac.TpLogInfo("JSON buffer, len %d", datalen)
+		ac.TpLogDebug("JSON buffer, len %d", datalen)
 
 		bufj, errA = ac.CastToJSON(buf)
 		if errA != nil {
@@ -311,7 +311,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 		break
 	case "CARRAY":
 		content_type = "application/octet-stream"
-		ac.TpLogInfo("CARRAY buffer, len %d", datalen)
+		ac.TpLogDebug("CARRAY buffer, len %d", datalen)
 
 		bufc, errA = ac.CastToCarray(buf)
 		if errA != nil {
@@ -694,7 +694,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 				retBuf = bufu.GetBuf()
 			} else {
 				//Response is parbufused and we will answer with it
-				ac.TpLogInfo("Swapping UBF bufers...")
+				ac.TpLogDebug("Swapping UBF bufers...")
 
 				//Original buffer will be automatically
 				//is it auto

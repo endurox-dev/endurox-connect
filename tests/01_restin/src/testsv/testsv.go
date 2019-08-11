@@ -20,25 +20,26 @@ func GETFILE(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 
 	ret := SUCCEED
 
+	//Get UBF Handler
+	ub, _ := ac.CastToUBF(&svc.Data)
+
 	//Return to the caller
 	defer func() {
 
 		ac.TpLogCloseReqFile()
 		if SUCCEED == ret {
-			ac.TpReturn(atmi.TPSUCCESS, 0, &svc.Data, 0)
+			ac.TpReturn(atmi.TPSUCCESS, 0, ub, 0)
 		} else {
-			ac.TpReturn(atmi.TPFAIL, 0, &svc.Data, 0)
+			ac.TpReturn(atmi.TPFAIL, 0, ub, 0)
 		}
 	}()
-
-	//Get UBF Handler
-	ub, _ := ac.CastToUBF(&svc.Data)
 
 	//Print the buffer to stdout
 	ub.TpLogPrintUBF(atmi.LOG_DEBUG, "Incoming request:")
 
 	//Resize buffer, to have some more space
-	if err := ub.TpRealloc(1024); err != nil {
+	used,_ := ub.BUsed();
+	if err := ub.TpRealloc(used+1024); err != nil {
 		ac.TpLogError("TpRealloc() Got error: %d:[%s]\n", err.Code(), err.Message())
 		ret = FAIL
 		return

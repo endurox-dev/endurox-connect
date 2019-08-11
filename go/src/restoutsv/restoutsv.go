@@ -637,7 +637,6 @@ func RESTOUT(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	//Return to the caller
 	defer func() {
 
-		ac.TpLogCloseReqFile()
 		if SUCCEED == ret {
 			/* ac.TpContinue() - No need for this
 			 * Or it have nothing todo.

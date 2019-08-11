@@ -11,7 +11,7 @@
  * AGPL or Mavimax's license for commercial use.
  * -----------------------------------------------------------------------------
  * AGPL license:
- * 
+ *
  * This program is free software; you can redistribute it and/or modify it under
  * the terms of the GNU Affero General Public License, version 3 as published
  * by the Free Software Foundation;
@@ -21,8 +21,8 @@
  * PARTICULAR PURPOSE. See the GNU Affero General Public License, version 3
  * for more details.
  *
- * You should have received a copy of the GNU Affero General Public License along 
- * with this program; if not, write to the Free Software Foundation, Inc., 
+ * You should have received a copy of the GNU Affero General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
  * 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
  * -----------------------------------------------------------------------------
@@ -37,6 +37,7 @@ import (
 	"crypto/tls"
 	"io/ioutil"
 	//	"io"
+	"exutil"
 	"net"
 	"net/http"
 	"strconv"
@@ -113,6 +114,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 	defer func() {
 
 		ac.TpSrvFreeCtxData(ctxData)
+		ac.TpLogCloseReqFile()
 
 		if SUCCEED == ret {
 			ac.TpLogInfo("Dispatch returns SUCCEED")
@@ -172,6 +174,7 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 
 	switch buftype {
 	case "UBF", "UBF32", "FML", "FML32":
+
 		content_type = "application/json"
 		ac.TpLogInfo("UBF buffer, len %d - converting to JSON & sending req",
 			datalen)
@@ -183,6 +186,13 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 			return
 
 		}
+
+		if bufu.BPres(u.EX_NREQLOGFILE, 0) {
+
+			//Ignore errors..
+			ac.TpLogSetReqFile(buf, "", "")
+		}
+
 		json, errA := bufu.TpUBFToJSON()
 
 		if nil == errA {
@@ -362,7 +372,18 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 		Timeout:   time.Second * time.Duration(svc.Timeout),
 		Transport: tr}
 
+	//measure and log request time...
+	var rspWatch exutil.StopWatch
+
+	rspWatch.Reset()
+
 	resp, errClt := client.Do(req)
+
+	//Log the response
+	if nil != resp {
+		ac.TpLogWarn("Response Status [%s]: %s (%d ms)", svc.Url,
+			resp.Status, rspWatch.GetDeltaMillis())
+	}
 
 	//Avoid file descriptor leak...
 	if nil != resp {
@@ -388,8 +409,6 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 			return
 		}
 	}
-
-	ac.TpLogInfo("response Status: %s", resp.Status)
 
 	body, errN := ioutil.ReadAll(resp.Body)
 	//Allow to return connection to pool
@@ -793,4 +812,5 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 		}
 	}
 }
+
 /* vim: set ts=4 sw=4 et smartindent: */

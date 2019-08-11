@@ -151,6 +151,9 @@ func CONSTAT(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 func CORSVC(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	ret := SUCCEED
 
+	//Get UBF Handler
+	ub, _ := ac.CastToUBF(&svc.Data)
+
 	//Return to the caller
 	defer func() {
 
@@ -163,12 +166,17 @@ func CORSVC(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 		}
 	}()
 
-	//Get UBF Handler
-	ub, _ := ac.CastToUBF(&svc.Data)
-
 	//Print the buffer to stdout
 	//fmt.Println("Incoming request:")
 	ub.TpLogPrintUBF(atmi.LOG_DEBUG, "CORSVC: Incoming request:")
+
+	used, _ := ub.BUsed()
+	//Resize buffer, to have some more space
+	if err := ub.TpRealloc(used + 1024); err != nil {
+		ac.TpLogError("TpRealloc() Got error: %d:[%s]\n", err.Code(), err.Message())
+		ret = FAIL
+		return
+	}
 
 	arr, err := ub.BGetByteArr(u.EX_NETDATA, 0)
 
@@ -204,19 +212,19 @@ func TESTOFFSET(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 
 	ret := SUCCEED
 
+	//Get UBF Handler
+	ub, _ := ac.CastToUBF(&svc.Data)
+
 	//Return to the caller
 	defer func() {
 
 		ac.TpLogCloseReqFile()
 		if SUCCEED == ret {
-			ac.TpReturn(atmi.TPSUCCESS, 0, &svc.Data, 0)
+			ac.TpReturn(atmi.TPSUCCESS, 0, ub, 0)
 		} else {
-			ac.TpReturn(atmi.TPFAIL, 0, &svc.Data, 0)
+			ac.TpReturn(atmi.TPFAIL, 0, ub, 0)
 		}
 	}()
-
-	//Get UBF Handler
-	ub, _ := ac.CastToUBF(&svc.Data)
 
 	//Print the buffer to stdout
 	//fmt.Println("Incoming request:")

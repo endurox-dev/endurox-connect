@@ -1,7 +1,6 @@
 export GOPATH=$(shell pwd)
 
 all:
-	go get golang.org/x/net/netutil
 	$(MAKE) -C src
 
 clean:

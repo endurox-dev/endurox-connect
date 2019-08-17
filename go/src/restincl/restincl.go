@@ -42,7 +42,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -51,8 +50,6 @@ import (
 	"strings"
 	"syscall"
 	u "ubftab"
-
-	"golang.org/x/net/netutil"
 
 	atmi "github.com/endurox-dev/endurox-go"
 )
@@ -323,6 +320,7 @@ func apprun(ac *atmi.ATMICtx) error {
 	ac.TpLog(atmi.LOG_INFO, "About to listen on: (ip: %s, port: %d) %s",
 		M_ip, M_port, listenOn)
 
+/*
 	l, err := net.Listen("tcp", listenOn)
 
 	if err != nil {
@@ -332,22 +330,22 @@ func apprun(ac *atmi.ATMICtx) error {
 
 	defer l.Close()
 
-	/* Support #445 */
 	l = netutil.LimitListener(l, M_workers)
+    */
 
 	if TRUE == M_tls_enable {
 
 		/* To prepare cert (self-signed) do following steps:
 		 * - TODO
 		 */
-		/*err = http.ListenAndServeTLS(listenOn, M_tls_cert_file, M_tls_key_file, &M_handler)*/
+		err = http.ListenAndServeTLS(listenOn, M_tls_cert_file, M_tls_key_file, &M_handler)
 
-		err = http.ServeTLS(l, &M_handler, M_tls_cert_file, M_tls_key_file)
+	/*	err = http.ServeTLS(l, &M_handler, M_tls_cert_file, M_tls_key_file) */
 
 		ac.TpLog(atmi.LOG_ERROR, "ListenAndServeTLS() failed: %s", err)
 	} else {
-		err = http.Serve(l, &M_handler)
-		/* err = http.ListenAndServe(listenOn, &M_handler) */
+		/*err = http.Serve(l, &M_handler)*/
+		err = http.ListenAndServe(listenOn, &M_handler) 
 		ac.TpLog(atmi.LOG_ERROR, "ListenAndServe() failed: %s", err)
 	}
 

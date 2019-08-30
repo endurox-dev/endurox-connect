@@ -37,6 +37,33 @@ set(VERSION "2.4.14")
 set(PROJ_NAME "Enduro/X Connectivity Module")
 set(RELEASE "1")
 
+
+################################################################################
+# Check versions if defined, export build env
+################################################################################
+
+if(DEFINED ENV{NDRX_BLD_VERSION})
+        IF(NOT $ENV{NDRX_BLD_VERSION} MATCHES ${VERSION})
+                message( FATAL_ERROR "Invalid versions: ENV: [$ENV{NDRX_BLD_VERSION}] Code: [${VERSION}]" )
+        endif()
+endif()
+
+if(DEFINED ENV{NDRX_BLD_RELEASE})
+    set(RELEASE $ENV{NDRX_BLD_RELEASE})
+endif()
+
+message("CMake RELEASE  = ${RELEASE}")
+
+SET (NDRX_BLD_PRODUCT   $ENV{NDRX_BLD_PRODUCT})
+SET (NDRX_BLD_SYSTEM    $ENV{NDRX_BLD_SYSTEM})
+SET (NDRX_BLD_CONFIG    $ENV{NDRX_BLD_CONFIG})
+SET (NDRX_BLD_VERSION   $ENV{NDRX_BLD_VERSION})
+SET (NDRX_BLD_RELEASE   $ENV{NDRX_BLD_RELEASE})
+SET (NDRX_BLD_TAG       $ENV{NDRX_BLD_TAG})
+SET (NDRX_BLD_BRANCH    $ENV{NDRX_BLD_BRANCH})
+SET (NDRX_BLD_FLAGS     $ENV{NDRX_BLD_FLAGS})
+
+
 ################################################################################
 # OS Configuration
 ################################################################################

@@ -78,6 +78,7 @@ const (
 	//Return the error code as UBF response (usable only in case if CONV_JSON2UBF used)
 	ERRORS_JSON2UBF  = 5
 	ERRORS_JSON2VIEW = 6
+	ERRORS_EXT       = 7 //External mode errors, direct UBF error codes, services
 )
 
 //Conversion types resolved
@@ -88,6 +89,7 @@ const (
 	CONV_RAW       = 4
 	CONV_JSON2VIEW = 5
 	CONV_STATIC    = 6 //Serving static content
+	CONV_EXT       = 7 //External services, raw FML buffers
 )
 
 //Defaults
@@ -162,6 +164,22 @@ type ServiceMap struct {
 	// Parsing request headers/Cookies
 	Parseheaders bool `json:"parseheaders"` // Default false
 	Parsecookies bool `json:"parsecookies"` // Default false
+	Parseform    bool `json:"parseform"`    // Parse form data and load into UBF
+
+	//For ext mode:
+	Finman     string `json:"finman"` // Mandatory incoming services
+	Finman_arr []string
+	Finopt     string `json:"finopt"` // Optional incoming services
+	Finopt_arr []string
+	Finerr     string `json:"finerr"` // Incoming error handling services
+	Finerr_arr []string
+
+	Foutman     string `json:"foutman"` // Mandatory outgoing services
+	Foutman_arr []string
+	Foutopt     string `json:"foutopt"` // Optional outgoing services
+	Foutopt_arr []string
+	Fouterr     string `json:"fouterr"` // Outgoing error handling services
+	Fouterr_arr []string
 
 	StaticDir  string       `json:"staticdir"` //Static files directory
 	FileServer http.Handler //File server handler for static content
@@ -204,6 +222,7 @@ var M_convs = map[string]int{
 	"raw":       CONV_RAW,
 	"json2view": CONV_JSON2VIEW,
 	"static":    CONV_STATIC,
+	"ext":       CONV_EXT,
 }
 
 var M_workers int
@@ -303,6 +322,9 @@ func remapErrors(svc *ServiceMap) error {
 	case "text":
 		svc.Errors_int = ERRORS_TEXT
 		break
+	case "ext":
+		svc.Errors_int = ERRORS_EXT
+		break
 	default:
 		return fmt.Errorf("Unsupported error type [%s]", svc.Errors)
 	}
@@ -320,18 +342,18 @@ func apprun(ac *atmi.ATMICtx) error {
 	ac.TpLog(atmi.LOG_INFO, "About to listen on: (ip: %s, port: %d) %s",
 		M_ip, M_port, listenOn)
 
-/*
-	l, err := net.Listen("tcp", listenOn)
+	/*
+		l, err := net.Listen("tcp", listenOn)
 
-	if err != nil {
-		ac.TpLog(atmi.LOG_ERROR, "Listen failed on %s: %v", listenOn, err)
-		return err
-	}
+		if err != nil {
+			ac.TpLog(atmi.LOG_ERROR, "Listen failed on %s: %v", listenOn, err)
+			return err
+		}
 
-	defer l.Close()
+		defer l.Close()
 
-	l = netutil.LimitListener(l, M_workers)
-    */
+		l = netutil.LimitListener(l, M_workers)
+	*/
 
 	if TRUE == M_tls_enable {
 
@@ -340,12 +362,12 @@ func apprun(ac *atmi.ATMICtx) error {
 		 */
 		err = http.ListenAndServeTLS(listenOn, M_tls_cert_file, M_tls_key_file, &M_handler)
 
-	/*	err = http.ServeTLS(l, &M_handler, M_tls_cert_file, M_tls_key_file) */
+		/*	err = http.ServeTLS(l, &M_handler, M_tls_cert_file, M_tls_key_file) */
 
 		ac.TpLog(atmi.LOG_ERROR, "ListenAndServeTLS() failed: %s", err)
 	} else {
 		/*err = http.Serve(l, &M_handler)*/
-		err = http.ListenAndServe(listenOn, &M_handler) 
+		err = http.ListenAndServe(listenOn, &M_handler)
 		ac.TpLog(atmi.LOG_ERROR, "ListenAndServe() failed: %s", err)
 	}
 
@@ -415,14 +437,64 @@ func parseHTTPErrorMap(ac *atmi.ATMICtx, svc *ServiceMap) error {
 
 //Print the summary of the service after init
 func printSvcSummary(ac *atmi.ATMICtx, svc *ServiceMap) {
-	ac.TpLogWarn("Service: %s, Url: %s, Async mode: %t, Log request svc: [%s], Errors:%d (%s), Async echo %t",
+	ac.TpLogWarn("Service: %s, Url: %s, Async mode: %t, Log request svc: [%s], "+
+		"Errors:%d (%s), Async echo %t, "+
+		"Filters: inman:%s/inopt:%s/inerr:%s/outman:%s/outopt:%s/outerr:%s",
 		svc.Svc,
 		svc.Url,
 		svc.Asynccall,
 		svc.Reqlogsvc,
 		svc.Errors_int,
 		svc.Errors,
-		svc.Asyncecho)
+		svc.Asyncecho,
+		svc.Finman, svc.Finopt, svc.Finerr, svc.Foutman, svc.Foutopt, svc.Fouterr)
+}
+
+//Validate external service definitions
+//Also perform any needed parsings before we open the service
+func validateExtService(ac *atmi.ATMICtx, svc *ServiceMap) error {
+
+	//check that errors are correct
+	if svc.Conv_int == CONV_EXT {
+
+		if svc.Errors_int != ERRORS_EXT {
+			ac.TpLogError("Service [%s] conv is 'ext', but errors not 'ext' [%s]!",
+				svc.Svc, svc.Errors)
+
+			return errors.New(fmt.Sprintf("Service [%s] conv is 'ext', but errors not ext '%s'!",
+				svc.Svc, svc.Errors))
+		}
+	} else {
+		//Others shall not use ext error mode
+		if svc.Errors_int == ERRORS_EXT {
+			ac.TpLogError("Service [%s] conv is not '%s', but errors is 'ext'!",
+				svc.Svc, svc.Conv)
+
+			return errors.New(fmt.Sprintf("Service [%s] conv is not '%s', but errors is 'ext'!",
+				svc.Svc, svc.Conv))
+		}
+	}
+
+	//Trim off whitespace
+	svc.Finman = strings.TrimSpace(svc.Finman)
+	svc.Finopt = strings.TrimSpace(svc.Finopt)
+	svc.Finerr = strings.TrimSpace(svc.Finerr)
+
+	svc.Foutman = strings.TrimSpace(svc.Foutman)
+	svc.Foutopt = strings.TrimSpace(svc.Foutopt)
+	svc.Fouterr = strings.TrimSpace(svc.Fouterr)
+
+	//Split by comma
+
+	svc.Finman_arr = strings.Split(svc.Finman, ",")
+	svc.Finopt_arr = strings.Split(svc.Finopt, ",")
+	svc.Finerr_arr = strings.Split(svc.Finerr, ",")
+
+	svc.Foutman_arr = strings.Split(svc.Foutman, ",")
+	svc.Foutopt_arr = strings.Split(svc.Foutopt, ",")
+	svc.Fouterr_arr = strings.Split(svc.Fouterr, ",")
+
+	return nil
 }
 
 //Un-init function
@@ -555,6 +627,11 @@ func appinit(ac *atmi.ATMICtx) error {
 				return errS
 			}
 
+			//Validate ext
+			if errS := validateExtService(ac, &M_defaults); errS != nil {
+				return errS
+			}
+
 			printSvcSummary(ac, &M_defaults)
 
 			break
@@ -629,6 +706,11 @@ func appinit(ac *atmi.ATMICtx) error {
 
 				//Validate view settings (if any)
 				if err = VIEWSvcValidateSettings(ac, &tmp); err != nil {
+					return err
+				}
+
+				//Validate ext
+				if err = validateExtService(ac, &tmp); err != nil {
 					return err
 				}
 

@@ -38,8 +38,8 @@ func GETFILE(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	ub.TpLogPrintUBF(atmi.LOG_DEBUG, "Incoming request:")
 
 	//Resize buffer, to have some more space
-	used,_ := ub.BUsed();
-	if err := ub.TpRealloc(used+1024); err != nil {
+	used, _ := ub.BUsed()
+	if err := ub.TpRealloc(used + 1024); err != nil {
 		ac.TpLogError("TpRealloc() Got error: %d:[%s]\n", err.Code(), err.Message())
 		ret = FAIL
 		return
@@ -390,6 +390,46 @@ func Init(ac *atmi.ATMICtx) int {
 	}
 
 	if err := ac.TpAdvertise("COOKIES", "COOKIES", COOKIES); err != nil {
+		fmt.Println(err)
+		return atmi.FAIL
+	}
+
+	if err := ac.TpAdvertise("INMAND", "INMAND", INMAND); err != nil {
+		fmt.Println(err)
+		return atmi.FAIL
+	}
+
+	if err := ac.TpAdvertise("INOPT", "INOPT", INOPT); err != nil {
+		fmt.Println(err)
+		return atmi.FAIL
+	}
+
+	if err := ac.TpAdvertise("INERR", "INERR", INERR); err != nil {
+		fmt.Println(err)
+		return atmi.FAIL
+	}
+
+	if err := ac.TpAdvertise("OUTERR", "OUTERR", OUTERR); err != nil {
+		fmt.Println(err)
+		return atmi.FAIL
+	}
+
+	if err := ac.TpAdvertise("OUTMAND", "OUTMAND", OUTMAND); err != nil {
+		fmt.Println(err)
+		return atmi.FAIL
+	}
+
+	if err := ac.TpAdvertise("OUTOPT", "OUTOPT", OUTMAND); err != nil {
+		fmt.Println(err)
+		return atmi.FAIL
+	}
+
+	if err := ac.TpAdvertise("INOK", "INOK", INOK); err != nil {
+		fmt.Println(err)
+		return atmi.FAIL
+	}
+
+	if err := ac.TpAdvertise("INFAIL", "INFAIL", INFAIL); err != nil {
 		fmt.Println(err)
 		return atmi.FAIL
 	}

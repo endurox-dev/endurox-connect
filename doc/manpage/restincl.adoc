@@ -40,6 +40,8 @@ different error handling schemes. Buffer formats can be:
 
 . *raw* - XATMI Carray buffer format; The incoming data is copied to Carray buffer type;
 
+. *ext* - UBF buffer is loaded with request body, headers and POST/PUT form values;
+
 
 The error handling can be done in following ways:
 
@@ -57,6 +59,8 @@ Converted to JSON buffer.
 . *json2view* - The error is converted to code/message fields specified for the view
 errors. If views does not hold response field, the separate view name can be configured
 in order to provide responses in error cases.
+
+' *ext* - Special services and UBF buffers are used for handling the error cases.
 
 
 The operation modes of the REST interface can by:
@@ -110,6 +114,53 @@ process monitor configuration).
 
 Next sections will describe supported buffer formats and it's handling in the
 Enduro/X.
+
+
+Conversion buffer type: 'ext' - External handling
+-------------------------------------------------
+
+External handling mode, incoming message is loaded into generic UBF fields. Field
+names are following:
+
+- *EX_NETDATA* - is loaded with HTTP Message body, byte array;
+
+- *EX_IF_REQHN* - request header name;
+
+- *EX_IF_REQHV* - request header value, same occurrence with name;
+
+- *EX_IF_REQCN* - request cookie name;
+
+- *EX_IF_REQCV* - request cookie value, same occurrence with name;
+
+If fields are prepared OK, list of comma separated services found in *finman*
+are executed with UBF buffer. This can be used to build up the target request buffer.
+In case if any service fails, it is assumed as error and incoming error service
+chain *finerr* is executed (as optional). When generating response *EX_NETRCODE*
+field with expected http code is read. If field is missing in buffers, then
+*restincl* will respond with error 500, with out any body.
+
+
+After all incoming executions done, target service is executed. Once that is done, 
+the response chain is activated. If there was no error during target service call,
+the *foutman* mandatory chain is executed. If it succeed, then optional chain *foutopt*
+chain is executed.
+
+If there was error during the target service execution or mandatory out filter
+chain execution (*foutman*), the *fouterr* service is executed. If *EX_NETRCODE*
+is found in the body, then UBF content is used for response generation and
+http status is set to *EX_NETRCODE*. If in case of error *EX_NETRCODE* is not
+found, the response is set to 500 with out any content.
+
+The response is generated in following way:
+
+- http body is loaded from *EX_NETDATA*;
+
+- http headers are loaded from *EX_IF_RSPHN* and *EX_IF_RSPHV*
+
+- http response cookies are loaded from *EX_IF_RSPCN*, *EX_IF_RSPCV*, 
+*EX_IF_RSPCPATH*, *EX_IF_RSPCDOMAIN*, *EX_IF_RSPCEXPIRES*, *EX_IF_RSPCMAXAGE*, 
+*EX_IF_RSPCSECURE*, *EX_IF_RSPCHTTPONLY*
+
 
 Conversion buffer type: 'json2ubf' - JSON converted to UBF message handling
 ---------------------------------------------------------------------------

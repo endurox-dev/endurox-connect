@@ -11,7 +11,7 @@
  * AGPL or Mavimax's license for commercial use.
  * -----------------------------------------------------------------------------
  * AGPL license:
- * 
+ *
  * This program is free software; you can redistribute it and/or modify it under
  * the terms of the GNU Affero General Public License, version 3 as published
  * by the Free Software Foundation;
@@ -21,8 +21,8 @@
  * PARTICULAR PURPOSE. See the GNU Affero General Public License, version 3
  * for more details.
  *
- * You should have received a copy of the GNU Affero General Public License along 
- * with this program; if not, write to the Free Software Foundation, Inc., 
+ * You should have received a copy of the GNU Affero General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
  * 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
  * -----------------------------------------------------------------------------
@@ -67,10 +67,137 @@ var M_freechan chan int //List of free channels submitted by wokers
 
 var M_ctxs []*atmi.ATMICtx //List of contexts
 
+//Generate the headers for UBF mode and for EXT mode
+func genRspHeaders(ac *atmi.ATMICtx, bufu *atmi.TypedUBF, w http.ResponseWriter,
+	svc *ServiceMap) {
+	// Parse and set response header Name/Value pairs
+	if svc.Parseheaders {
+		ac.TpLogInfo("Setting Response Headers")
+		occs, _ := bufu.BOccur(ubftab.EX_IF_RSPHN)
+		for occ := 0; occ < occs; occ++ {
+			HdrName, err1 := bufu.BGetString(ubftab.EX_IF_RSPHN, occ)
+			if nil != err1 {
+
+				ac.TpLogError("Failed to get EX_IF_RSPHN[%d]", occ)
+				continue
+			}
+			HdrValue, err2 := bufu.BGetString(ubftab.EX_IF_RSPHV, occ)
+			if nil != err2 {
+
+				ac.TpLogError("Failed to get EX_IF_RSPHV[%d]", occ)
+			}
+			w.Header().Set(HdrName, HdrValue)
+		}
+
+		// Parse and set response cookies
+		if svc.Parsecookies {
+			ck := http.Cookie{}
+			occ := 0
+			var e error
+			//Print the buffer to stdout
+			bufu.TpLogPrintUBF(atmi.LOG_DEBUG, "Incoming request:")
+			ac.TpLogInfo("Setting Response Cookies")
+			if bufu.BPres(ubftab.EX_IF_RSPCN, occ) {
+				CookieName, retName := bufu.BGetString(ubftab.EX_IF_RSPCN, occ)
+				if nil != retName {
+					ac.TpLog(atmi.LOG_ERROR, "Failed to get field "+
+						"%d occ %d", ubftab.EX_IF_RSPCN, occ)
+				} else {
+					ck.Name = CookieName
+				}
+				CookieValue, retValue := bufu.BGetString(ubftab.EX_IF_RSPCV, occ)
+				if nil != retValue {
+					ac.TpLog(atmi.LOG_ERROR, "Failed to get field "+
+						"%d occ %d", ubftab.EX_IF_RSPCN, occ)
+				} else {
+
+					if CookieValue != "" {
+						ck.Value = CookieValue
+					}
+				}
+				CookiePath, retPath := bufu.BGetString(ubftab.EX_IF_RSPCPATH, occ)
+				if nil != retPath {
+					ac.TpLog(atmi.LOG_ERROR, "Failed to get field "+
+						"%d occ %d", ubftab.EX_IF_RSPCN, occ)
+				} else {
+
+					if CookiePath != "" {
+						ck.Path = CookiePath
+					}
+				}
+				CookieDomain, retDomain := bufu.BGetString(ubftab.EX_IF_RSPCDOMAIN, occ)
+				if nil != retDomain {
+					ac.TpLog(atmi.LOG_ERROR, "Failed to get field "+
+						"%d occ %d", ubftab.EX_IF_RSPCN, occ)
+				} else {
+					if CookieDomain != "" {
+						ck.Domain = CookieDomain
+					}
+				}
+				CookieExpires, retExpires := bufu.BGetString(ubftab.EX_IF_RSPCEXPIRES, occ)
+				if nil != retExpires {
+					ac.TpLog(atmi.LOG_ERROR, "Failed to get field "+
+						"%d occ %d", ubftab.EX_IF_RSPCN, occ)
+				} else {
+					if CookieExpires != "" {
+						ck.Expires, e = time.Parse(time.RFC1123, CookieExpires)
+						if nil != e {
+							ac.TpLog(atmi.LOG_ERROR,
+								"Failed to parse Cookie Expire Time [%s]", CookieExpires)
+						}
+					}
+				}
+				CookieMaxAge, retMaxAge := bufu.BGetString(ubftab.EX_IF_RSPCMAXAGE, occ)
+				if nil != retMaxAge {
+					ac.TpLog(atmi.LOG_ERROR, "Failed to get field "+
+						"%d occ %d", ubftab.EX_IF_RSPCN, occ)
+				} else {
+					if CookieMaxAge != "" {
+						ck.MaxAge, e = strconv.Atoi(CookieMaxAge)
+						if nil != e {
+							ac.TpLog(atmi.LOG_ERROR,
+								"Failed to convert Cookie MaxAge [%s]", CookieMaxAge)
+						}
+					}
+				}
+				CookieSecure, retSecure := bufu.BGetString(ubftab.EX_IF_RSPCSECURE, occ)
+				if nil != retSecure {
+					ac.TpLog(atmi.LOG_ERROR, "Failed to get field "+
+						"%d occ %d", ubftab.EX_IF_RSPCN, occ)
+				} else {
+					if CookieSecure != "" {
+						ck.Secure, e = strconv.ParseBool(CookieSecure)
+						if nil != e {
+							ac.TpLog(atmi.LOG_ERROR,
+								"Failed to parse Cookie Secure [%s]", CookieSecure)
+						}
+					}
+				}
+				CookieHttpOnly, retHttpOnly := bufu.BGetString(ubftab.EX_IF_RSPCHTTPONLY, occ)
+				if nil != retHttpOnly {
+					ac.TpLog(atmi.LOG_ERROR, "Failed to get field "+
+						"%d occ %d", ubftab.EX_IF_RSPCN, occ)
+				} else {
+					if CookieHttpOnly != "" {
+						ck.HttpOnly, e = strconv.ParseBool(CookieHttpOnly)
+						if nil != e {
+							ac.TpLog(atmi.LOG_ERROR,
+								"Failed to parse Cookie HttpOnly [%s]", CookieHttpOnly)
+						}
+					}
+				}
+			}
+			http.SetCookie(w, &ck)
+		}
+	}
+}
+
 //Generate response in the service configured way...
 //@w	handler for writting response to
+//if postSvc is set to true, that indicates that service was called and now
+//response is being generated (i.e. messager convert on incoming was ok)
 func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
-	w http.ResponseWriter, atmiErr atmi.ATMIError, reqlogOpen bool) {
+	w http.ResponseWriter, atmiErr atmi.ATMIError, reqlogOpen bool, postSvc bool) {
 
 	var rsp []byte
 	var err atmi.ATMIError
@@ -111,6 +238,84 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 	ac.TpLogDebug("Conv %d errors %d", svc.Conv_int, svc.Errors_int)
 
 	switch svc.Conv_int {
+	case CONV_EXT:
+
+		bufu, ok := buf.(*atmi.TypedUBF)
+
+		if !ok {
+			ac.TpLogError("Invalid response buffer, not UBF!")
+			w.WriteHeader(500)
+			break
+		}
+
+		out_err := false
+		was_error := false
+
+		//OK we are at ext, execute the error filters, if any
+		if !postSvc {
+			//This is incoming error, run the incoming error handler
+			runChain(ac, svc, buf, true, svc.Finerr_arr, "filter-incoming-error-opt")
+			was_error = true
+		} else if nil == err {
+			//Execute the outgoing chains...
+			if errA := runChain(ac, svc, buf, true, svc.Foutman_arr, "filter-outgoing-mandatory"); nil != errA {
+				out_err = true
+				was_error = true
+			}
+
+			if !was_error {
+				runChain(ac, svc, buf, false, svc.Foutopt_arr, "filter-outgoing-optional")
+			}
+		}
+
+		//If we got outgoing error, call the service correspondingly..
+		if out_err {
+			runChain(ac, svc, buf, false, svc.Fouterr_arr, "filter-outgoing-error-opt")
+		}
+
+		var netCode int = 200
+
+		//OK, check the status code
+		if was_error || bufu.BPres(ubftab.EX_NETRCODE, 0) {
+			//Expect the return code from error service
+			//If have return code, then we can use buffer for response
+			//If there is no return code, then we cannot use the return buffer
+			//and we will fail with server error
+
+			netCode, _ = bufu.BGetInt(ubftab.EX_NETRCODE, 0)
+
+			if 0 == netCode {
+				ac.TpLogError("Invalid EX_NETRCODE or not set => return http 500")
+				w.WriteHeader(500)
+				break
+			}
+
+		}
+
+		//Load the body if any and headers
+		//Process headers
+		genRspHeaders(ac, bufu, w, svc)
+
+		//Load the body (if any..)
+		if bufu.BPres(ubftab.EX_NETDATA, 0) {
+			var errU atmi.UBFError
+
+			rsp, errU = bufu.BGetByteArr(ubftab.EX_NETDATA, 0)
+
+			if nil != errU {
+				ac.TpLogError("Failed to get body: %s", errU.Error())
+				w.WriteHeader(500)
+				break
+			}
+
+		}
+
+		w.WriteHeader(netCode)
+
+		//That's it
+
+		break
+
 	case CONV_JSON2UBF:
 		rspType = "application/json"
 		//Convert buffer back to JSON & send it back..
@@ -153,131 +358,8 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 				}
 			}
 
-			// Parse and set response header Name/Value pairs
-			if svc.Parseheaders {
-				ac.TpLogInfo("Setting Response Headers")
-				occs, _ := bufu.BOccur(ubftab.EX_IF_RSPHN)
-				for occ := 0; occ < occs; occ++ {
-					HdrName, err1 := bufu.BGetString(ubftab.EX_IF_RSPHN, occ)
-					if nil != err1 {
-						strrsp := fmt.Sprintf(svc.Errfmt_text, err.Code(), err.Message())
-						ac.TpLog(atmi.LOG_ERROR, "Failed to get field "+
-							"%d occ %d", ubftab.EX_IF_RSPHN, occ)
-						//						return errors.New(err.Error())
-						ac.TpLogDebug("TEXT Response generated (2): [%s]", strrsp)
-						rsp = []byte(strrsp)
-					}
-					HdrValue, err2 := bufu.BGetString(ubftab.EX_IF_RSPHV, occ)
-					if nil != err2 {
-						ac.TpLog(atmi.LOG_ERROR, "Failed to get field "+
-							"%d occ %d", ubftab.EX_IF_RSPHV, occ)
-						//						return errors.New(err.Error())
-					}
-					w.Header().Set(HdrName, HdrValue)
-				}
-
-				// Parse and set response cookies
-				if svc.Parsecookies {
-					ck := http.Cookie{}
-					occ := 0
-					var e error
-					//Print the buffer to stdout
-					bufu.TpLogPrintUBF(atmi.LOG_DEBUG, "Incoming request:")
-					ac.TpLogInfo("Setting Response Cookies")
-					if bufu.BPres(ubftab.EX_IF_RSPCN, occ) {
-						CookieName, retName := bufu.BGetString(ubftab.EX_IF_RSPCN, occ)
-						if nil != retName {
-							ac.TpLog(atmi.LOG_ERROR, "Failed to get field "+
-								"%d occ %d", ubftab.EX_IF_RSPCN, occ)
-						} else {
-							ck.Name = CookieName
-						}
-						CookieValue, retValue := bufu.BGetString(ubftab.EX_IF_RSPCV, occ)
-						if nil != retValue {
-							ac.TpLog(atmi.LOG_ERROR, "Failed to get field "+
-								"%d occ %d", ubftab.EX_IF_RSPCN, occ)
-						} else {
-
-							if CookieValue != "" {
-								ck.Value = CookieValue
-							}
-						}
-						CookiePath, retPath := bufu.BGetString(ubftab.EX_IF_RSPCPATH, occ)
-						if nil != retPath {
-							ac.TpLog(atmi.LOG_ERROR, "Failed to get field "+
-								"%d occ %d", ubftab.EX_IF_RSPCN, occ)
-						} else {
-
-							if CookiePath != "" {
-								ck.Path = CookiePath
-							}
-						}
-						CookieDomain, retDomain := bufu.BGetString(ubftab.EX_IF_RSPCDOMAIN, occ)
-						if nil != retDomain {
-							ac.TpLog(atmi.LOG_ERROR, "Failed to get field "+
-								"%d occ %d", ubftab.EX_IF_RSPCN, occ)
-						} else {
-							if CookieDomain != "" {
-								ck.Domain = CookieDomain
-							}
-						}
-						CookieExpires, retExpires := bufu.BGetString(ubftab.EX_IF_RSPCEXPIRES, occ)
-						if nil != retExpires {
-							ac.TpLog(atmi.LOG_ERROR, "Failed to get field "+
-								"%d occ %d", ubftab.EX_IF_RSPCN, occ)
-						} else {
-							if CookieExpires != "" {
-								ck.Expires, e = time.Parse(time.RFC1123, CookieExpires)
-								if nil != e {
-									ac.TpLog(atmi.LOG_ERROR,
-										"Failed to parse Cookie Expire Time [%s]", CookieExpires)
-								}
-							}
-						}
-						CookieMaxAge, retMaxAge := bufu.BGetString(ubftab.EX_IF_RSPCMAXAGE, occ)
-						if nil != retMaxAge {
-							ac.TpLog(atmi.LOG_ERROR, "Failed to get field "+
-								"%d occ %d", ubftab.EX_IF_RSPCN, occ)
-						} else {
-							if CookieMaxAge != "" {
-								ck.MaxAge, e = strconv.Atoi(CookieMaxAge)
-								if nil != e {
-									ac.TpLog(atmi.LOG_ERROR,
-										"Failed to convert Cookie MaxAge [%s]", CookieMaxAge)
-								}
-							}
-						}
-						CookieSecure, retSecure := bufu.BGetString(ubftab.EX_IF_RSPCSECURE, occ)
-						if nil != retSecure {
-							ac.TpLog(atmi.LOG_ERROR, "Failed to get field "+
-								"%d occ %d", ubftab.EX_IF_RSPCN, occ)
-						} else {
-							if CookieSecure != "" {
-								ck.Secure, e = strconv.ParseBool(CookieSecure)
-								if nil != e {
-									ac.TpLog(atmi.LOG_ERROR,
-										"Failed to parse Cookie Secure [%s]", CookieSecure)
-								}
-							}
-						}
-						CookieHttpOnly, retHttpOnly := bufu.BGetString(ubftab.EX_IF_RSPCHTTPONLY, occ)
-						if nil != retHttpOnly {
-							ac.TpLog(atmi.LOG_ERROR, "Failed to get field "+
-								"%d occ %d", ubftab.EX_IF_RSPCN, occ)
-						} else {
-							if CookieHttpOnly != "" {
-								ck.HttpOnly, e = strconv.ParseBool(CookieHttpOnly)
-								if nil != e {
-									ac.TpLog(atmi.LOG_ERROR,
-										"Failed to parse Cookie HttpOnly [%s]", CookieHttpOnly)
-								}
-							}
-						}
-					}
-					http.SetCookie(w, &ck)
-
-				}
-			}
+			//Process headers
+			genRspHeaders(ac, bufu, w, svc)
 
 			// Delete Header and Cookie data from buffer (req&rsp)
 			bufu.BDelete(delFldList)
@@ -596,11 +678,83 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 	w.Write(rsp)
 }
 
+//Common function parsing http request headers
+func parseHeaders(ac *atmi.ATMICtx, svc *ServiceMap, req *http.Request, bufu *atmi.TypedUBF) atmi.UBFError {
+
+	// Add header data to UBF fields
+	if svc.Parseheaders {
+		for k, v := range req.Header {
+			ac.TpLogDebug("Header field %s, Value %+v", k, v)
+			hv := fmt.Sprintf("%s", v)
+			if errU := bufu.BAdd(ubftab.EX_IF_REQHN, k); nil != errU {
+				return errU
+			}
+
+			if errU := bufu.BAdd(ubftab.EX_IF_REQHV, hv); nil != errU {
+				return errU
+			}
+			// Add Cookies data to UBF
+		}
+
+		if svc.Parsecookies {
+			for _, cookie := range req.Cookies() {
+				// Incoming request have Name and Value
+				ac.TpLogDebug("cookie.Name=[%s]", cookie.Name)
+				ac.TpLogDebug("cookie.Value=[%s]", cookie.Value)
+				if errU := bufu.BAdd(ubftab.EX_IF_REQCN, cookie.Name); nil != errU {
+					return errU
+				}
+				if errU := bufu.BAdd(ubftab.EX_IF_REQCV, cookie.Value); nil != errU {
+					return errU
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+//Run the list of services (if any). If opt set to false, then each service call is
+//mandatory. Failed, error will returned immediately
+//ac is Atmi Context, svc is currently mapped service definition, buf is associated
+//converted buffer, svclist is comma seperated service name list.
+//Listdbg is debug string for the invocation
+func runChain(ac *atmi.ATMICtx, svc *ServiceMap, buf atmi.TypedBuffer, opt bool,
+	svclist []string, listdbg string) atmi.ATMIError {
+
+	if len(svclist) == 0 {
+		return nil
+	}
+
+	for _, svc := range svclist {
+
+		ac.TpLogInfo("%s: About to invoke: [%s]", listdbg, svc)
+
+		_, err := ac.TpCall(svc, buf, 0)
+
+		if nil != err {
+
+			if opt {
+				ac.TpLogWarn("%s: Failed to call [%s] service: %s - optional, continue",
+					listdbg, svc, err.Message())
+			} else {
+				ac.TpLogError("%s: Failed to call [%s] service: %s - fail",
+					listdbg, svc, err.Message())
+				return err
+			}
+		}
+
+	}
+
+	return nil
+}
+
 //Request handler
 //@param ac	ATMI Context
 //@param w	Response writer (as usual)
 //@param req	Request message (as usual)
-func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter, req *http.Request) int {
+func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter,
+	req *http.Request) int {
 
 	var flags int64 = 0
 	var buf atmi.TypedBuffer
@@ -610,12 +764,89 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter, req
 
 	if "" != svc.Svc || svc.Echo {
 
-		body, _ := ioutil.ReadAll(req.Body)
+		var body []byte
+		if !svc.Parseform {
 
-		ac.TpLogDebug("Requesting service [%s] buffer [%s]", svc.Svc, string(body))
+			body, _ = ioutil.ReadAll(req.Body)
+			ac.TpLogDebug("Requesting service [%s] buffer [%s]", svc.Svc, string(body))
+		}
 
 		//Prepare outgoing buffer...
 		switch svc.Conv_int {
+		case CONV_EXT:
+			//Convert JSON 2 UBF...
+			//Bug #200, use max buffer size
+			bufu, err1 := ac.NewUBF(atmi.ATMIMsgSizeMax())
+
+			if nil != err1 {
+				ac.TpLogError("failed to alloca ubf buffer %d:[%s]",
+					err1.Code(), err1.Message())
+
+				genRsp(ac, nil, svc, w, err1, false, false)
+				return atmi.FAIL
+			}
+
+			//Load the body
+			if !svc.Parseform {
+
+				if errU := bufu.BChg(ubftab.EX_NETDATA, 0, body); errU != nil {
+
+					ac.TpLogError("Failed to set body data in EX_NETDATA %d:[%s]",
+						errU.Code(), errU.Message())
+
+					genRsp(ac, nil, svc, w, errU, false, false)
+					return atmi.FAIL
+				}
+			}
+
+			//Load the headers if requested...
+			if errU := parseHeaders(ac, svc, req, bufu); nil != errU {
+				ac.TpLogError("Failed to parse/load headers")
+				genRsp(ac, nil, svc, w, errU, false, false)
+				return atmi.FAIL
+			}
+
+			//Load the request URL
+			if errU := bufu.BAdd(ubftab.EX_IF_URL, req.URL.Path); nil != errU {
+				ac.TpLogError("Failed to set request URL")
+				genRsp(ac, nil, svc, w, errU, false, false)
+				return atmi.FAIL
+			}
+
+			//Parse for in requested..
+			if svc.Parseform {
+				if errF := req.ParseForm(); errF != nil {
+					ac.TpLogError("Failed to parse form: [%s]", errF.Error())
+				} else {
+					ac.TpLogInfo("Form parsed OK: %s", req.PostFormValue("Phonenumbers"))
+					//Load the arguments in the buffer..
+					for k, v := range req.Form {
+
+						ac.TpLogDebug("form field name=[%s]", k)
+						str := strings.Join(v, ";")
+						ac.TpLogDebug("form field value=[%s]", str)
+
+						if errU := bufu.BAdd(ubftab.EX_IF_REQFORMN, k); nil != errU {
+
+							ac.TpLogError("Failed to add form field: [%s]: %s",
+								k, errU.Error())
+							genRsp(ac, nil, svc, w, errU, false, false)
+							return atmi.FAIL
+						}
+
+						if errU := bufu.BAdd(ubftab.EX_IF_REQFORMV, str); nil != errU {
+
+							ac.TpLogError("Failed to add form field value: [%s]: %s",
+								k, errU.Error())
+							genRsp(ac, nil, svc, w, errU, false, false)
+							return atmi.FAIL
+						}
+					} //for form value
+				} //If form parse ok
+			}
+
+			buf = bufu
+			break
 		case CONV_JSON2UBF:
 			//Convert JSON 2 UBF...
 			//Bug #200, use max buffer size
@@ -625,30 +856,16 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter, req
 				ac.TpLogError("failed to alloca ubf buffer %d:[%s]\n",
 					err1.Code(), err1.Message())
 
-				genRsp(ac, nil, svc, w, err1, false)
+				genRsp(ac, nil, svc, w, err1, false, false)
 				return atmi.FAIL
 			}
 
 			ac.TpLogDebug("Converting to UBF: [%s]", body)
 
-			// Add header data to UBF fields
-			if svc.Parseheaders {
-				for k, v := range req.Header {
-					ac.TpLogDebug("Header field %s, Value %+v", k, v)
-					hv := fmt.Sprintf("%s", v)
-					bufu.BAdd(ubftab.EX_IF_REQHN, k)
-					bufu.BAdd(ubftab.EX_IF_REQHV, hv)
-					// Add Cookies data to UBF
-				}
-				if svc.Parsecookies {
-					for _, cookie := range req.Cookies() {
-						// Incoming request have Name and Value
-						ac.TpLogDebug("cookie.Name=[%s]", cookie.Name)
-						ac.TpLogDebug("cookie.Value=[%s]", cookie.Value)
-						bufu.BAdd(ubftab.EX_IF_REQCN, cookie.Name)
-						bufu.BAdd(ubftab.EX_IF_REQCV, cookie.Value)
-					}
-				}
+			if errU := parseHeaders(ac, svc, req, bufu); nil != errU {
+				ac.TpLogError("Failed to parse/load headers")
+				genRsp(ac, nil, svc, w, errU, false, false)
+				return atmi.FAIL
 			}
 
 			if err1 := bufu.TpJSONToUBF(string(body)); err1 != nil {
@@ -657,7 +874,7 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter, req
 
 				ac.TpLogError("Failed req: [%s]", string(body))
 
-				genRsp(ac, nil, svc, w, err1, false)
+				genRsp(ac, nil, svc, w, err1, false, false)
 				return atmi.FAIL
 			}
 			if svc.Format == "r" || svc.Format == "regexp" {
@@ -685,7 +902,7 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter, req
 
 				ac.TpLogError("Failed req: [%s]", string(body))
 
-				genRsp(ac, nil, svc, w, err1, false)
+				genRsp(ac, nil, svc, w, err1, false, false)
 				return atmi.FAIL
 			}
 
@@ -700,7 +917,7 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter, req
 				ac.TpLogError("failed to alloc string/text buffer %d:[%s]\n",
 					err1.Code(), err1.Message())
 
-				genRsp(ac, nil, svc, w, err1, false)
+				genRsp(ac, nil, svc, w, err1, false, false)
 				return atmi.FAIL
 			}
 
@@ -715,7 +932,7 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter, req
 			if nil != err1 {
 				ac.TpLogError("failed to alloc carray/bin buffer %d:[%s]\n",
 					err1.Code(), err1.Message())
-				genRsp(ac, nil, svc, w, err1, false)
+				genRsp(ac, nil, svc, w, err1, false, false)
 				return atmi.FAIL
 			}
 
@@ -730,7 +947,7 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter, req
 			if nil != err1 {
 				ac.TpLogError("failed to alloc carray/bin buffer %d:[%s]\n",
 					err1.Code(), err1.Message())
-				genRsp(ac, nil, svc, w, err1, false)
+				genRsp(ac, nil, svc, w, err1, false, false)
 				return atmi.FAIL
 			}
 
@@ -768,7 +985,7 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter, req
 		if err != nil {
 			ac.TpLogError("ATMI Error %d:[%s]\n", err.Code(), err.Message())
 
-			genRsp(ac, buf, svc, w, err, false)
+			genRsp(ac, buf, svc, w, err, false, false)
 			return atmi.FAIL
 		}
 
@@ -790,16 +1007,30 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter, req
 			}
 		}
 
-		//Do not send service, just echo buffer back
-		if svc.Echo {
-			genRsp(ac, buf, svc, w, err, reqlogOpen)
+		//Perform incoming filters...
+		//If input filters fails, then generate response immediately...
+		err1 := runChain(ac, svc, buf, false, svc.Finman_arr,
+			"filter-incoming-mandatory(finman)")
+
+		//Run optional chain, if any..
+		if nil == err1 {
+
+			runChain(ac, svc, buf, false, svc.Finopt_arr,
+				"filter-incoming-optional(finopt)")
+		}
+
+		if nil != err1 {
+			genRsp(ac, buf, svc, w, err, reqlogOpen, false)
+		} else if svc.Echo {
+			//Do not send service, just echo buffer back
+			genRsp(ac, buf, svc, w, err, reqlogOpen, true)
 		} else if svc.Asynccall {
 			_, err := ac.TpACall(svc.Svc, buf, flags|atmi.TPNOREPLY)
-			genRsp(ac, buf, svc, w, err, reqlogOpen)
+			genRsp(ac, buf, svc, w, err, reqlogOpen, true)
 		} else {
 			_, err := ac.TpCall(svc.Svc, buf, flags)
 
-			genRsp(ac, buf, svc, w, err, reqlogOpen)
+			genRsp(ac, buf, svc, w, err, reqlogOpen, true)
 		}
 	}
 

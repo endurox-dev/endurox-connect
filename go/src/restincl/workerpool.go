@@ -258,7 +258,8 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 			was_error = true
 		} else if nil == err {
 			//Execute the outgoing chains...
-			if errA := runChain(ac, svc, buf, true, svc.Foutman_arr, "filter-outgoing-mandatory"); nil != errA {
+			if errA := runChain(ac, svc, buf, true, svc.Foutman_arr,
+				"filter-outgoing-mandatory"); nil != errA {
 				out_err = true
 				was_error = true
 			}
@@ -1009,17 +1010,22 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter,
 
 		//Perform incoming filters...
 		//If input filters fails, then generate response immediately...
-		err1 := runChain(ac, svc, buf, false, svc.Finman_arr,
-			"filter-incoming-mandatory(finman)")
+		err = nil
 
-		//Run optional chain, if any..
-		if nil == err1 {
+		ac.TpLogError("YOPT LEN: %d", len(svc.Finman_arr))
+		if len(svc.Finman_arr) > 0 {
+			err = runChain(ac, svc, buf, false, svc.Finman_arr,
+				"filter-incoming-mandatory(finman)")
 
-			runChain(ac, svc, buf, false, svc.Finopt_arr,
-				"filter-incoming-optional(finopt)")
+			//Run optional chain, if any..
+			if nil == err {
+
+				runChain(ac, svc, buf, false, svc.Finopt_arr,
+					"filter-incoming-optional(finopt)")
+			}
 		}
 
-		if nil != err1 {
+		if nil != err {
 			genRsp(ac, buf, svc, w, err, reqlogOpen, false)
 		} else if svc.Echo {
 			//Do not send service, just echo buffer back

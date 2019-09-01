@@ -486,13 +486,25 @@ func validateExtService(ac *atmi.ATMICtx, svc *ServiceMap) error {
 
 	//Split by comma
 
-	svc.Finman_arr = strings.Split(svc.Finman, ",")
-	svc.Finopt_arr = strings.Split(svc.Finopt, ",")
-	svc.Finerr_arr = strings.Split(svc.Finerr, ",")
+	if "" != svc.Finman {
+		svc.Finman_arr = strings.Split(svc.Finman, ",")
+	}
+	if "" != svc.Finopt {
+		svc.Finopt_arr = strings.Split(svc.Finopt, ",")
+	}
+	if "" != svc.Finerr {
+		svc.Finerr_arr = strings.Split(svc.Finerr, ",")
+	}
 
-	svc.Foutman_arr = strings.Split(svc.Foutman, ",")
-	svc.Foutopt_arr = strings.Split(svc.Foutopt, ",")
-	svc.Fouterr_arr = strings.Split(svc.Fouterr, ",")
+	if "" != svc.Foutman {
+		svc.Foutman_arr = strings.Split(svc.Foutman, ",")
+	}
+	if "" != svc.Foutopt {
+		svc.Foutopt_arr = strings.Split(svc.Foutopt, ",")
+	}
+	if "" != svc.Fouterr {
+		svc.Fouterr_arr = strings.Split(svc.Fouterr, ",")
+	}
 
 	return nil
 }

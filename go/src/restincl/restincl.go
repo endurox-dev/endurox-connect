@@ -478,32 +478,55 @@ func validateExtService(ac *atmi.ATMICtx, svc *ServiceMap) error {
 	//Trim off whitespace
 	svc.Finman = strings.TrimSpace(svc.Finman)
 	svc.Finopt = strings.TrimSpace(svc.Finopt)
-	svc.Finerr = strings.TrimSpace(svc.Finerr)
 
-	svc.Foutman = strings.TrimSpace(svc.Foutman)
-	svc.Foutopt = strings.TrimSpace(svc.Foutopt)
-	svc.Fouterr = strings.TrimSpace(svc.Fouterr)
+	if svc.Conv_int == CONV_EXT {
 
-	//Split by comma
+		svc.Finerr = strings.TrimSpace(svc.Finerr)
 
-	if "" != svc.Finman {
-		svc.Finman_arr = strings.Split(svc.Finman, ",")
-	}
-	if "" != svc.Finopt {
-		svc.Finopt_arr = strings.Split(svc.Finopt, ",")
-	}
-	if "" != svc.Finerr {
-		svc.Finerr_arr = strings.Split(svc.Finerr, ",")
-	}
+		svc.Foutman = strings.TrimSpace(svc.Foutman)
+		svc.Foutopt = strings.TrimSpace(svc.Foutopt)
+		svc.Fouterr = strings.TrimSpace(svc.Fouterr)
 
-	if "" != svc.Foutman {
-		svc.Foutman_arr = strings.Split(svc.Foutman, ",")
-	}
-	if "" != svc.Foutopt {
-		svc.Foutopt_arr = strings.Split(svc.Foutopt, ",")
-	}
-	if "" != svc.Fouterr {
-		svc.Fouterr_arr = strings.Split(svc.Fouterr, ",")
+		//Split by comma
+
+		if "" != svc.Finman {
+			svc.Finman_arr = strings.Split(svc.Finman, ",")
+		}
+		if "" != svc.Finopt {
+			svc.Finopt_arr = strings.Split(svc.Finopt, ",")
+		}
+		if "" != svc.Finerr {
+			svc.Finerr_arr = strings.Split(svc.Finerr, ",")
+		}
+
+		if "" != svc.Foutman {
+			svc.Foutman_arr = strings.Split(svc.Foutman, ",")
+		}
+		if "" != svc.Foutopt {
+			svc.Foutopt_arr = strings.Split(svc.Foutopt, ",")
+		}
+		if "" != svc.Fouterr {
+			svc.Fouterr_arr = strings.Split(svc.Fouterr, ",")
+		}
+	} else {
+
+		if "" != svc.Finerr {
+			return errors.New(fmt.Sprintf("`finerr' not suitable for conv %s",
+				svc.Conv))
+		}
+
+		if "" != svc.Foutman {
+			return errors.New(fmt.Sprintf("`foutman' not suitable for conv %s",
+				svc.Conv))
+		}
+		if "" != svc.Foutopt {
+			return errors.New(fmt.Sprintf("`foutopt' not suitable for conv %s",
+				svc.Conv))
+		}
+		if "" != svc.Fouterr {
+			return errors.New(fmt.Sprintf("`fouterr' not suitable for conv %s",
+				svc.Conv))
+		}
 	}
 
 	return nil

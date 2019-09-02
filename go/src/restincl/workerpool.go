@@ -783,6 +783,7 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter,
 	var flags int64 = 0
 	var buf atmi.TypedBuffer
 	var err atmi.ATMIError
+	//TODO: Add generic error for genRsp
 	reqlogOpen := false
 	ac.TpLog(atmi.LOG_DEBUG, "Got URL [%s], caller: %s", req.URL, req.RemoteAddr)
 

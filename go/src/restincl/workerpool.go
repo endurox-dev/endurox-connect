@@ -68,8 +68,10 @@ var M_freechan chan int //List of free channels submitted by wokers
 var M_ctxs []*atmi.ATMICtx //List of contexts
 
 //Generate the headers for UBF mode and for EXT mode
+//Return content type if available
 func genRspHeaders(ac *atmi.ATMICtx, bufu *atmi.TypedUBF, w http.ResponseWriter,
-	svc *ServiceMap) {
+	svc *ServiceMap) string {
+	ret := ""
 	// Parse and set response header Name/Value pairs
 	if svc.Parseheaders {
 		ac.TpLogInfo("Setting Response Headers")
@@ -86,7 +88,13 @@ func genRspHeaders(ac *atmi.ATMICtx, bufu *atmi.TypedUBF, w http.ResponseWriter,
 
 				ac.TpLogError("Failed to get EX_IF_RSPHV[%d]", occ)
 			}
-			w.Header().Set(HdrName, HdrValue)
+
+			if HdrName == "Content-Type" {
+				ret = HdrValue
+			} else {
+				w.Header().Set(HdrName, HdrValue)
+			}
+
 		}
 
 		// Parse and set response cookies
@@ -190,6 +198,8 @@ func genRspHeaders(ac *atmi.ATMICtx, bufu *atmi.TypedUBF, w http.ResponseWriter,
 			http.SetCookie(w, &ck)
 		}
 	}
+
+	return ret
 }
 
 //Generate response in the service configured way...
@@ -201,6 +211,7 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 
 	var rsp []byte
 	var err atmi.ATMIError
+	var netCode int = 200
 	/*	application/json */
 	rspType := "text/plain"
 	// Header and Cookies fields to delete from buffer
@@ -251,30 +262,32 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 		out_err := false
 		was_error := false
 
+		ac.TpLogInfo("err=%v", err)
+
 		//OK we are at ext, execute the error filters, if any
 		if !postSvc {
 			//This is incoming error, run the incoming error handler
-			runChain(ac, svc, buf, true, svc.Finerr_arr, "filter-incoming-error-opt")
+			runChain(ac, svc, buf, false, svc.Finerr_arr, "filter-incoming-error-opt(finerr)")
 			was_error = true
-		} else if nil == err {
+		} else if nil == err || 0 == err.Code() {
 			//Execute the outgoing chains...
 			if errA := runChain(ac, svc, buf, true, svc.Foutman_arr,
-				"filter-outgoing-mandatory"); nil != errA {
+				"filter-outgoing-mandatory(foutman)"); nil != errA {
 				out_err = true
 				was_error = true
 			}
 
 			if !was_error {
-				runChain(ac, svc, buf, false, svc.Foutopt_arr, "filter-outgoing-optional")
+				runChain(ac, svc, buf, false, svc.Foutopt_arr, "filter-outgoing-optional(foutopt)")
 			}
+		} else {
+			out_err = true
 		}
 
 		//If we got outgoing error, call the service correspondingly..
 		if out_err {
-			runChain(ac, svc, buf, false, svc.Fouterr_arr, "filter-outgoing-error-opt")
+			runChain(ac, svc, buf, false, svc.Fouterr_arr, "filter-outgoing-error-opt(fouterr)")
 		}
-
-		var netCode int = 200
 
 		//OK, check the status code
 		if was_error || bufu.BPres(ubftab.EX_NETRCODE, 0) {
@@ -295,7 +308,11 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 
 		//Load the body if any and headers
 		//Process headers
-		genRspHeaders(ac, bufu, w, svc)
+		rspTypeHdr := genRspHeaders(ac, bufu, w, svc)
+
+		if rspTypeHdr != "" {
+			rspType = rspTypeHdr
+		}
 
 		//Load the body (if any..)
 		if bufu.BPres(ubftab.EX_NETDATA, 0) {
@@ -311,7 +328,12 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 
 		}
 
-		w.WriteHeader(netCode)
+		if netCode != 200 {
+
+			//Send headers first..
+			w.Header().Set("Content-Type", rspType)
+			w.WriteHeader(netCode)
+		}
 
 		//That's it
 
@@ -584,7 +606,7 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 
 	//OK Now if all ok, there is stuff in buffer (from JSONUBF) it will
 	//be there in any case, thus we do not handle that
-
+	w.Header().Set("Content-Type", rspType)
 	switch svc.Errors_int {
 	case ERRORS_HTTP:
 		var lookup map[string]int
@@ -611,6 +633,8 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 				err.Code(), httpCode)
 			w.WriteHeader(httpCode)
 		}
+
+		//TODO: We need to send headers first...!
 
 		break
 	case ERRORS_JSON:
@@ -674,7 +698,6 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 	ac.TpLogDebug("Returning context type: %s, len: %d", rspType, len(rsp))
 	ac.TpLogDump(atmi.LOG_DEBUG, "Sending response back", rsp, len(rsp))
 	w.Header().Set("Content-Length", strconv.Itoa(len(rsp)))
-	w.Header().Set("Content-Type", rspType)
 
 	w.Write(rsp)
 }
@@ -720,7 +743,7 @@ func parseHeaders(ac *atmi.ATMICtx, svc *ServiceMap, req *http.Request, bufu *at
 //ac is Atmi Context, svc is currently mapped service definition, buf is associated
 //converted buffer, svclist is comma seperated service name list.
 //Listdbg is debug string for the invocation
-func runChain(ac *atmi.ATMICtx, svc *ServiceMap, buf atmi.TypedBuffer, opt bool,
+func runChain(ac *atmi.ATMICtx, svc *ServiceMap, buf atmi.TypedBuffer, mand bool,
 	svclist []string, listdbg string) atmi.ATMIError {
 
 	if len(svclist) == 0 {
@@ -735,7 +758,7 @@ func runChain(ac *atmi.ATMICtx, svc *ServiceMap, buf atmi.TypedBuffer, opt bool,
 
 		if nil != err {
 
-			if opt {
+			if !mand {
 				ac.TpLogWarn("%s: Failed to call [%s] service: %s - optional, continue",
 					listdbg, svc, err.Message())
 			} else {
@@ -819,7 +842,7 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter,
 				if errF := req.ParseForm(); errF != nil {
 					ac.TpLogError("Failed to parse form: [%s]", errF.Error())
 				} else {
-					ac.TpLogInfo("Form parsed OK: %s", req.PostFormValue("Phonenumbers"))
+					ac.TpLogInfo("Form parsed OK")
 					//Load the arguments in the buffer..
 					for k, v := range req.Form {
 
@@ -1012,9 +1035,8 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter,
 		//If input filters fails, then generate response immediately...
 		err = nil
 
-		ac.TpLogError("YOPT LEN: %d", len(svc.Finman_arr))
 		if len(svc.Finman_arr) > 0 {
-			err = runChain(ac, svc, buf, false, svc.Finman_arr,
+			err = runChain(ac, svc, buf, true, svc.Finman_arr,
 				"filter-incoming-mandatory(finman)")
 
 			//Run optional chain, if any..

@@ -419,7 +419,7 @@ func Init(ac *atmi.ATMICtx) int {
 		return atmi.FAIL
 	}
 
-	if err := ac.TpAdvertise("OUTOPT", "OUTOPT", OUTMAND); err != nil {
+	if err := ac.TpAdvertise("OUTOPT", "OUTOPT", OUTOPT); err != nil {
 		fmt.Println(err)
 		return atmi.FAIL
 	}

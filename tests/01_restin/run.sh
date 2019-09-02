@@ -74,10 +74,181 @@ echo "Check EXT mode OK"
 for i in {1..100}
 do
 
-	RSP=`curl -i -H "Content-Type: application/x-www-form-urlencoded" -X POST -d "OK=run" \
+	RSP=`curl -i -H "Content-Type: application/x-www-form-urlencoded" -d "OK=run" \
 	http://localhost:8080/ext_handler_form 2>&1`
 
-	local EXPECT="IN_MAND-IN_OPT-OK-OUT_MAND-OUT_OPT"
+	local EXPECT="IN_MAND-IN_OPT-OK-OUT_MAND-OUT_OPT/ext_handler_form"
+	if [[ "$RSP" != *"$EXPECT"* ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$EXPECT] to appear"
+		go_out 53
+	fi
+
+	if [[ "$RSP" != *"application/test"* ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [application/test] to appear"
+		go_out 52
+	fi
+	
+	RSP_EXPECTED="200"
+	
+	echo "Response: [$RSP]"
+
+	if [[ "$RSP" != *"$RSP_EXPECTED"* ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 51
+	fi
+	
+done
+} >> $LOGFILE 2>&1
+
+###############################################################################
+echo "Check EXT mode, inman failure"
+###############################################################################
+{
+for i in {1..100}
+do
+
+	RSP=`curl -i -H "Content-Type: application/x-www-form-urlencoded" -d "E_INMAND=run" \
+	http://localhost:8080/ext_handler_form 2>&1`
+
+	local EXPECT="IN_MAND-INERR"
+	if [[ "$RSP" != *"$EXPECT"* ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$EXPECT] to appear"
+		go_out 50
+	fi
+
+	if [[ "$RSP" != *"text/plain"* ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [text/plain] to appear"
+		go_out 49
+	fi
+	
+	if [[ "$RSP" != *"RspCookie=qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq"* ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [RspCookie=qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq] to appear"
+		go_out 48
+	fi
+	
+	RSP_EXPECTED="503"
+	
+	echo "Response: [$RSP]"
+
+	if [[ "$RSP" != *"$RSP_EXPECTED"* ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 47
+	fi
+	
+done
+} >> $LOGFILE 2>&1
+
+###############################################################################
+echo "Check EXT mode, target svc fail"
+###############################################################################
+{
+for i in {1..100}
+do
+
+	RSP=`curl -i -H "Content-Type: application/x-www-form-urlencoded" -d "E_INOK=run" \
+	http://localhost:8080/ext_handler_form 2>&1`
+
+	local EXPECT="IN_MAND-IN_OPT-OK-OUTERR"
+	if [[ "$RSP" != *"$EXPECT"* ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$EXPECT] to appear"
+		go_out 46
+	fi
+
+	if [[ "$RSP" != *"text/plain"* ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [text/plain] to appear"
+		go_out 45
+	fi
+	
+	RSP_EXPECTED="504"
+	
+	echo "Response: [$RSP]"
+
+	if [[ "$RSP" != *"$RSP_EXPECTED"* ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 44
+	fi
+	
+done
+} >> $LOGFILE 2>&1
+
+###############################################################################
+echo "Check EXT mode, target outman fail"
+###############################################################################
+{
+for i in {1..100}
+do
+
+	RSP=`curl -i -H "Content-Type: application/x-www-form-urlencoded" -d "E_OUTMAND=run" \
+	http://localhost:8080/ext_handler_form 2>&1`
+
+	local EXPECT="IN_MAND-IN_OPT-OK-OUTERR"
+	if [[ "$RSP" != *"$EXPECT"* ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$EXPECT] to appear"
+		go_out 43
+	fi
+
+	if [[ "$RSP" != *"text/plain"* ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [text/plain] to appear"
+		go_out 42
+	fi
+	
+	RSP_EXPECTED="504"
+	
+	echo "Response: [$RSP]"
+
+	if [[ "$RSP" != *"$RSP_EXPECTED"* ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 41
+	fi
+	
+done
+} >> $LOGFILE 2>&1
+
+###############################################################################
+echo "Check EXT, inopt fail"
+###############################################################################
+{
+for i in {1..100}
+do
+
+	RSP=`curl -i -H "Content-Type: application/x-www-form-urlencoded" -d "E_INOPT=run" \
+	http://localhost:8080/ext_handler_form 2>&1`
+
+	local EXPECT="IN_MAND-IN_OPT-OK-OUT_MAND-OUT_OPT/ext_handler_form"
+	if [[ "$RSP" != *"$EXPECT"* ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$EXPECT] to appear"
+		go_out 40
+	fi
+
+	if [[ "$RSP" != *"application/test"* ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [application/test] to appear"
+		go_out 39
+	fi
+	
+	RSP_EXPECTED="200"
+	
+	echo "Response: [$RSP]"
+
+	if [[ "$RSP" != *"$RSP_EXPECTED"* ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 38
+	fi
+	
+done
+} >> $LOGFILE 2>&1
+
+
+###############################################################################
+echo "Check EXT, body check"
+###############################################################################
+{
+for i in {1..100}
+do
+
+	RSP=`curl -v -d "HELLO" -H "Content-Type: application/x-www-form-urlencoded" \
+	http://localhost:8080/ext_handler_noform 2>&1`
+
+	local EXPECT="HELLO-OK-IN_OPT-OK-OUT_MAND-OUT_OPT/ext_handler_noform"
 	if [[ "$RSP" != *"$EXPECT"* ]]; then
 		echo "Invalid response received, got: [$RSP], expected: [$EXPECT] to appear"
 		go_out 35
@@ -99,62 +270,6 @@ do
 	
 done
 } >> $LOGFILE 2>&1
-
-###############################################################################
-echo "Check EXT mode, inman failure"
-###############################################################################
-{
-for i in {1..100}
-do
-
-	RSP=`curl -i -H "Content-Type: application/x-www-form-urlencoded" -X POST -d "E_INMAND=run" \
-	http://localhost:8080/ext_handler_form 2>&1`
-
-	local EXPECT="IN_MAND-INERR"
-	if [[ "$RSP" != *"$EXPECT"* ]]; then
-		echo "Invalid response received, got: [$RSP], expected: [$EXPECT] to appear"
-		go_out 35
-	fi
-
-	if [[ "$RSP" != *"text/plain"* ]]; then
-		echo "Invalid response received, got: [$RSP], expected: [text/plain] to appear"
-		go_out 36
-	fi
-	
-	if [[ "$RSP" != *"RspCookie=qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq"* ]]; then
-		echo "Invalid response received, got: [$RSP], expected: [RspCookie=qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq] to appear"
-		go_out 36
-	fi
-	
-	RSP_EXPECTED="503"
-	
-	echo "Response: [$RSP]"
-
-	if [[ "$RSP" != *"$RSP_EXPECTED"* ]]; then
-		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
-		go_out 37
-	fi
-	
-done
-} >> $LOGFILE 2>&1
-
-
-#TODO: More tests!!! 
-#Test2 mainin (fail) -> errin -> return, 503
-#curl -v -d "E_INMAND=run" -H "Content-Type: application/x-www-form-urlencoded" -X POST http://localhost:8080/ext_handler_form
-
-#Test3 mainin->optin->svc fail-> errout -> return, 504
-#curl -v -d "E_INOK=run" -H "Content-Type: application/x-www-form-urlencoded" -X POST http://localhost:8080/ext_handler_form
-
-#Test4 mainin->optin->svc ok->manout fail -> errout -> return
-##curl -v -d "E_OUTMAND=run" -H "Content-Type: application/x-www-form-urlencoded" -X POST http://localhost:8080/ext_handler_form
-
-# test optional service failures
-#curl -v -d "E_INOPT=run" -H "Content-Type: application/x-www-form-urlencoded" -X POST http://localhost:8080/ext_handler_form
-
-# no form full body, check content type...
-#curl -v -d "HELLO" -H "Content-Type: application/x-www-form-urlencoded" -X POST http://localhost:8080/ext_handler_noform
-
 
 ###############################################################################
 echo "Static content... 5"

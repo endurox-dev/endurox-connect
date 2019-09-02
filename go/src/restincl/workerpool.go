@@ -783,7 +783,6 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter,
 	var flags int64 = 0
 	var buf atmi.TypedBuffer
 	var err atmi.ATMIError
-	//TODO: Add generic error for genRsp
 	reqlogOpen := false
 	ac.TpLog(atmi.LOG_DEBUG, "Got URL [%s], caller: %s", req.URL, req.RemoteAddr)
 
@@ -819,7 +818,11 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter,
 					ac.TpLogError("Failed to set body data in EX_NETDATA %d:[%s]",
 						errU.Code(), errU.Message())
 
-					genRsp(ac, nil, svc, w, errU, false, false)
+					errA := atmi.NewCustomATMIError(atmi.TPESYSTEM,
+						fmt.Sprintf("Failed to set body data in EX_NETDATA %d:[%s]",
+							errU.Code(), errU.Message()))
+
+					genRsp(ac, nil, svc, w, errA, false, false)
 					return atmi.FAIL
 				}
 			}
@@ -827,14 +830,24 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter,
 			//Load the headers if requested...
 			if errU := parseHeaders(ac, svc, req, bufu); nil != errU {
 				ac.TpLogError("Failed to parse/load headers")
-				genRsp(ac, nil, svc, w, errU, false, false)
+
+				errA := atmi.NewCustomATMIError(atmi.TPESYSTEM,
+					fmt.Sprintf("Failed to parse headers %d:[%s]",
+						errU.Code(), errU.Message()))
+
+				genRsp(ac, nil, svc, w, errA, false, false)
 				return atmi.FAIL
 			}
 
 			//Load the request URL
 			if errU := bufu.BAdd(ubftab.EX_IF_URL, req.URL.Path); nil != errU {
+
+				errA := atmi.NewCustomATMIError(atmi.TPESYSTEM,
+					fmt.Sprintf("Failed to set EX_IF_URL %d:[%s]",
+						errU.Code(), errU.Message()))
+
 				ac.TpLogError("Failed to set request URL")
-				genRsp(ac, nil, svc, w, errU, false, false)
+				genRsp(ac, nil, svc, w, errA, false, false)
 				return atmi.FAIL
 			}
 
@@ -855,7 +868,12 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter,
 
 							ac.TpLogError("Failed to add form field: [%s]: %s",
 								k, errU.Error())
-							genRsp(ac, nil, svc, w, errU, false, false)
+
+							errA := atmi.NewCustomATMIError(atmi.TPESYSTEM,
+								fmt.Sprintf("Failed to add EX_IF_REQFORMN %d:[%s]",
+									errU.Code(), errU.Message()))
+
+							genRsp(ac, nil, svc, w, errA, false, false)
 							return atmi.FAIL
 						}
 
@@ -863,7 +881,12 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter,
 
 							ac.TpLogError("Failed to add form field value: [%s]: %s",
 								k, errU.Error())
-							genRsp(ac, nil, svc, w, errU, false, false)
+
+							errA := atmi.NewCustomATMIError(atmi.TPESYSTEM,
+								fmt.Sprintf("Failed to add EX_IF_REQFORMV %d:[%s]",
+									errU.Code(), errU.Message()))
+
+							genRsp(ac, nil, svc, w, errA, false, false)
 							return atmi.FAIL
 						}
 					} //for form value
@@ -889,7 +912,12 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter,
 
 			if errU := parseHeaders(ac, svc, req, bufu); nil != errU {
 				ac.TpLogError("Failed to parse/load headers")
-				genRsp(ac, nil, svc, w, errU, false, false)
+
+				errA := atmi.NewCustomATMIError(atmi.TPESYSTEM,
+					fmt.Sprintf("Failed to parse headers %d:[%s]",
+						errU.Code(), errU.Message()))
+
+				genRsp(ac, nil, svc, w, errA, false, false)
 				return atmi.FAIL
 			}
 

@@ -122,6 +122,8 @@ Conversion buffer type: 'ext' - External handling
 External handling mode, incoming message is loaded into generic UBF fields. Field
 names are following:
 
+- *EX_IF_URL* - URL called;
+
 - *EX_NETDATA* - is loaded with HTTP Message body, byte array;
 
 - *EX_IF_REQHN* - request header name;
@@ -134,22 +136,23 @@ names are following:
 
 If fields are prepared OK, list of comma separated services found in *finman*
 are executed with UBF buffer. This can be used to build up the target request buffer.
-In case if any service fails, it is assumed as error and incoming error service
-chain *finerr* is executed (as optional). When generating response *EX_NETRCODE*
-field with expected http code is read. If field is missing in buffers, then
-*restincl* will respond with error 500, with out any body.
+In case if any service fails from mandatory list, it is treated as general 
+error and then incoming error service chain *finerr* is executed (as optional). 
+When generating response *EX_NETRCODE* field with expected http code is read. 
+If field is missing in buffers, then *restincl* will respond with error 500, 
+without any body. In case of error and if buffer contains *EX_NETRCODE*, then
+system will attempt to return the *EX_NETDATA*.
 
-
-After all incoming executions done, target service is executed. Once that is done, 
-the response chain is activated. If there was no error during target service call,
-the *foutman* mandatory chain is executed. If it succeed, then optional chain *foutopt*
-chain is executed.
+If there was no error, after all incoming filter chains done, 
+target service is executed. Once that is done, the response chain is activated. 
+If there was no error during target service call, the *foutman* mandatory chain 
+is executed. If it succeed, then optional chain *foutopt* chain is executed.
 
 If there was error during the target service execution or mandatory out filter
-chain execution (*foutman*), the *fouterr* service is executed. If *EX_NETRCODE*
-is found in the body, then UBF content is used for response generation and
-http status is set to *EX_NETRCODE*. If in case of error *EX_NETRCODE* is not
-found, the response is set to 500 with out any content.
+chain execution (*foutman*), the *fouterr* service chain is executed. 
+If *EX_NETRCODE* is found in the body, then UBF content is used for response 
+generation and http status is set to *EX_NETRCODE*. If in case of error 
+*EX_NETRCODE* is not found, the response is set to 500 with out any content.
 
 The response is generated in following way:
 
@@ -161,6 +164,12 @@ The response is generated in following way:
 *EX_IF_RSPCPATH*, *EX_IF_RSPCDOMAIN*, *EX_IF_RSPCEXPIRES*, *EX_IF_RSPCMAXAGE*, 
 *EX_IF_RSPCSECURE*, *EX_IF_RSPCHTTPONLY*
 
+- http content type is according to *ubftab.EX_IF_RSPHN* (Content-Type) value 
+found in *EX_IF_RSPHV*. If Conent-Type is not provided in response, 'text/plain'
+is used.
+
+*NOTE:* The conv mode works only with 'ext' error handling mode. And error
+handling mode 'ext' works only with buffer conversion mode 'ext'.
 
 Conversion buffer type: 'json2ubf' - JSON converted to UBF message handling
 ---------------------------------------------------------------------------
@@ -206,9 +215,6 @@ arrays if necessary i.e. have multiple occurrences for field.
 
 The 'restincl' for incoming data does not check the MIME type, but in response
 MIME type will be set to: 'text/plain'.
-
-
-
 
 Conversion buffer type: 'json2view' - JSON converted to VIEW message handling
 ------------------------------------------------------------------------------
@@ -300,6 +306,22 @@ with this buffer. If service invocation is success, then the received BLOB messa
 from XATMI sub-system is returned to caller. In this case response will be generated
 as 'application/octet-stream'.
 
+Error handling type: 'ext' - external service mode
+--------------------------------------------------
+As described in buffer 'ext' buffer conversion mode, this error handling mechanism
+consists of following key features:
+
+- If incoming mandatory filters or buffer preparation fails, 
+then 'finerr' services is called.
+If after service calls buffer contains *EX_NETRCODE* (http code), then UBF buffer contents 
+are used for generating response. Otherwise http error code 500 is returned with
+out any body.
+
+- If incoming filters where succeed, but target service or outgoing mandatory
+filters did fail, the 'fouterr' chain is executed. And in the same way if 
+*EX_NETRCODE* in final stages are present in buffer, then value from this is used
+for http code and buffer contents are used for sending back responses. If return
+code is not present, then error code *500* is returned, with any further processing.
 
 Error handling type: 'http' - return error codes in HTTP protocol
 -----------------------------------------------------------------
@@ -669,6 +691,43 @@ be used in case exact path is not found.
 Field to store URL path for *json* and *json2ubf* conversion methods in case regular
 expression format is used. Default value is 'EX_IF_URL'.
 
+*parseform* = 'true|false'::
+If set to *true* then URL and Post body is parsed and *EX_IF_REQFORMN*/*EX_IF_REQFORMV*
+pairs are filled. In this case *EX_NETDATA* field is not setup. This flag functions
+only in conv/error mode *ext*.
+
+*finman* = 'SERVICE_LIST'::
+Comma separated list of services to call before target service invocation. This
+is mandatory list. Any failed service will terminated request chain and error
+will be returned. Default is empty.
+
+*finopt* = 'SERVICE_LIST'::
+Comma separated list of services to call before target service invocation. This
+is optional list. Any failed service will be ignored and chain execution will
+continue. Default is empty.
+
+*finerr* = 'SERVICE_LIST'::
+Comma separated list of services to be executed when in 'ext' mode incoming
+mandatory filters or buffer setup failed. In case if EX_NETRCODE is present,
+it is assumed that buffer content is ready for response generation. This is 
+optional service list. Default is empty.
+
+*foutman* = 'SERVICE_LIST'::
+Comma separated list of services to be executed when in 'ext' mode input filters
+and target service was OK. This is mandatory list, any service error will trigger
+*fouterr* chain to process.
+
+*foutopt* = 'SERVICE_LIST'::
+Comma separated list of services to be executed when in 'ext' mode input filters, 
+target service was OK and *foutman* list were executed OK. This is optional list, 
+any service errors will be ignored.
+
+*fouterr* = 'SERVICE_LIST'::
+Comma separated list of services to be executed when in 'ext' mode target service
+or outgoing mandatory filters have failed. In case if *EX_NETRCODE* is present 
+(set by this or previous services), it is assumed that buffer content is ready 
+for response generation. This is optional service list. Default is empty.
+
 STATIC ROUTES EXAMPLE
 ---------------------
 
@@ -708,16 +767,11 @@ To see the usage different usage settings, see *tests/01_restin/runtime/conf/res
 
 BUGS
 ----
-Report bugs to madars.vitolins@gmail.com
+Report bugs to support@mavimax.com
 
 SEE ALSO
 --------
 *restoutsv(8)* *tcpgatesv(8)*.
-
-AUTHOR
-------
-Enduro/X is created by Madars Vitolins.
-
 
 COPYING
 -------

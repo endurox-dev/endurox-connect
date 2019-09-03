@@ -134,6 +134,10 @@ names are following:
 
 - *EX_IF_REQCV* - request cookie value, same occurrence with name;
 
+- *EX_IF_REQFORMN* - form submit field name;
+
+- *EX_IF_REQFORMV* - form submit field value;
+
 If fields are prepared OK, list of comma separated services found in *finman*
 are executed with UBF buffer. This can be used to build up the target request buffer.
 In case if any service fails from mandatory list, it is treated as general 

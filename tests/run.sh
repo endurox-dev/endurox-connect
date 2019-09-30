@@ -7,6 +7,9 @@
 # have some limits... 
 ulimit -n 50000
 
+# load some common settings, like stack size
+source ~/ndrx_home
+
 > ./test.out
 # Have some terminal output...
 tail -f test.out &

@@ -13,7 +13,7 @@ clean:
 	$(MAKE) -C tests clean
 	$(MAKE) -C go clean
 
-doc:
+docs:
 	$(MAKE) -C doc
 	
 pkg: all

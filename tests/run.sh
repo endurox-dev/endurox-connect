@@ -6,6 +6,7 @@
 
 # have some limits... 
 ulimit -n 50000
+ulimit -c unlimited
 
 > ./test.out
 # Have some terminal output...

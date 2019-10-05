@@ -29,7 +29,7 @@ echo "OPENSSL END"
 
 # Generate a passphrase
 #export PASSPHRASE=$(head -c 500 /dev/urandom | tr -dc a-z0-9A-Z | head -c 128; echo)
-export PASSPHRASE=ABC
+export PASSPHRASE=ABCDEFABCDEF
 echo "PASSPHRASE: [$PASSPHRASE]"
 
 # Certificate details; replace items in angle brackets with your own info

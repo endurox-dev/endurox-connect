@@ -8,6 +8,7 @@ all:
 	$(MAKE) -C tcpgatesv
 
 clean:
+	- rm -rf github.com/endurox-dev
 	$(MAKE) -C ubftab clean
 	$(MAKE) -C exutil clean
 	$(MAKE) -C restincl clean

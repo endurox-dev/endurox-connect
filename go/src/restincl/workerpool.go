@@ -282,6 +282,7 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 			}
 		} else {
 			out_err = true
+			was_error = true
 		}
 
 		//If we got outgoing error, call the service correspondingly..

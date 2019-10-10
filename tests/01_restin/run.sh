@@ -68,6 +68,69 @@ function go_out {
 }
 
 ###############################################################################
+echo "Check EXT mode FAIL / GET"
+###############################################################################
+{
+for i in {1..100}
+do
+
+	RSP=`curl -i http://localhost:8080/ext_dum_fail 2>&1`
+
+	local EXPECT="Content-Length: 0"
+	
+	if [[ "$RSP" != *"$EXPECT"* ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$EXPECT] to appear"
+		go_out 58
+	fi
+	
+	RSP_EXPECTED="500"
+	
+	echo "Response: [$RSP]"
+
+	if [[ "$RSP" != *"$RSP_EXPECTED"* ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 57
+	fi
+	
+done
+} >> $LOGFILE 2>&1
+
+
+
+###############################################################################
+echo "Check EXT mode OK / GET"
+###############################################################################
+{
+for i in {1..100}
+do
+
+	RSP=`curl -i http://localhost:8080/ext_dum_ok 2>&1`
+
+	local EXPECT="OK"
+	
+	if [[ "$RSP" != *"$EXPECT"* ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$EXPECT] to appear"
+		go_out 56
+	fi
+
+	if [[ "$RSP" != *"text/plain"* ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [application/test] to appear"
+		go_out 55
+	fi
+	
+	RSP_EXPECTED="200"
+	
+	echo "Response: [$RSP]"
+
+	if [[ "$RSP" != *"$RSP_EXPECTED"* ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 54
+	fi
+	
+done
+} >> $LOGFILE 2>&1
+
+###############################################################################
 echo "Check EXT mode OK"
 ###############################################################################
 {

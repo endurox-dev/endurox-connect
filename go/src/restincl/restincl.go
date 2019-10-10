@@ -670,101 +670,114 @@ func appinit(ac *atmi.ATMICtx) error {
 			printSvcSummary(ac, &M_defaults)
 
 			break
-		default:
-			//Assign the defaults
+		}
+	}
 
-			//Load routes...
-			if strings.HasPrefix(fldName, "/") {
-				cfgVal, _ := buf.BGetString(u.EX_CC_VALUE, occ)
+	//Bug #461 Load the services in second pass..
+	ac.TpLogInfo("Second pass config process - service load")
+	for occ := 0; occ < occs; occ++ {
+		ac.TpLog(atmi.LOG_DEBUG, "occ %d", occ)
+		fldName, err := buf.BGetString(u.EX_CC_KEY, occ)
 
-				ac.TpLogInfo("Got route config [%s]", cfgVal)
+		if nil != err {
+			ac.TpLog(atmi.LOG_ERROR, "Failed to get field "+
+				"%d occ %d", u.EX_CC_KEY, occ)
+			return errors.New(err.Error())
+		}
 
-				tmp := M_defaults
+		ac.TpLog(atmi.LOG_DEBUG, "Got config field [%s]", fldName)
 
-				//Override the stuff from current config
+		//Load routes...
+		if strings.HasPrefix(fldName, "/") {
+			cfgVal, _ := buf.BGetString(u.EX_CC_VALUE, occ)
 
-				//err := json.Unmarshal(cfgVal, &tmp)
-				decoder := json.NewDecoder(strings.NewReader(cfgVal))
-				//conf := Config{}
-				err := decoder.Decode(&tmp)
+			ac.TpLogInfo("Got route config [%s]", cfgVal)
 
-				if err != nil {
-					ac.TpLog(atmi.LOG_ERROR,
-						fmt.Sprintf("Failed to parse config key %s: %s",
-							fldName, err))
-					return err
-				}
+			tmp := M_defaults
 
-				ac.TpLogDebug("Got route: URL [%s] -> Service [%s]",
-					fldName, tmp.Svc)
-				tmp.Url = fldName
+			//Override the stuff from current config
 
-				//Parse http errors for
-				if tmp.Errors_fmt_http_map_str != "" {
-					if jerr := parseHTTPErrorMap(ac, &tmp); err != nil {
-						return jerr
-					}
-				}
+			//err := json.Unmarshal(cfgVal, &tmp)
+			decoder := json.NewDecoder(strings.NewReader(cfgVal))
+			//conf := Config{}
+			err := decoder.Decode(&tmp)
 
-				remapErrors(&tmp)
-				//Map the conv
-				tmp.Conv_int = M_convs[tmp.Conv]
+			if err != nil {
+				ac.TpLog(atmi.LOG_ERROR,
+					fmt.Sprintf("Failed to parse config key %s: %s",
+						fldName, err))
+				return err
+			}
 
-				if tmp.Conv_int == 0 {
-					return fmt.Errorf("Invalid conv: %s", tmp.Conv)
+			ac.TpLogDebug("Got route: URL [%s] -> Service [%s]",
+				fldName, tmp.Svc)
+			tmp.Url = fldName
 
-				} else if CONV_STATIC == tmp.Conv_int {
-
-					//Check that it is directory and we can read it
-					info, err := os.Stat(tmp.StaticDir)
-					if err != nil {
-						return fmt.Errorf("Failed to stat [%s] directoy - does it exists?",
-							tmp.StaticDir)
-					}
-
-					if !info.IsDir() {
-						return fmt.Errorf("Path [%s] is NOT a directoy! Cannot server files",
-							tmp.StaticDir)
-					}
-
-					tmp.FileServer = http.FileServer(http.Dir(tmp.StaticDir))
-
-					if nil == tmp.FileServer {
-						return fmt.Errorf("Failed to create static file server "+
-							"for [%s] directory",
-							tmp.StaticDir)
-					} else {
-						ac.TpLogInfo("Static file server [%s] OK", tmp.StaticDir)
-					}
-
-				}
-
-				//Validate view settings (if any)
-				if err = VIEWSvcValidateSettings(ac, &tmp); err != nil {
-					return err
-				}
-
-				//Validate ext
-				if err = validateExtService(ac, &tmp); err != nil {
-					return err
-				}
-
-				printSvcSummary(ac, &tmp)
-
-				ac.TpLogInfo("Checking if service uses regexp")
-				//Add to HTTP listener
-				if tmp.Format == "regexp" || tmp.Format == "r" {
-					if r, err := regexp.Compile(fldName); err == nil {
-						ac.TpLogInfo("Regexp compiled")
-						M_handler.HandleFunc(r, tmp)
-					} else {
-						ac.TpLogError("Failed to compile regexp [%s]", err.Error())
-					}
-				} else {
-					M_handler.HandleFunc(nil, tmp)
+			//Parse http errors for
+			if tmp.Errors_fmt_http_map_str != "" {
+				if jerr := parseHTTPErrorMap(ac, &tmp); err != nil {
+					return jerr
 				}
 			}
-			break
+
+			remapErrors(&tmp)
+			//Map the conv
+			tmp.Conv_int = M_convs[tmp.Conv]
+
+			if tmp.Conv_int == 0 {
+				return fmt.Errorf("Invalid conv: %s", tmp.Conv)
+
+			} else if CONV_STATIC == tmp.Conv_int {
+
+				//Check that it is directory and we can read it
+				info, err := os.Stat(tmp.StaticDir)
+				if err != nil {
+					return fmt.Errorf("Failed to stat [%s] directoy - does it exists?",
+						tmp.StaticDir)
+				}
+
+				if !info.IsDir() {
+					return fmt.Errorf("Path [%s] is NOT a directoy! Cannot server files",
+						tmp.StaticDir)
+				}
+
+				tmp.FileServer = http.FileServer(http.Dir(tmp.StaticDir))
+
+				if nil == tmp.FileServer {
+					return fmt.Errorf("Failed to create static file server "+
+						"for [%s] directory",
+						tmp.StaticDir)
+				} else {
+					ac.TpLogInfo("Static file server [%s] OK", tmp.StaticDir)
+				}
+
+			}
+
+			//Validate view settings (if any)
+			if err = VIEWSvcValidateSettings(ac, &tmp); err != nil {
+				return err
+			}
+
+			//Validate ext
+			if err = validateExtService(ac, &tmp); err != nil {
+				return err
+			}
+
+			printSvcSummary(ac, &tmp)
+
+			ac.TpLogInfo("Checking if service uses regexp")
+			//Add to HTTP listener
+			if tmp.Format == "regexp" || tmp.Format == "r" {
+				if r, err := regexp.Compile(fldName); err == nil {
+					ac.TpLogInfo("Regexp compiled")
+					M_handler.HandleFunc(r, tmp)
+				} else {
+					ac.TpLogError("Failed to compile regexp [%s]",
+						err.Error())
+				}
+			} else {
+				M_handler.HandleFunc(nil, tmp)
+			}
 		}
 	}
 

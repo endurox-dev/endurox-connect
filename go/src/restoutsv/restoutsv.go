@@ -11,7 +11,7 @@
  * AGPL or Mavimax's license for commercial use.
  * -----------------------------------------------------------------------------
  * AGPL license:
- * 
+ *
  * This program is free software; you can redistribute it and/or modify it under
  * the terms of the GNU Affero General Public License, version 3 as published
  * by the Free Software Foundation;
@@ -21,8 +21,8 @@
  * PARTICULAR PURPOSE. See the GNU Affero General Public License, version 3
  * for more details.
  *
- * You should have received a copy of the GNU Affero General Public License along 
- * with this program; if not, write to the Free Software Foundation, Inc., 
+ * You should have received a copy of the GNU Affero General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
  * 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
  * -----------------------------------------------------------------------------
@@ -371,7 +371,8 @@ func appinit(ctx *atmi.ATMICtx) int {
 			//Set debug configuration string
 			debug, _ := buf.BGetString(u.EX_CC_VALUE, occ)
 			ctx.TpLogDebug("Got [%s] = [%s] ", fldName, debug)
-			if err := ctx.TpLogConfig((atmi.LOG_FACILITY_NDRX | atmi.LOG_FACILITY_UBF | atmi.LOG_FACILITY_TP),
+			if err := ctx.TpLogConfig((atmi.LOG_FACILITY_NDRX |
+				atmi.LOG_FACILITY_UBF | atmi.LOG_FACILITY_TP),
 				-1, debug, "ROUT", ""); nil != err {
 				ctx.TpLogError("Invalid debug config [%s] %d:[%s]",
 					debug, err.Code(), err.Message())
@@ -426,123 +427,137 @@ func appinit(ctx *atmi.ATMICtx) int {
 			//printSvcSummary(ctx, &Mdefaults)
 
 			break
-		default:
-			//Assign the defaults
+		}
+	}
 
-			//Load services...
+	//Bug #461 Load the services in second pass..
+	ctx.TpLogInfo("Second pass config process - service load")
+	for occ := 0; occ < occs; occ++ {
+		ctx.TpLog(atmi.LOG_DEBUG, "occ %d", occ)
+		fldName, err := buf.BGetString(u.EX_CC_KEY, occ)
 
-			match, _ := regexp.MatchString("^service\\s*.*$", fldName)
+		if nil != err {
+			ctx.TpLog(atmi.LOG_ERROR, "Failed to get field "+
+				"%d occ %d", u.EX_CC_KEY, occ)
+			return FAIL
+		}
 
-			if match {
+		ctx.TpLog(atmi.LOG_DEBUG, "Got config field [%s]", fldName)
 
-				re := regexp.MustCompile("^service\\s*(.*)$")
-				matchSvc := re.FindStringSubmatch(fldName)
+		//Assign the defaults
 
-				cfgVal, _ := buf.BGetString(u.EX_CC_VALUE, occ)
+		//Load services...
 
-				ctx.TpLogInfo("Got service route config [%s]=[%s]",
-					matchSvc[1], cfgVal)
+		match, _ := regexp.MatchString("^service\\s*.*$", fldName)
 
-				tmp := Mdefaults
+		if match {
 
-				//Override the stuff from current config
-				tmp.Svc = matchSvc[1]
+			re := regexp.MustCompile("^service\\s*(.*)$")
+			matchSvc := re.FindStringSubmatch(fldName)
 
-				//err := json.Unmarshal(cfgVal, &tmp)
-				decoder := json.NewDecoder(strings.NewReader(cfgVal))
-				//conf := Config{}
-				err := decoder.Decode(&tmp)
+			cfgVal, _ := buf.BGetString(u.EX_CC_VALUE, occ)
 
-				if err != nil {
-					ctx.TpLog(atmi.LOG_ERROR,
-						"Failed to parse config key %s: %s",
-						fldName, err)
-					return FAIL
-				}
+			ctx.TpLogInfo("Got service route config [%s]=[%s]",
+				matchSvc[1], cfgVal)
 
-				ctx.TpLogDebug("Got config block [%s] -> Service [%s]",
-					fldName, tmp.Svc)
+			tmp := Mdefaults
 
-				//Parse http errors for
-				if tmp.Errors_fmt_http_map_str != "" {
-					if jerr := parseHTTPErrorMap(ctx, &tmp); jerr != nil {
-						return FAIL
-					}
-				}
+			//Override the stuff from current config
+			tmp.Svc = matchSvc[1]
 
-				//Remap the error codes and regexps...
-				if err := remapErrors(ctx, &tmp); err != nil {
-					ctx.TpLogError("remapErrors failed: %s",
-						err.Error())
-					return FAIL
-				}
+			//err := json.Unmarshal(cfgVal, &tmp)
+			decoder := json.NewDecoder(strings.NewReader(cfgVal))
+			//conf := Config{}
+			err := decoder.Decode(&tmp)
 
-				ctx.TpLogInfo("Errors mapped to: %d", tmp.Errors_int)
-
-				//Add to HTTP listener
-				//We should add service to advertise list...
-				//And list if echo is enabled & succeeed
-				//or if echo not set, then auto advertise all
-				//http.HandleFunc(fldName, dispatchRequest)
-
-				if strings.HasPrefix(tmp.Url, "/") {
-					//This is partial URL, so use base
-					tmp.Url = tmp.UrlBase + tmp.Url
-
-					ctx.TpLogInfo("Have / prefix => building"+
-						" URL, got: [%s]",
-						tmp.Url)
-				} else {
-					ctx.TpLogInfo("No / prefix => assuming"+
-						"full url [%s]",
-						tmp.Url)
-				}
-
-				if tmp.Echo {
-					tmp.echoConvInt = Mconvs[tmp.EchoConv]
-					if tmp.echoConvInt == 0 {
-						ctx.TpLogError("Invalid conv: %s",
-							tmp.EchoConv)
-						return FAIL
-					}
-
-					if tmp.EchoMaxFail < 1 {
-						ctx.TpLogError("Invalid 'echo_max_fail' "+
-							"setting: %d, must be >=1",
-							tmp.EchoMaxFail)
-					}
-
-					if tmp.EchoMinOK < 1 {
-						ctx.TpLogError("Invalid 'echo_min_ok' "+
-							"setting: %d, must be >=1",
-							tmp.EchoMaxFail)
-					}
-
-					if errA := tmp.PreparseEchoBuffers(ctx); nil != errA {
-						ctx.TpLogError("Failed to parse "+
-							"echo buffers: %s",
-							errA.Error())
-						return FAIL
-					}
-
-					//Make async chan
-					tmp.shutdown = make(chan bool, 2)
-					Mmonitors++
-				}
-
-				//Test service if it is view
-
-				if err := VIEWValidateService(ctx, &tmp); nil != err {
-					ctx.TpLogError("Failed to validate view settings: %s",
-						err.Error())
-					return FAIL
-				}
-
-				Mservices[matchSvc[1]] = &tmp
-
-				printSvcSummary(ctx, &tmp)
+			if err != nil {
+				ctx.TpLog(atmi.LOG_ERROR,
+					"Failed to parse config key %s: %s",
+					fldName, err)
+				return FAIL
 			}
-			break
+
+			ctx.TpLogDebug("Got config block [%s] -> Service [%s]",
+				fldName, tmp.Svc)
+
+			//Parse http errors for
+			if tmp.Errors_fmt_http_map_str != "" {
+				if jerr := parseHTTPErrorMap(ctx, &tmp); jerr != nil {
+					return FAIL
+				}
+			}
+
+			//Remap the error codes and regexps...
+			if err := remapErrors(ctx, &tmp); err != nil {
+				ctx.TpLogError("remapErrors failed: %s",
+					err.Error())
+				return FAIL
+			}
+
+			ctx.TpLogInfo("Errors mapped to: %d", tmp.Errors_int)
+
+			//Add to HTTP listener
+			//We should add service to advertise list...
+			//And list if echo is enabled & succeeed
+			//or if echo not set, then auto advertise all
+			//http.HandleFunc(fldName, dispatchRequest)
+
+			if strings.HasPrefix(tmp.Url, "/") {
+				//This is partial URL, so use base
+				tmp.Url = tmp.UrlBase + tmp.Url
+
+				ctx.TpLogInfo("Have / prefix => building"+
+					" URL, got: [%s]",
+					tmp.Url)
+			} else {
+				ctx.TpLogInfo("No / prefix => assuming"+
+					"full url [%s]",
+					tmp.Url)
+			}
+
+			if tmp.Echo {
+				tmp.echoConvInt = Mconvs[tmp.EchoConv]
+				if tmp.echoConvInt == 0 {
+					ctx.TpLogError("Invalid conv: %s",
+						tmp.EchoConv)
+					return FAIL
+				}
+
+				if tmp.EchoMaxFail < 1 {
+					ctx.TpLogError("Invalid 'echo_max_fail' "+
+						"setting: %d, must be >=1",
+						tmp.EchoMaxFail)
+				}
+
+				if tmp.EchoMinOK < 1 {
+					ctx.TpLogError("Invalid 'echo_min_ok' "+
+						"setting: %d, must be >=1",
+						tmp.EchoMaxFail)
+				}
+
+				if errA := tmp.PreparseEchoBuffers(ctx); nil != errA {
+					ctx.TpLogError("Failed to parse "+
+						"echo buffers: %s",
+						errA.Error())
+					return FAIL
+				}
+
+				//Make async chan
+				tmp.shutdown = make(chan bool, 2)
+				Mmonitors++
+			}
+
+			//Test service if it is view
+
+			if err := VIEWValidateService(ctx, &tmp); nil != err {
+				ctx.TpLogError("Failed to validate view settings: %s",
+					err.Error())
+				return FAIL
+			}
+
+			Mservices[matchSvc[1]] = &tmp
+
+			printSvcSummary(ctx, &tmp)
 		}
 	}
 
@@ -713,4 +728,5 @@ func main() {
 		}
 	}
 }
+
 /* vim: set ts=4 sw=4 et smartindent: */

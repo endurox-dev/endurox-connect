@@ -319,10 +319,10 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 		}
 
 		//Load the body (if any..)
-		if bufu.BPres(ubftab.EX_NETDATA, 0) {
+		if bufu.BPres(ubftab.EX_IF_RSPDATA, 0) {
 			var errU atmi.UBFError
 
-			rsp, errU = bufu.BGetByteArr(ubftab.EX_NETDATA, 0)
+			rsp, errU = bufu.BGetByteArr(ubftab.EX_IF_RSPDATA, 0)
 
 			if nil != errU {
 				ac.TpLogError("Failed to get body: %s", errU.Error())
@@ -707,7 +707,8 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 }
 
 //Common function parsing http request headers
-func parseHeaders(ac *atmi.ATMICtx, svc *ServiceMap, req *http.Request, bufu *atmi.TypedUBF) atmi.UBFError {
+func parseHeaders(ac *atmi.ATMICtx, svc *ServiceMap, req *http.Request,
+	bufu *atmi.TypedUBF) atmi.UBFError {
 
 	// Add header data to UBF fields
 	if svc.Parseheaders {
@@ -735,6 +736,32 @@ func parseHeaders(ac *atmi.ATMICtx, svc *ServiceMap, req *http.Request, bufu *at
 				if errU := bufu.BAdd(ubftab.EX_IF_REQCV, cookie.Value); nil != errU {
 					return errU
 				}
+			}
+		}
+	}
+
+	return nil
+}
+
+//Common func for parsing query parameters and loading them into UBF buffer
+func parseQuery(ac *atmi.ATMICtx, svc *ServiceMap, req *http.Request,
+	bufu *atmi.TypedUBF) atmi.UBFError {
+
+	m := req.URL.Query()
+
+	for k, v := range m {
+
+		//Query args are arrays by it self...
+		for _, vv := range v {
+
+			if errU := bufu.BAdd(ubftab.EX_IF_REQQUERYN, k); nil != errU {
+				ac.TpLogError("Failed to add EX_IF_REQQUERYN: %s", errU.Error())
+				return errU
+			}
+
+			if errU := bufu.BAdd(ubftab.EX_IF_REQQUERYV, vv); nil != errU {
+				ac.TpLogError("Failed to add EX_IF_REQQUERYV: %s", errU.Error())
+				return errU
 			}
 		}
 	}
@@ -796,7 +823,8 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter,
 		if !svc.Parseform {
 
 			body, _ = ioutil.ReadAll(req.Body)
-			ac.TpLogDebug("Requesting service [%s] buffer [%s]", svc.Svc, string(body))
+			ac.TpLogDebug("Requesting service [%s] buffer [%s]",
+				svc.Svc, string(body))
 		}
 
 		//Prepare outgoing buffer...
@@ -817,13 +845,13 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter,
 			//Load the body
 			if !svc.Parseform {
 
-				if errU := bufu.BChg(ubftab.EX_NETDATA, 0, body); errU != nil {
+				if errU := bufu.BChg(ubftab.EX_IF_REQDATA, 0, body); errU != nil {
 
-					ac.TpLogError("Failed to set body data in EX_NETDATA %d:[%s]",
+					ac.TpLogError("Failed to set body data in EX_IF_REQDATA %d:[%s]",
 						errU.Code(), errU.Message())
 
 					errA := atmi.NewCustomATMIError(atmi.TPESYSTEM,
-						fmt.Sprintf("Failed to set body data in EX_NETDATA %d:[%s]",
+						fmt.Sprintf("Failed to set body data in EX_IF_REQDATA %d:[%s]",
 							errU.Code(), errU.Message()))
 
 					genRsp(ac, nil, svc, w, errA, false, false)
@@ -851,6 +879,18 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter,
 						errU.Code(), errU.Message()))
 
 				ac.TpLogError("Failed to set request URL")
+				genRsp(ac, nil, svc, w, errA, false, false)
+				return atmi.FAIL
+			}
+
+			//Load request paramters
+			if errU := parseQuery(ac, svc, req, bufu); nil != errU {
+				ac.TpLogError("Failed to parse/load URL Query params")
+
+				errA := atmi.NewCustomATMIError(atmi.TPESYSTEM,
+					fmt.Sprintf("Failed to parse Query params %d:[%s]",
+						errU.Code(), errU.Message()))
+
 				genRsp(ac, nil, svc, w, errA, false, false)
 				return atmi.FAIL
 			}

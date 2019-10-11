@@ -89,7 +89,16 @@ func INMAND(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 //Add string to buffer content
 func addToNetData(data string, ub *atmi.TypedUBF) {
 
-	cont, _ := ub.BGetString(ubftab.EX_NETDATA, 0)
+	//Check is there req data present, we will add there
+
+	cont := ""
+
+	if ub.BPres(ubftab.EX_IF_REQDATA, 0) {
+		cont, _ = ub.BGetString(ubftab.EX_IF_REQDATA, 0)
+		ub.BDel(ubftab.EX_IF_REQDATA, 0)
+	} else {
+		cont, _ = ub.BGetString(ubftab.EX_IF_RSPDATA, 0)
+	}
 
 	if cont == "" {
 		cont = data
@@ -97,7 +106,7 @@ func addToNetData(data string, ub *atmi.TypedUBF) {
 		cont = cont + "-" + data
 	}
 
-	ub.BChg(ubftab.EX_NETDATA, 0, cont)
+	ub.BChg(ubftab.EX_IF_RSPDATA, 0, cont)
 
 }
 
@@ -108,7 +117,6 @@ func INOPT(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	//Get UBF Handler
 	ub, _ := ac.CastToUBF(&svc.Data)
 
-	//ub.BAdd(ubftab.T_STRING_3_FLD, "IN_OPT")
 	addToNetData("IN_OPT", ub)
 
 	//Return to the caller
@@ -134,7 +142,6 @@ func INERR(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	//Get UBF Handler
 	ub, _ := ac.CastToUBF(&svc.Data)
 
-	//ub.BAdd(ubftab.EX_NETDATA, "INERR")
 	addToNetData("INERR", ub)
 	ub.BAdd(ubftab.EX_NETRCODE, 503)
 
@@ -162,7 +169,6 @@ func OUTERR(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	//Get UBF Handler
 	ub, _ := ac.CastToUBF(&svc.Data)
 
-	//ub.BChg(ubftab.EX_NETDATA, 0, "OUTERR")
 	addToNetData("OUTERR", ub)
 	ub.BChg(ubftab.EX_NETRCODE, 0, 504)
 
@@ -191,7 +197,6 @@ func OUTMAND(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	ub, _ := ac.CastToUBF(&svc.Data)
 
 	addToNetData("OUT_MAND", ub)
-	//	ub.BAdd(ubftab.EX_NETDATA, "OUT_MAND")
 
 	//Return to the caller
 	defer func() {
@@ -216,8 +221,6 @@ func OUTOPT(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 
 	//Get UBF Handler
 	ub, _ := ac.CastToUBF(&svc.Data)
-
-	//ub.BAdd(ubftab.T_STRING_3_FLD, "OUT_OPT")
 
 	//Add the URL to the opt path
 	url, _ := ub.BGetString(ubftab.EX_IF_URL, 0)
@@ -251,7 +254,6 @@ func INOK(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	//Get UBF Handler
 	ub, _ := ac.CastToUBF(&svc.Data)
 
-	//ub.BAdd(ubftab.EX_NETDATA, "OK")
 	addToNetData("OK", ub)
 
 	//Return to the caller
@@ -278,7 +280,6 @@ func INFAIL(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	//Get UBF Handler
 	ub, _ := ac.CastToUBF(&svc.Data)
 
-	//ub.BAdd(ubftab.EX_NETDATA, "FAIL")
 	addToNetData("FAIL", ub)
 
 	//Return to the caller
@@ -289,4 +290,42 @@ func INFAIL(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 			ac.TpReturn(atmi.TPFAIL, 0, ub, 0)
 		}
 	}()
+}
+
+//Test Request params
+func REQPARAMS(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
+
+	//Get UBF Handler
+	ub, _ := ac.CastToUBF(&svc.Data)
+
+	//Print the buffer to stdout
+	ub.TpLogPrintUBF(atmi.LOG_DEBUG, "Incoming request (REQPARAMS):")
+
+	arg1 := false
+	arg2 := false
+
+	occs, _ := ub.BOccur(ubftab.EX_IF_REQQUERYN)
+
+	for i := 0; i < occs; i++ {
+
+		nam, _ := ub.BGetString(ubftab.EX_IF_REQQUERYN, i)
+		val, _ := ub.BGetString(ubftab.EX_IF_REQQUERYV, i)
+
+		if nam == "arg1" && val == "val1" {
+			arg1 = true
+		} else if nam == "arg2" && val == "val2" {
+			arg2 = true
+		}
+	}
+
+	if arg1 {
+		addToNetData("ARG1OK", ub)
+	}
+
+	if arg2 {
+		addToNetData("ARG2OK", ub)
+	}
+
+	ac.TpReturn(atmi.TPSUCCESS, 0, ub, 0)
+
 }

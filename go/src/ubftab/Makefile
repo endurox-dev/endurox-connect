@@ -28,4 +28,4 @@ $(OUTPUT): $(SOURCES)
 
 .PHONY: clean
 clean:
-	- rm *.go
+	- rm *.go ${PACKAGE}

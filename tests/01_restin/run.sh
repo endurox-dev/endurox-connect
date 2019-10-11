@@ -66,6 +66,33 @@ function go_out {
     popd 2>/dev/null
     exit $1
 }
+###############################################################################
+echo "Check EXT mode QUERY"
+###############################################################################
+{
+for i in {1..100}
+do
+
+	RSP=`curl -i 'http://localhost:8080/ext_query?arg2=val2&arg1=val1' 2>&1`
+
+	EXPECT="ARG1OK-ARG2OK"
+	
+	if [[ "$RSP" != *"$EXPECT"* ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$EXPECT] to appear"
+		go_out 60
+	fi
+
+	RSP_EXPECTED="200"
+	
+	echo "Response: [$RSP]"
+
+	if [[ "$RSP" != *"$RSP_EXPECTED"* ]]; then
+		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"
+		go_out 59
+	fi
+	
+done
+} >> $LOGFILE 2>&1
 
 ###############################################################################
 echo "Check EXT mode FAIL / GET"
@@ -76,7 +103,7 @@ do
 
 	RSP=`curl -i http://localhost:8080/ext_dum_fail 2>&1`
 
-	local EXPECT="Content-Length: 0"
+	EXPECT="Content-Length: 0"
 	
 	if [[ "$RSP" != *"$EXPECT"* ]]; then
 		echo "Invalid response received, got: [$RSP], expected: [$EXPECT] to appear"
@@ -95,8 +122,6 @@ do
 done
 } >> $LOGFILE 2>&1
 
-
-
 ###############################################################################
 echo "Check EXT mode OK / GET"
 ###############################################################################
@@ -106,7 +131,7 @@ do
 
 	RSP=`curl -i http://localhost:8080/ext_dum_ok 2>&1`
 
-	local EXPECT="OK"
+	EXPECT="OK"
 	
 	if [[ "$RSP" != *"$EXPECT"* ]]; then
 		echo "Invalid response received, got: [$RSP], expected: [$EXPECT] to appear"
@@ -140,7 +165,7 @@ do
 	RSP=`curl -i -H "Content-Type: application/x-www-form-urlencoded" -d "OK=run" \
 	http://localhost:8080/ext_handler_form 2>&1`
 
-	local EXPECT="IN_MAND-IN_OPT-OK-OUT_MAND-OUT_OPT/ext_handler_form"
+	EXPECT="IN_MAND-IN_OPT-OK-OUT_MAND-OUT_OPT/ext_handler_form"
 	if [[ "$RSP" != *"$EXPECT"* ]]; then
 		echo "Invalid response received, got: [$RSP], expected: [$EXPECT] to appear"
 		go_out 53
@@ -173,7 +198,7 @@ do
 	RSP=`curl -i -H "Content-Type: application/x-www-form-urlencoded" -d "E_INMAND=run" \
 	http://localhost:8080/ext_handler_form 2>&1`
 
-	local EXPECT="IN_MAND-INERR"
+	EXPECT="IN_MAND-INERR"
 	if [[ "$RSP" != *"$EXPECT"* ]]; then
 		echo "Invalid response received, got: [$RSP], expected: [$EXPECT] to appear"
 		go_out 50
@@ -211,7 +236,7 @@ do
 	RSP=`curl -i -H "Content-Type: application/x-www-form-urlencoded" -d "E_INOK=run" \
 	http://localhost:8080/ext_handler_form 2>&1`
 
-	local EXPECT="IN_MAND-IN_OPT-OK-OUTERR"
+	EXPECT="IN_MAND-IN_OPT-OK-OUTERR"
 	if [[ "$RSP" != *"$EXPECT"* ]]; then
 		echo "Invalid response received, got: [$RSP], expected: [$EXPECT] to appear"
 		go_out 46
@@ -244,7 +269,7 @@ do
 	RSP=`curl -i -H "Content-Type: application/x-www-form-urlencoded" -d "E_OUTMAND=run" \
 	http://localhost:8080/ext_handler_form 2>&1`
 
-	local EXPECT="IN_MAND-IN_OPT-OK-OUTERR"
+	EXPECT="IN_MAND-IN_OPT-OK-OUT_MAND-OUTERR"
 	if [[ "$RSP" != *"$EXPECT"* ]]; then
 		echo "Invalid response received, got: [$RSP], expected: [$EXPECT] to appear"
 		go_out 43
@@ -277,7 +302,7 @@ do
 	RSP=`curl -i -H "Content-Type: application/x-www-form-urlencoded" -d "E_INOPT=run" \
 	http://localhost:8080/ext_handler_form 2>&1`
 
-	local EXPECT="IN_MAND-IN_OPT-OK-OUT_MAND-OUT_OPT/ext_handler_form"
+	EXPECT="IN_MAND-IN_OPT-OK-OUT_MAND-OUT_OPT/ext_handler_form"
 	if [[ "$RSP" != *"$EXPECT"* ]]; then
 		echo "Invalid response received, got: [$RSP], expected: [$EXPECT] to appear"
 		go_out 40
@@ -311,7 +336,7 @@ do
 	RSP=`curl -v -d "HELLO" -H "Content-Type: application/x-www-form-urlencoded" \
 	http://localhost:8080/ext_handler_noform 2>&1`
 
-	local EXPECT="HELLO-OK-IN_OPT-OK-OUT_MAND-OUT_OPT/ext_handler_noform"
+	EXPECT="HELLO-OK-IN_OPT-OK-OUT_MAND-OUT_OPT/ext_handler_noform"
 	if [[ "$RSP" != *"$EXPECT"* ]]; then
 		echo "Invalid response received, got: [$RSP], expected: [$EXPECT] to appear"
 		go_out 35
@@ -341,10 +366,10 @@ echo "Static content... 5"
 for i in {1..100}
 do
 	# Having a -i means to print the headers
-        RSP=`(curl -s http://localhost:8080/index.html 2>&1 )`
+    RSP=`(curl -s http://localhost:8080/index.html 2>&1 )`
 
 	RSP_EXPECTED="<html><header><title>This is title</title></header><body>Hello world</body></html>"
-        echo "Response: [$RSP]"
+    echo "Response: [$RSP]"
 
 	if [[ "X$RSP" != "X$RSP_EXPECTED" ]]; then
 		echo "Invalid response received, got: [$RSP], expected: [$RSP_EXPECTED]"

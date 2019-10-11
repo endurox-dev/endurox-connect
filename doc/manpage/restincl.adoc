@@ -124,19 +124,23 @@ names are following:
 
 - *EX_IF_URL* - URL called;
 
-- *EX_NETDATA* - is loaded with HTTP Message body, byte array;
+- *EX_IF_REQDATA* - is loaded with HTTP Message body, byte array;
 
-- *EX_IF_REQHN* - request header name;
+- *EX_IF_REQHN* - request header names;
 
-- *EX_IF_REQHV* - request header value, same occurrence with name;
+- *EX_IF_REQHV* - request header values, same occurrence with names;
 
-- *EX_IF_REQCN* - request cookie name;
+- *EX_IF_REQCN* - request cookie names;
 
-- *EX_IF_REQCV* - request cookie value, same occurrence with name;
+- *EX_IF_REQCV* - request cookie value, same occurrence with names;
 
-- *EX_IF_REQFORMN* - form submit field name;
+- *EX_IF_REQFORMN* - form submit field names;
 
-- *EX_IF_REQFORMV* - form submit field value;
+- *EX_IF_REQFORMV* - form submit field values;
+
+- *EX_IF_REQQUERYN* - URL Query parameter names names;
+
+- *EX_IF_REQQUERYV* - URL Query parameter names values;
 
 If fields are prepared OK, list of comma separated services found in *finman*
 are executed with UBF buffer. This can be used to build up the target request buffer.
@@ -145,7 +149,7 @@ error and then incoming error service chain *finerr* is executed (as optional).
 When generating response *EX_NETRCODE* field with expected http code is read. 
 If field is missing in buffers, then *restincl* will respond with error 500, 
 without any body. In case of error and if buffer contains *EX_NETRCODE*, then
-system will attempt to return the *EX_NETDATA*.
+system will attempt to return the *EX_IF_RSPDATA*.
 
 If there was no error, after all incoming filter chains done, 
 target service is executed. Once that is done, the response chain is activated. 
@@ -160,7 +164,7 @@ generation and http status is set to *EX_NETRCODE*. If in case of error
 
 The response is generated in following way:
 
-- http body is loaded from *EX_NETDATA*;
+- http body is loaded from *EX_IF_RSPDATA*;
 
 - http headers are loaded from *EX_IF_RSPHN* and *EX_IF_RSPHV*
 
@@ -697,7 +701,7 @@ expression format is used. Default value is 'EX_IF_URL'.
 
 *parseform* = 'true|false'::
 If set to *true* then URL and Post body is parsed and *EX_IF_REQFORMN*/*EX_IF_REQFORMV*
-pairs are filled. In this case *EX_NETDATA* field is not setup. This flag functions
+pairs are filled. In this case *EX_IF_REQDATA* field is not setup. This flag functions
 only in conv/error mode *ext*.
 
 *finman* = 'SERVICE_LIST'::

@@ -267,7 +267,8 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 		//OK we are at ext, execute the error filters, if any
 		if !postSvc {
 			//This is incoming error, run the incoming error handler
-			runChain(ac, svc, buf, false, svc.Finerr_arr, "filter-incoming-error-opt(finerr)")
+			runChain(ac, svc, buf, false, svc.Finerr_arr,
+				"filter-incoming-error-opt(finerr)")
 			was_error = true
 		} else if nil == err || 0 == err.Code() {
 			//Execute the outgoing chains...
@@ -278,7 +279,8 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 			}
 
 			if !was_error {
-				runChain(ac, svc, buf, false, svc.Foutopt_arr, "filter-outgoing-optional(foutopt)")
+				runChain(ac, svc, buf, false, svc.Foutopt_arr,
+					"filter-outgoing-optional(foutopt)")
 			}
 		} else {
 			out_err = true
@@ -287,7 +289,8 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 
 		//If we got outgoing error, call the service correspondingly..
 		if out_err {
-			runChain(ac, svc, buf, false, svc.Fouterr_arr, "filter-outgoing-error-opt(fouterr)")
+			runChain(ac, svc, buf, false, svc.Fouterr_arr,
+				"filter-outgoing-error-opt(fouterr)")
 		}
 
 		//OK, check the status code

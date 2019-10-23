@@ -129,11 +129,17 @@ func CONSTAT(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 
 		//Test that it matches basic id
 
-		plain_from_comp := comp & 0xffffff
+		var plain_from_comp int64
+
+		if atmi.ExSizeOfLong() == 8 {
+			plain_from_comp = comp & 0xffffff
+		} else {
+			plain_from_comp = comp & 0x7fff
+		}
 
 		if con != plain_from_comp {
 			ac.TpLogError("CONSTAT: TESTERROR! Invalid connection ids plain "+
-				"from comp (EX_NETCONNIDCOMP 0xffffff) = [%d] plain = [%d]!",
+				"from comp (EX_NETCONNIDCOMP 0xffffff | 0x7fff) = [%d] plain = [%d]!",
 				plain_from_comp, con)
 			ret = FAIL
 			return

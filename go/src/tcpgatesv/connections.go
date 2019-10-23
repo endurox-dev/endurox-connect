@@ -267,8 +267,16 @@ func GetConnectionByID(ac *atmi.ATMICtx, connid int64) *ExCon {
 
 	//If it is compiled we will lookup by hash.
 
-	tstamp := connid >> 24
-	id := connid & 0xffffff
+	var tstamp, id int64
+	
+	if atmi.ExSizeOfLong() == 8 {
+		tstamp = connid >> 24
+		id = connid & 0xffffff
+	} else {
+		//16 bit tstamp, 15 bit conn id
+		tstamp = connid >> 15
+		id = connid & 0x7fff
+	}
 
 	ac.TpLogInfo("Compiled id: %d, tstamp: %d, simple id: %d",
 		connid, tstamp, id)
@@ -360,7 +368,16 @@ func GetNewConnectionId(ac *atmi.ATMICtx) (int64, int64, int64) {
 			/* return time.Uni */
 			tstamp := exutil.GetEpochMillis()
 			//We have oldest 40 bit timestamp, youngest 24 bit - id
-			var compiled_id = tstamp<<24 | (i & 0xffffff)
+			var compiled_id int64
+
+			if atmi.ExSizeOfLong() == 8 {
+				compiled_id = tstamp<<24 | (i & 0xffffff)
+			} else {
+				//Have 16 bit time stamp and 15 bit txn id
+				compiled_id = tstamp<<15 | (i & 0x7fff)
+				//Delete the sign
+				compiled_id &= 0x7fffffff
+			}
 
 			ac.TpLogWarn("Generated connection id: %d/%d/%d",
 				i, tstamp, compiled_id)

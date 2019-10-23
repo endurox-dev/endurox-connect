@@ -180,7 +180,9 @@ fi
 
 xadmin start -i 210
 xadmin start -i 230
-sleep 1
+
+# let connection to establish back...
+sleep 10
 
 ################################################################################
 echo " >>> Run Correlation..."

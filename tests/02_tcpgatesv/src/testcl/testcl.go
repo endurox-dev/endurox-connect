@@ -290,6 +290,9 @@ func apprun(ac *atmi.ATMICtx) error {
 			} else if rsp_code != 0 {
 				if command == "nocon" && rsp_code == atmi.NENOCONN {
 					ac.TpLogError("No connection test ok")
+				} else if command == "nocon" {
+					ac.TpLogError("TESTERROR: Response code must be %d but got %d!",
+						atmi.NENOCONN, rsp_code)
 				} else {
 					ac.TpLogError("TESTERROR: Response code must be 0 but got %d!",
 						rsp_code)

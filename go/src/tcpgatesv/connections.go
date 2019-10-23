@@ -11,7 +11,7 @@
  * AGPL or Mavimax's license for commercial use.
  * -----------------------------------------------------------------------------
  * AGPL license:
- * 
+ *
  * This program is free software; you can redistribute it and/or modify it under
  * the terms of the GNU Affero General Public License, version 3 as published
  * by the Free Software Foundation;
@@ -21,8 +21,8 @@
  * PARTICULAR PURPOSE. See the GNU Affero General Public License, version 3
  * for more details.
  *
- * You should have received a copy of the GNU Affero General Public License along 
- * with this program; if not, write to the Free Software Foundation, Inc., 
+ * You should have received a copy of the GNU Affero General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
  * 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
  * -----------------------------------------------------------------------------
@@ -268,7 +268,7 @@ func GetConnectionByID(ac *atmi.ATMICtx, connid int64) *ExCon {
 	//If it is compiled we will lookup by hash.
 
 	var tstamp, id int64
-	
+
 	if atmi.ExSizeOfLong() == 8 {
 		tstamp = connid >> 24
 		id = connid & 0xffffff
@@ -644,6 +644,7 @@ func HandleConnection(con *ExCon) {
 			if MReqReply == RR_NONPERS_NET2EX {
 				ac.TpLogInfo("CONN: %d - send_and_shut recieved - terminating",
 					con.id_comp)
+
 				ok = false
 			}
 
@@ -657,6 +658,12 @@ func HandleConnection(con *ExCon) {
 	delete(MConnectionsSimple, con.id)
 	delete(MConnectionsComp, con.id_comp)
 
+	//Close connection
+	if con.is_open {
+		//Bug #464
+		con.is_open = false
+		con.con.Close()
+	}
 	//Connection closed...
 	NotifyStatus(ac, con.id, con.id_comp, FLAG_CON_DISCON, con)
 
@@ -963,4 +970,5 @@ func PassiveConnectionListener() {
 	//Termiante connection if shutdown requested
 	MPassiveLisener.Close()
 }
+
 /* vim: set ts=4 sw=4 et smartindent: */

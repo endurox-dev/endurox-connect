@@ -8,6 +8,9 @@
 ulimit -n 50000
 ulimit -c unlimited
 
+# Load other config... stack size, etc
+source ~/ndrx_home
+
 > ./test.out
 # Have some terminal output...
 tail -f test.out &

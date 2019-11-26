@@ -4,6 +4,12 @@
 # @(#) Test 03 - Rest-OUT interface tests...
 #
 
+#
+# Load system settings...
+#
+source ~/ndrx_home
+
+
 TIMES=200
 
 pushd .

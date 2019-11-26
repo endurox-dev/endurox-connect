@@ -4,6 +4,11 @@
 # @(#) Test 01 - Rest-IN interface tests...
 #
 
+#
+# Load system settings...
+#
+source ~/ndrx_home
+
 pushd .
 
 rm -rf runtime/log 2>/dev/null

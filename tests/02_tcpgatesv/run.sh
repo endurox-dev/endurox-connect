@@ -4,6 +4,11 @@
 # @(#) Test 02 - TCP Gate tests
 #
 
+#
+# Load system settings...
+#
+source ~/ndrx_home
+
 # set limit, for osx have issues with ssh defaults
 ulimit -n 50000
 

@@ -686,6 +686,30 @@ BUGS
 ----
 Report bugs to support@mavimax.com
 
+In case if running software for MacOS, it might be required to set:
+
+--------------------------------------------------------------------------------
+
+# defaults write NSGlobalDomain NSAppSleepDisabled -bool YES
+
+--------------------------------------------------------------------------------
+
+Otherwise tcpgatesv binary might receive Go panics. Otherwise in high processing
+intensity, system warns user in dmesg with:
+
+--------------------------------------------------------------------------------
+
+process tpcgatesv[43069] caught causing excessive wakeups. Observed wakeups rate...
+
+--------------------------------------------------------------------------------
+
+And in this result, seems like Go binary is interrupted by OS, which causes Go
+binary to corrupt its internal scheduler.
+
+Also problems is found with MacOS only when background processes (with out TTY)
+are running. If user logins in shell and executes the tcpgatesv tests, then
+problems does not appear.
+
 SEE ALSO
 --------
 *restincl(8)* *restoutsv(8)*.

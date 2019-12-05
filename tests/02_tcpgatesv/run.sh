@@ -67,6 +67,13 @@ sleep 60
 echo ">>> Running sequence tests"
 ################################################################################
 NROFCALLS=40000
+
+# seems like for osx this causes too high usage
+# i.e. too mahy wakeups
+if [ "X`uname`" == "XDarwin" ]; then
+	NROFCALLS=1000
+fi
+
 COMMAND="seq"
 testcl $COMMAND $NROFCALLS TCP_P_SEQ_A
 RET=$?

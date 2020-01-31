@@ -883,6 +883,18 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter,
 				return atmi.FAIL
 			}
 
+			//Load the request method
+			if errU := bufu.BAdd(ubftab.EX_IF_METHOD, req.Method); nil != errU {
+
+				errA := atmi.NewCustomATMIError(atmi.TPESYSTEM,
+					fmt.Sprintf("Failed to set EX_IF_METHOD %d:[%s]",
+						errU.Code(), errU.Message()))
+
+				ac.TpLogError("Failed to set request Method")
+				genRsp(ac, nil, svc, w, errA, false, false)
+				return atmi.FAIL
+			}
+
 			//Load request paramters
 			if errU := parseQuery(ac, svc, req, bufu); nil != errU {
 				ac.TpLogError("Failed to parse/load URL Query params")

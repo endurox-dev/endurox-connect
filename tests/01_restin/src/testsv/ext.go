@@ -70,6 +70,24 @@ func INMAND(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 		return
 	}
 
+	//Check also some mandatory fields
+	//Feature #509
+	//EX_IF_METHOD now must be present
+	method, errU := ub.BGetString(ubftab.EX_IF_METHOD, 0)
+
+	if nil != errU {
+		ac.TpLogError("TESTERROR! Failed to get EX_IF_METHOD: %s", errU.Error())
+		ret = FAIL
+		return
+	}
+
+	if method != "GET" && method != "POST" {
+		ac.TpLogError("TESTERROR Test error method expected GET or POST, "+
+			"but recieved: [%s]", method)
+		ret = FAIL
+		return
+	}
+
 	//Load the test fields
 
 	ub.BAdd(ubftab.T_STRING_2_FLD, formName)

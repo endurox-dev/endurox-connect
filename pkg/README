@@ -22,3 +22,4 @@ Releases:
 2.4.16 - Feature #377 - ext mode (in/out filters)
 2.4.18 - Bug #461
 2.4.20 - Updates on ext mode processing now body is loaded into EX_IF_REQDATA/EX_IF_RSPDATA fields
+2.4.22 - Feature #509 - added EX_IF_METHOD for ext (web method post/get, etc..)

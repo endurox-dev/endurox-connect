@@ -343,6 +343,13 @@ echo ">>> have some batch callers to non persistant connections they all should 
 NROFCALLS=40
 COMMAND="corrsim"
 
+archs=`uname -m`
+
+if [ "X$archs" == "Xarmv7l" ]; then
+	# have some memory issues on rpi
+	NROFCALLS=10
+fi
+
 testcl $COMMAND $NROFCALLS TCP_NP_A
 RET=$?
 

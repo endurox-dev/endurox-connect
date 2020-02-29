@@ -21,6 +21,13 @@ cd runtime
 
 NUMCALL=100
 
+NUMCALL40=40
+archs=`uname -m`
+if [ "X$archs" == "Xarmv7l" ]; then
+	# have some memory issues on rpi
+	NUMCALL40=10
+fi
+
 #
 # Generic exit function
 #
@@ -325,7 +332,7 @@ echo ">>> Have some test where we overload the channel - i.e."
 # i.e. wait the connection from queue...
 ################################################################################
 # Number of calls depends on internal modulus, now 40... over the ascii table from A
-NROFCALLS=40
+NROFCALLS=$NUMCALL40
 COMMAND="corrsim"
 
 testcl $COMMAND $NROFCALLS TCP_P_ASYNC_P
@@ -340,15 +347,8 @@ fi
 echo ">>> have some batch callers to non persistant connections they all should complete ok."
 ################################################################################
 # Number of calls depends on internal modulus, now 40... over the ascii table from A
-NROFCALLS=40
+NROFCALLS=$NUMCALL40
 COMMAND="corrsim"
-
-archs=`uname -m`
-
-if [ "X$archs" == "Xarmv7l" ]; then
-	# have some memory issues on rpi
-	NROFCALLS=10
-fi
 
 testcl $COMMAND $NROFCALLS TCP_NP_A
 RET=$?
@@ -362,7 +362,7 @@ fi
 echo ">>> echo same test for sync mode"
 ################################################################################
 # Number of calls depends on internal modulus, now 40... over the ascii table from A
-NROFCALLS=40
+NROFCALLS=$NUMCALL40
 COMMAND="corrsim"
 
 #testcl $COMMAND $NROFCALLS TCP_P_SYNC_A

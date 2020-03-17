@@ -7,7 +7,7 @@ This module adds ability to expose to outer world Enduro/X services. It is bi-di
 * Outgoing to network http/rest compatibility.
 * Generic two-way tcp/ip driver for IoT device connectivity.
 
-Release files may be found here: https://www.mavimax.com/downloads
+Release binaries may be found here: https://www.mavimax.com/downloads
 
 ## Build & test status
 

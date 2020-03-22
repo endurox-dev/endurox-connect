@@ -11,7 +11,7 @@
  * AGPL or Mavimax's license for commercial use.
  * -----------------------------------------------------------------------------
  * AGPL license:
- * 
+ *
  * This program is free software; you can redistribute it and/or modify it under
  * the terms of the GNU Affero General Public License, version 3 as published
  * by the Free Software Foundation;
@@ -21,8 +21,8 @@
  * PARTICULAR PURPOSE. See the GNU Affero General Public License, version 3
  * for more details.
  *
- * You should have received a copy of the GNU Affero General Public License along 
- * with this program; if not, write to the Free Software Foundation, Inc., 
+ * You should have received a copy of the GNU Affero General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
  * 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
  * -----------------------------------------------------------------------------
@@ -254,8 +254,24 @@ func GetMessage(ac *atmi.ATMICtx, con *ExCon) ([]byte, error) {
 		}
 
 		//..And read the number of bytes...
-		data := make([]byte, mlen)
-		n, err = io.ReadFull(con.reader, data)
+		var data []byte
+		var data_space []byte
+
+		//Feature #531
+		if MFramingKeepHdr {
+
+			data = make([]byte, mlen+int64(MFramingLen))
+			data_space = data[MFramingLen:]
+
+			//Restore the header please...
+			copy(data, header)
+
+		} else {
+			data = make([]byte, mlen)
+			data_space = data[:]
+		}
+
+		n, err = io.ReadFull(con.reader, data_space)
 
 		if err != nil {
 			ac.TpLogError("Failed to read %d bytes: %s", mlen, err)
@@ -271,22 +287,20 @@ func GetMessage(ac *atmi.ATMICtx, con *ExCon) ([]byte, error) {
 		}
 
 		if MFramingKeepHdr {
-			datafull := append(header, data...)
-
 			ac.TpLogDump(atmi.LOG_DEBUG, "FULL (incl len hdr) Message read",
-				datafull, len(datafull))
-			return datafull, nil
+				data, len(data))
 		} else {
 			ac.TpLogDump(atmi.LOG_DEBUG, "Message (no len hdr) read",
 				data, len(data))
-			return data, nil
 		}
+
+		return data, nil
 
 	} else {
 		ac.TpLogInfo("About to read message until delimiter 0x%x", MDelimStop)
 
 		//If we use delimiter, then read pu till that
-		idata, err := con.reader.ReadSlice(MDelimStop)
+		data, err := con.reader.ReadBytes(MDelimStop)
 
 		if err != nil {
 
@@ -297,8 +311,8 @@ func GetMessage(ac *atmi.ATMICtx, con *ExCon) ([]byte, error) {
 
 		// Bug #103, seems like the data returned by ReadSlice is somehow shared
 		// and not reallocated... Thus make a new buffer
-		data := make([]byte, len(idata))
-		copy(data, idata)
+		//data := make([]byte, len(idata))
+		//copy(data, idata)
 
 		ac.TpLogDump(atmi.LOG_DEBUG, "Got the message with end seperator",
 			data, len(data))
@@ -402,7 +416,7 @@ func PutMessage(ac *atmi.ATMICtx, con *ExCon, data []byte) error {
 
 		//About to send message.
 		dataToSend := []byte{}
-
+		hdr_bytes := 0
 		if MFramingKeepHdr {
 
 			//In this case at specific offset we need to copy data from prepared
@@ -413,7 +427,24 @@ func PutMessage(ac *atmi.ATMICtx, con *ExCon, data []byte) error {
 
 			dataToSend = data
 		} else {
-			dataToSend = append(header[:], data...)
+
+			var err error
+			//We can sender header separetelly
+			//Better two sends than... copy..
+			//dataToSend = append(header[:], data...)
+
+			ac.TpLogDump(atmi.LOG_DEBUG, "Sending header",
+				header, len(header))
+
+			hdr_bytes, err = con.writer.Write(header)
+
+			if nil != err {
+				errMsg := fmt.Sprintf("Failed to send header socket: %s", err)
+				ac.TpLogError(errMsg)
+				return errors.New(errMsg)
+			}
+
+			dataToSend = data
 		}
 
 		ac.TpLogDump(atmi.LOG_DEBUG, "Sending message, w len pfx",
@@ -435,30 +466,55 @@ func PutMessage(ac *atmi.ATMICtx, con *ExCon, data []byte) error {
 			return errors.New(errMsg)
 		}
 
-		if nil != err {
-			ac.TpLogError("Failed to write data to socket: %s", err)
-		}
-
-		ac.TpLogInfo("Written %d bytes to socket", nw)
+		ac.TpLogInfo("Written %d bytes to socket", nw+hdr_bytes)
 
 	} else {
 
 		var dataToSend []byte
-		//Put (STX)ETX
-		if MFramingCode == FRAME_DELIM_BOTH {
-			dataToSend = append(([]byte{MDelimStart})[:], data[:]...)
-			dataToSend = append(dataToSend[:], ([]byte{MDelimStop})[:]...)
+		hdr_bytes := 0
 
-		} else {
-			dataToSend = append(data[:], ([]byte{MDelimStop})[:]...)
+		//Put STX
+		if MFramingCode == FRAME_DELIM_BOTH {
+			//dataToSend = append(([]byte{MDelimStart})[:], data[:]...)
+			//Send start delimiter...
+			var err error
+
+			stx_data := ([]byte{MDelimStart})[:]
+
+			ac.TpLogDump(atmi.LOG_DEBUG, "Sending STX message", stx_data, len(stx_data))
+
+			hdr_bytes, err = con.writer.Write(stx_data)
+
+			if nil != err {
+				errMsg := fmt.Sprintf("Failed to send STX: %s", err)
+				ac.TpLogError(errMsg)
+				return errors.New(errMsg)
+			}
 		}
+
+		//ETX append with tx
+		//dataToSend = append(data[:], ([]byte{MDelimStop})[:]...)
 
 		ac.TpLogDump(atmi.LOG_DEBUG, "Sending message", dataToSend, len(dataToSend))
 
-		nw, err := con.writer.Write(dataToSend)
+		nw, err := con.writer.Write(data)
 
 		if nil != err {
-			ac.TpLogError("Failed to write data to socket: %s", err)
+			errMsg := fmt.Sprintf("Failed to write data to socket: %s", err)
+			ac.TpLogError(errMsg)
+			return errors.New(errMsg)
+		}
+
+		etx_data := ([]byte{MDelimStop})[:]
+
+		ac.TpLogDump(atmi.LOG_DEBUG, "Sending ETX message", etx_data, len(etx_data))
+
+		etx_bytes, err := con.writer.Write(etx_data)
+
+		if nil != err {
+			errMsg := fmt.Sprintf("Failed to write to socket etx data: %s", err)
+			ac.TpLogError(errMsg)
+			return errors.New(errMsg)
 		}
 
 		err = con.writer.Flush()
@@ -469,9 +525,11 @@ func PutMessage(ac *atmi.ATMICtx, con *ExCon, data []byte) error {
 			return errors.New(errMsg)
 		}
 
-		ac.TpLogInfo("Written %d bytes to socket", nw)
+		ac.TpLogInfo("Written %d bytes to socket", nw+hdr_bytes+etx_bytes)
+
 	}
 
 	return nil
 }
+
 /* vim: set ts=4 sw=4 et smartindent: */

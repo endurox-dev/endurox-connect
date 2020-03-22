@@ -483,12 +483,20 @@ func HandleConnection(con *ExCon) {
 	nolock := false
 	dataIn := make(chan []byte)
 	dataInErr := make(chan error)
+
 	ok := true
 	ac := con.ctx
 	/* Need a:
 	 * - byte array channel
 	 * - error channel for socket
 	 */
+
+	//Set options
+	tcpcon := con.con.(*net.TCPConn)
+
+	if MLinger > -1 {
+		tcpcon.SetLinger(MLinger)
+	}
 
 	//Connection open...
 	NotifyStatus(ac, con.id, con.id_comp, FLAG_CON_ESTABLISHED, con)

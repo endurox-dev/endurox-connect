@@ -11,7 +11,7 @@
  * AGPL or Mavimax's license for commercial use.
  * -----------------------------------------------------------------------------
  * AGPL license:
- * 
+ *
  * This program is free software; you can redistribute it and/or modify it under
  * the terms of the GNU Affero General Public License, version 3 as published
  * by the Free Software Foundation;
@@ -21,8 +21,8 @@
  * PARTICULAR PURPOSE. See the GNU Affero General Public License, version 3
  * for more details.
  *
- * You should have received a copy of the GNU Affero General Public License along 
- * with this program; if not, write to the Free Software Foundation, Inc., 
+ * You should have received a copy of the GNU Affero General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
  * 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
  * -----------------------------------------------------------------------------
@@ -134,6 +134,7 @@ var MShutdown int = RUN_CONTINUE
 
 var MActiveConScan int = 5 //scan for new outgoing connections every 10 seconds
 
+var MLinger int = -1 //Set linger <0 is default OS setting
 //TCPGATE service
 //@param ac ATMI Context
 //@param svc Service call information
@@ -467,8 +468,12 @@ func Init(ac *atmi.ATMICtx) int {
 					debug, err.Code(), err.Message())
 				return FAIL
 			}
-
 			break
+		case "linger":
+			MLinger, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
+			ac.TpLogDebug("Got [%s] = [%d] ", fldName, MLinger)
+			break
+
 		default:
 
 			break
@@ -642,6 +647,8 @@ func Init(ac *atmi.ATMICtx) int {
 		go PassiveConnectionListener()
 	}
 
+	ac.TpLogWarn("Startup finished")
+
 	return SUCCEED
 }
 
@@ -687,4 +694,5 @@ func main() {
 		}
 	}
 }
+
 /* vim: set ts=4 sw=4 et smartindent: */

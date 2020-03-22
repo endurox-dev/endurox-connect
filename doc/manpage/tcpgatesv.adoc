@@ -641,6 +641,18 @@ The default value for this field is *unset* (i.e. empty parameter - not used).
 Enduro/X standard debug string, see *ndrxdebug.conf(5)* manpage. The sample value
 could look like:
 
+--------------------------------------------------------------------------------
+
+[@tcpgate]
+...
+debug=ndrx=5 ubf=0 tp=5 file=/tmp/tcpgatesv.log
+
+--------------------------------------------------------------------------------
+
+Meaning that Enduro/X internal ATMI level logging ('ndrx' setting) is set to 5 - 
+debug, and user logging 'tp' (*tcpgatesv* binary) logging also is set to 5 - debug.
+Output file will be set to '/tmp/tcpgatesv.log'. UBF logging is set to none.
+
 *seqin* = 'SEQIN'::
 If set to *1* dispatch incoming messages from network to XATMI service 
 in one thread mode. Thus ensuring the order of the messages to be
@@ -656,17 +668,12 @@ are used, otherwise two competing queues can be create and fifo order will be
 disrupted. The default value is *0* - disabled, meaning that outgoing messages
 are processed in out of order manner (by multiple concurrent threads).
 
---------------------------------------------------------------------------------
-
-[@tcpgate]
-...
-debug=ndrx=5 ubf=0 tp=5 file=/tmp/tcpgatesv.log
-
---------------------------------------------------------------------------------
-
-Meaning that Enduro/X internal ATMI level logging ('ndrx' setting) is set to 5 - 
-debug, and user logging 'tp' (*tcpgatesv* binary) logging also is set to 5 - debug.
-Output file will be set to '/tmp/tcpgatesv.log'. UBF logging is set to none.
+*linger* = 'LINGER_SECONDS'::
+When socket is shut down, this is number of seconds to wait for unsent or unacknowledged
+to be processed on connection close. If set to *0*, then operating system discards
+any such data on shutdown. If set above (>) *0*, this is number of seconds to
+wait for data to be processed before discarding. If set less (<) than *0*, then
+operating system default policy is used. Default is *-1*.
 
 
 EXIT STATUS

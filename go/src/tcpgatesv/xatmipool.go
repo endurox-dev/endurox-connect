@@ -11,7 +11,7 @@
  * AGPL or Mavimax's license for commercial use.
  * -----------------------------------------------------------------------------
  * AGPL license:
- * 
+ *
  * This program is free software; you can redistribute it and/or modify it under
  * the terms of the GNU Affero General Public License, version 3 as published
  * by the Free Software Foundation;
@@ -21,8 +21,8 @@
  * PARTICULAR PURPOSE. See the GNU Affero General Public License, version 3
  * for more details.
  *
- * You should have received a copy of the GNU Affero General Public License along 
- * with this program; if not, write to the Free Software Foundation, Inc., 
+ * You should have received a copy of the GNU Affero General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
  * 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
  * -----------------------------------------------------------------------------
@@ -39,10 +39,10 @@ import (
 )
 
 type XATMIPool struct {
-	freechansync *sync.Mutex     //We need to lock the freechan
-	freechan     chan int        //List of free channels submitted by wokers
-	ctxs         []*atmi.ATMICtx //List of contexts
-	nrWorkers    int             //Number of contexts
+	//freechansync *sync.Mutex     //We need to lock the freechan
+	freechan  chan int        //List of free channels submitted by wokers
+	ctxs      []*atmi.ATMICtx //List of contexts
+	nrWorkers int             //Number of contexts
 
 }
 
@@ -59,7 +59,7 @@ func initPool(ac *atmi.ATMICtx, pool *XATMIPool) error {
 
 	pool.freechan = make(chan int, pool.nrWorkers)
 
-	pool.freechansync = &sync.Mutex{}
+	//pool.freechansync = &sync.Mutex{}
 
 	for i := 0; i < pool.nrWorkers; i++ {
 
@@ -100,15 +100,16 @@ func deInitPoll(ac *atmi.ATMICtx, pool *XATMIPool) {
 //Return the free X context
 func getFreeXChan(ac *atmi.ATMICtx, pool *XATMIPool) int {
 	//Should we use locking here?
-
-	pool.freechansync.Lock()
+	//WHY?
+	//pool.freechansync.Lock()
 
 	nr := <-pool.freechan
 
-	pool.freechansync.Unlock()
+	//pool.freechansync.Unlock()
 
 	ac.TpLogInfo("Got free XATMI out object id=%d ", nr)
 
 	return nr
 }
+
 /* vim: set ts=4 sw=4 et smartindent: */

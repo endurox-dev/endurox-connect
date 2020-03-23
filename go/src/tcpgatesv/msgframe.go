@@ -436,7 +436,8 @@ func PutMessage(ac *atmi.ATMICtx, con *ExCon, data []byte) error {
 			ac.TpLogDump(atmi.LOG_DEBUG, "Sending header",
 				header, len(header))
 
-			hdr_bytes, err = con.writer.Write(header)
+			hdr_bytes, err = con.con.Write(header)
+			//hdr_bytes, err = con.writer.Write(header)
 
 			if nil != err {
 				errMsg := fmt.Sprintf("Failed to send header socket: %s", err)
@@ -450,7 +451,8 @@ func PutMessage(ac *atmi.ATMICtx, con *ExCon, data []byte) error {
 		ac.TpLogDump(atmi.LOG_DEBUG, "Sending message, w len pfx",
 			dataToSend, len(dataToSend))
 
-		nw, err := con.writer.Write(dataToSend)
+		nw, err := con.con.Write(dataToSend)
+		//nw, err := con.writer.Write(dataToSend)
 
 		if nil != err {
 			errMsg := fmt.Sprintf("Failed to write data to socket: %s", err)
@@ -458,14 +460,15 @@ func PutMessage(ac *atmi.ATMICtx, con *ExCon, data []byte) error {
 			return errors.New(errMsg)
 		}
 
-		err = con.writer.Flush()
+		/*
+			err = con.writer.Flush()
 
-		if nil != err {
-			errMsg := fmt.Sprintf("Failed to flush socket: %s", err)
-			ac.TpLogError(errMsg)
-			return errors.New(errMsg)
-		}
-
+			if nil != err {
+				errMsg := fmt.Sprintf("Failed to flush socket: %s", err)
+				ac.TpLogError(errMsg)
+				return errors.New(errMsg)
+			}
+		*/
 		ac.TpLogInfo("Written %d bytes to socket", nw+hdr_bytes)
 
 	} else {
@@ -483,7 +486,8 @@ func PutMessage(ac *atmi.ATMICtx, con *ExCon, data []byte) error {
 
 			ac.TpLogDump(atmi.LOG_DEBUG, "Sending STX message", stx_data, len(stx_data))
 
-			hdr_bytes, err = con.writer.Write(stx_data)
+			//hdr_bytes, err = con.writer.Write(stx_data)
+			hdr_bytes, err = con.con.Write(stx_data)
 
 			if nil != err {
 				errMsg := fmt.Sprintf("Failed to send STX: %s", err)
@@ -497,7 +501,8 @@ func PutMessage(ac *atmi.ATMICtx, con *ExCon, data []byte) error {
 
 		ac.TpLogDump(atmi.LOG_DEBUG, "Sending message", dataToSend, len(dataToSend))
 
-		nw, err := con.writer.Write(data)
+		//		nw, err := con.writer.Write(data)
+		nw, err := con.con.Write(data)
 
 		if nil != err {
 			errMsg := fmt.Sprintf("Failed to write data to socket: %s", err)
@@ -509,7 +514,8 @@ func PutMessage(ac *atmi.ATMICtx, con *ExCon, data []byte) error {
 
 		ac.TpLogDump(atmi.LOG_DEBUG, "Sending ETX message", etx_data, len(etx_data))
 
-		etx_bytes, err := con.writer.Write(etx_data)
+		//etx_bytes, err := con.writer.Write(etx_data)
+		etx_bytes, err := con.con.Write(etx_data)
 
 		if nil != err {
 			errMsg := fmt.Sprintf("Failed to write to socket etx data: %s", err)
@@ -517,14 +523,15 @@ func PutMessage(ac *atmi.ATMICtx, con *ExCon, data []byte) error {
 			return errors.New(errMsg)
 		}
 
-		err = con.writer.Flush()
+		/*
+			err = con.writer.Flush()
 
-		if nil != err {
-			errMsg := fmt.Sprintf("Failed to flush socket: %s", err)
-			ac.TpLogError(errMsg)
-			return errors.New(errMsg)
-		}
-
+			if nil != err {
+				errMsg := fmt.Sprintf("Failed to flush socket: %s", err)
+				ac.TpLogError(errMsg)
+				return errors.New(errMsg)
+			}
+		*/
 		ac.TpLogInfo("Written %d bytes to socket", nw+hdr_bytes+etx_bytes)
 
 	}

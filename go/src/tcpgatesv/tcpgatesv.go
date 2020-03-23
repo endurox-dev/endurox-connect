@@ -135,6 +135,9 @@ var MShutdown int = RUN_CONTINUE
 var MActiveConScan int = 5 //scan for new outgoing connections every 10 seconds
 
 var MLinger int = -1 //Set linger <0 is default OS setting
+
+var MNofreelist bool = false //Do not maintain connection pool, if set to true
+
 //TCPGATE service
 //@param ac ATMI Context
 //@param svc Service call information
@@ -472,6 +475,17 @@ func Init(ac *atmi.ATMICtx) int {
 		case "linger":
 			MLinger, _ = buf.BGetInt(u.EX_CC_VALUE, occ)
 			ac.TpLogDebug("Got [%s] = [%d] ", fldName, MLinger)
+			break
+
+		//do not handle the connection pool (if always work by connection id...)
+		case "nofreelist":
+			tmp, _ := buf.BGetString(u.EX_CC_VALUE, occ)
+
+			ac.TpLogDebug("Got [%s] = [%s] ", fldName, tmp)
+
+			if "Y" == string(tmp[0]) || "y" == string(tmp[0]) {
+				MNofreelist = true
+			}
 			break
 
 		default:

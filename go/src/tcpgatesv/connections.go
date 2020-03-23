@@ -145,6 +145,11 @@ var MPassiveLisener net.Listener
 //@return false -> already locked, true -> locked ok
 func MarkConnAsBusy(ac *atmi.ATMICtx, con *ExCon, dontWait bool) bool {
 
+	if MNofreelist {
+		//Assume connection not busy...
+		return false
+	}
+
 	MfreeconsLock.Lock()
 
 	//Bug #305
@@ -211,6 +216,11 @@ func MarkConnAsBusy(ac *atmi.ATMICtx, con *ExCon, dontWait bool) bool {
 func GetOpenConnection(ac *atmi.ATMICtx) *ExCon {
 	ok := false
 	var con *ExCon
+
+	if MNofreelist {
+		ac.TpLogError("noconpool is used, thus cannot get connection...")
+		return nil
+	}
 
 	//Why?
 	//MfreeconsLock.Lock()
@@ -437,7 +447,13 @@ func ReadConData(con *ExCon, ch chan<- []byte, eCh chan<- error) {
 	}
 }
 
+//Set connection free
 func MarkConnAsFree(ac *atmi.ATMICtx, con *ExCon) {
+
+	//Do not set status, if not maintaining free list
+	if MNofreelist {
+		return
+	}
 
 	MfreeconsLock.Lock()
 	con.busy = false

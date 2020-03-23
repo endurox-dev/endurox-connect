@@ -218,7 +218,7 @@ func GetOpenConnection(ac *atmi.ATMICtx) *ExCon {
 	var con *ExCon
 
 	if MNofreelist {
-		ac.TpLogError("noconpool is used, thus cannot get connection...")
+		ac.TpLogError("nofreelist is used, thus cannot get connection...")
 		return nil
 	}
 

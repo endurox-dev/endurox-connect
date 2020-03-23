@@ -11,7 +11,7 @@
  * AGPL or Mavimax's license for commercial use.
  * -----------------------------------------------------------------------------
  * AGPL license:
- * 
+ *
  * This program is free software; you can redistribute it and/or modify it under
  * the terms of the GNU Affero General Public License, version 3 as published
  * by the Free Software Foundation;
@@ -21,8 +21,8 @@
  * PARTICULAR PURPOSE. See the GNU Affero General Public License, version 3
  * for more details.
  *
- * You should have received a copy of the GNU Affero General Public License along 
- * with this program; if not, write to the Free Software Foundation, Inc., 
+ * You should have received a copy of the GNU Affero General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
  * 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
  * -----------------------------------------------------------------------------
@@ -191,6 +191,12 @@ func XATMIDispatchCall(pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 				ac.TpLogInfo("Adding request to conn table, by "+
 					"comp_id: [%d]", con.id_comp)
 				MConWaiterMutex.Lock()
+				//WARNING! If we have multiple senders! We loose pervious in-progress calls
+				//Probably needs to introduce some conditionals to waiton particular
+				//connection.
+				//Bug #533
+				//to overcome this issue, may use seqout=1, this will send away
+				//with single sender.
 				MConWaiter[con.id_comp] = &block
 				MConWaiterMutex.Unlock()
 				haveMConWaiter = true

@@ -95,7 +95,7 @@ type ExCon struct {
 	con net.Conn
 
 	reader *bufio.Reader
-	writer *bufio.Writer
+	//writer *bufio.Writer
 
 	ctx      *atmi.ATMICtx //ATMI Context
 	id       int64         //Connection ID (clear), index by this
@@ -789,7 +789,7 @@ func GoDial(con *ExCon, block *DataBlock) {
 	//con.is_open = true
 
 	//Have buffered read/write API to socket
-	con.writer = bufio.NewWriter(con.con)
+	//con.writer = bufio.NewWriter(con.con)
 	con.reader = bufio.NewReader(con.con)
 
 	con.conmode = CON_TYPE_ACTIVE
@@ -950,7 +950,7 @@ func PassiveConnectionListener() {
 			}
 
 			//Have buffered read/write API to socket
-			con.writer = bufio.NewWriter(con.con)
+			//con.writer = bufio.NewWriter(con.con)
 			con.reader = bufio.NewReader(con.con)
 
 			//Add get connection number & add to hashes.

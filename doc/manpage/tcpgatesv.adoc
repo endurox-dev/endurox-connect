@@ -697,6 +697,23 @@ EXAMPLE
 
 To see the usage different usage settings, see *tests/02_tcpgatesv/runtime/conf/tcpgate.ini'*.
 
+Typical configuration would look like:
+
+--------------------------------------------------------------------------------
+[@tcpgate]
+
+gateway=TESTSVC
+incoming_svc=INCSVC
+type=P
+framing=ll
+periodic_zero_msg=60
+ip=0.0.0.0
+port=9999
+max_connections=10
+
+--------------------------------------------------------------------------------
+
+
 BUGS
 ----
 Report bugs to support@mavimax.com

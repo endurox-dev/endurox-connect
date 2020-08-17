@@ -336,57 +336,57 @@ The error code can be mapped from XATMI subsystem to HTTP codes by using
 'errors_fmt_http_map' parameter in service or 'default' parameter block. The default
 mapping which is set if 'errors_fmt_http_map' is not present, is following:
 
-. atmi.TPMINVAL (0) =  http.StatusOK (200)
+* atmi.TPMINVAL (0) =  http.StatusOK (200)
 
-. atmi.TPEABORT (1) = http.StatusInternalServerError (500)
+* atmi.TPEABORT (1) = http.StatusInternalServerError (500)
 
-. atmi.TPEBADDESC (2) =  http.StatusBadRequest (400)
+* atmi.TPEBADDESC (2) =  http.StatusBadRequest (400)
 
-. atmi.TPEBLOCK (3) =  http.StatusInternalServerError (500)
+* atmi.TPEBLOCK (3) =  http.StatusInternalServerError (500)
 
-. atmi.TPEINVAL (4) =  http.StatusBadRequest (400)
+* atmi.TPEINVAL (4) =  http.StatusBadRequest (400)
 
-. atmi.TPELIMIT(5) =  http.StatusRequestEntityTooLarge (413)
+* atmi.TPELIMIT(5) =  http.StatusRequestEntityTooLarge (413)
 
-. atmi.TPENOENT (6) =  http.StatusNotFound (404)
+* atmi.TPENOENT (6) =  http.StatusNotFound (404)
 
-. atmi.TPEOS (7) =  http.StatusInternalServerError (500)
+* atmi.TPEOS (7) =  http.StatusInternalServerError (500)
 
-. atmi.TPEPERM (8) =  http.StatusUnauthorized (401)
+* atmi.TPEPERM (8) =  http.StatusUnauthorized (401)
 
-. atmi.TPEPROTO (9) =  http.StatusBadRequest (400)
+* atmi.TPEPROTO (9) =  http.StatusBadRequest (400)
 
-. atmi.TPESVCERR (10) =  http.StatusBadGateway (502)
+* atmi.TPESVCERR (10) =  http.StatusBadGateway (502)
 
-. atmi.TPESVCFAIL (11) =  http.StatusInternalServerError (500)
+* atmi.TPESVCFAIL (11) =  http.StatusInternalServerError (500)
 
-. atmi.TPESYSTEM (12) =  http.StatusInternalServerError (500)
+* atmi.TPESYSTEM (12) =  http.StatusInternalServerError (500)
 
-. atmi.TPETIME (13) =  http.StatusGatewayTimeout (504)
+* atmi.TPETIME (13) =  http.StatusGatewayTimeout (504)
 
-. atmi.TPETRAN (14) =  http.StatusInternalServerError (500)
+* atmi.TPETRAN (14) =  http.StatusInternalServerError (500)
 
-. atmi.TPERMERR (16) =  http.StatusInternalServerError (500)
+* atmi.TPERMERR (16) =  http.StatusInternalServerError (500)
 
-. atmi.TPEITYPE (17) =  http.StatusInternalServerError (500)
+* atmi.TPEITYPE (17) =  http.StatusInternalServerError (500)
 
-. atmi.TPEOTYPE (18) =  http.StatusInternalServerError (500)
+* atmi.TPEOTYPE (18) =  http.StatusInternalServerError (500)
 
-. atmi.TPERELEASE (19) =  http.StatusInternalServerError (500)
+* atmi.TPERELEASE (19) =  http.StatusInternalServerError (500)
 
-. atmi.TPEHAZARD (20) =  http.StatusInternalServerError (500)
+* atmi.TPEHAZARD (20) =  http.StatusInternalServerError (500)
 
-. atmi.TPEHEURISTIC (21) =  http.StatusInternalServerError (500)
+* atmi.TPEHEURISTIC (21) =  http.StatusInternalServerError (500)
 
-. atmi.TPEEVENT (22) =  http.StatusInternalServerError (500)
+* atmi.TPEEVENT (22) =  http.StatusInternalServerError (500)
 
-. atmi.TPEMATCH (23) =  http.StatusInternalServerError (500)
+* atmi.TPEMATCH (23) =  http.StatusInternalServerError (500)
 
-. atmi.TPEDIAGNOSTIC (24) =  http.StatusInternalServerError (500)
+* atmi.TPEDIAGNOSTIC (24) =  http.StatusInternalServerError (500)
 
-. atmi.TPEMIB (25) =  http.StatusInternalServerError (500)
+* atmi.TPEMIB (25) =  http.StatusInternalServerError (500)
 
-. Anything else (\*) = http.StatusInternalServerError (500)
+* Anything else (\*) = http.StatusInternalServerError (500)
 
 Error handling type: 'json' - response code embedded JSON response message
 --------------------------------------------------------------------------
@@ -426,56 +426,55 @@ Error codes and it's meaning
 No matter of which error handling mechanism is selected http/json/json2ubf/text,
 the list of Enduro/X error codes is following:
 
-. 0 - Succeed (TPMINVAL)
+* 0 - Succeed (TPMINVAL)
 
-. 1 - Transaction abort (TPEABORT)
+* 1 - Transaction abort (TPEABORT)
 
-. 2 - Bad call descriptor (TPEBADDESC)
+* 2 - Bad call descriptor (TPEBADDESC)
 
-. 3 - Blocking condition found (TPEBLOCK)
+* 3 - Blocking condition found (TPEBLOCK)
 
-. 4 - Invalid parameters passed to function or service (TPEINVAL)
+* 4 - Invalid parameters passed to function or service (TPEINVAL)
 
-. 5 - System limit (TPELIMIT)
+* 5 - System limit (TPELIMIT)
 
-. 6 - Service not found (TPENOENT)
+* 6 - Service not found (TPENOENT)
 
-. 7 - Operating system error (TPEOS)
+* 7 - Operating system error (TPEOS)
 
-. 8 - No permissions (TPEPERM)
+* 8 - No permissions (TPEPERM)
 
-. 9 - Protocol error, service invoked in invalid order (TPEPROTO)
+* 9 - Protocol error, service invoked in invalid order (TPEPROTO)
 
-. 10 - Service hard failure, crashed (TPESVCERR)
+* 10 - Service hard failure, crashed (TPESVCERR)
 
-. 11 - Service soft failure, returning error (TPESVCFAIL)
+* 11 - Service soft failure, returning error (TPESVCFAIL)
 
-. 12 - System error (TPESYSTEM)
+* 12 - System error (TPESYSTEM)
 
-. 13 - Time out condition (TPETIME)
+* 13 - Time out condition (TPETIME)
 
-. 14 - Transaction error (TPETRAN)
+* 14 - Transaction error (TPETRAN)
 
-. 16 - Resource manager error (TPERMERR)
+* 16 - Resource manager error (TPERMERR)
 
-. 17 - Invalid input data type to service (TPEITYPE)
+* 17 - Invalid input data type to service (TPEITYPE)
 
-. 18 - Invalid data type received from service (TPEOTYPE)
+* 18 - Invalid data type received from service (TPEOTYPE)
 
-. 19 - Invalid program release (TPERELEASE)
+* 19 - Invalid program release (TPERELEASE)
 
-. 20 - Transaction partially completed (TPEHAZARD)
+* 20 - Transaction partially completed (TPEHAZARD)
 
-. 21 - Transaction partially completed (TPEHEURISTIC)
+* 21 - Transaction partially completed (TPEHEURISTIC)
 
-. 22 - Event occurred, only for conversational messages, RFU (TPEEVENT)
+* 22 - Event occurred, only for conversational messages, RFU (TPEEVENT)
 
-. 23 - Identifier not matches (TPEMATCH)
+* 23 - Identifier not matches (TPEMATCH)
 
-. 24 - Diagnostic info provided, RFU (TPEDIAGNOSTIC)
+* 24 - Diagnostic info provided, RFU (TPEDIAGNOSTIC)
 
-. 25 - RFU (TPEMIB)
-
+* 25 - RFU (TPEMIB)
 
 
 CONFIGURATION

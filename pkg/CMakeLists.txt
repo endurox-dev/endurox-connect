@@ -128,6 +128,35 @@ if(A2X_EXECUTABLE)
 		../doc/manpage/restousv.8
 		../doc/manpage/tcpgatesv.8
 		DESTINATION share/man/man8)
+
+	install (FILES
+		../doc/manpage/tcpgatesv.html
+		../doc/manpage/restincl.html
+		../doc/manpage/restoutsv.html
+		DESTINATION share/endurox-connect/doc/html/manpage)
+
+	install (FILES
+  		../doc/manpage/docbook-xsl.css
+		DESTINATION share/endurox-connect/doc/html/manpage
+  		OPTIONAL)
+
+	install (FILES
+                ../doc/restinout_user_guide.html
+		../doc/tcpgatesv_user_guide.html
+		../doc/nonpers_sync_ex_to_net.png
+		../doc/nonpers_sync_net_to_ex.png
+		../doc/pers_async_ex_to_net_wo_corr.png
+		../doc/pers_async_net_to_ex_w_corr.png
+		../doc/pers_async_net_to_ex_wo_corr.png
+		../doc/pers_sync_ex_to_net_connid.png
+		../doc/pers_sync_net_to_ex.png
+		../doc/restinout_tutor_1.png
+                DESTINATION share/endurox-connect/doc/html/guides)
+
+	install (FILES
+  		../doc/docbook-xsl.css
+		DESTINATION share/endurox-connect/doc/html/guides
+  		OPTIONAL)
 endif()
 	
 ################################################################################

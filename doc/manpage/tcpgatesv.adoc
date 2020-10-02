@@ -714,7 +714,7 @@ will be rejected/closed. Default value is *0* - do not validate client certifica
 *tls_min_version* = 'TLS_MIN_VERSION_SETTING'::
 For TLS mode this indicates minimum TLS protocol version used for sessions.
 Valid values are *TLS10* - TLS 1.0, *TLS11* - TLS 1.1, *TLS12* - TLS 1.2 and
-"TLS13" - TLS 1.3. Default value is not specified, where peers will negotiate
+*TLS13* - TLS 1.3. Default value is not specified, where peers will negotiate
 the protocol.
 
 EXIT STATUS

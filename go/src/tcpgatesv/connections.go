@@ -34,6 +34,7 @@ package main
 
 import (
 	"bufio"
+	"crypto/tls"
 	"errors"
 	"exutil"
 	"fmt"
@@ -507,13 +508,14 @@ func HandleConnection(con *ExCon) {
 	 * - error channel for socket
 	 */
 
-	//Set options
-	tcpcon := con.con.(*net.TCPConn)
+	if !MTls_enable {
+		//Set options, for normal conn
+		tcpcon := con.con.(*net.TCPConn)
 
-	if MLinger > -1 {
-		tcpcon.SetLinger(MLinger)
+		if MLinger > -1 {
+			tcpcon.SetLinger(MLinger)
+		}
 	}
-
 	//Connection open...
 	NotifyStatus(ac, con.id, con.id_comp, FLAG_CON_ESTABLISHED, con)
 
@@ -747,7 +749,16 @@ func GoDial(con *ExCon, block *DataBlock) {
 
 	//Get the ATMI Context
 	con.mu.Lock()
-	con.con, err = net.Dial("tcp", MAddr)
+
+	if MTls_enable {
+
+		ac.TpLogInfo("TLS Dial...")
+		con.con, err = tls.Dial("tcp", MAddr, &MTls_config)
+
+	} else {
+		con.con, err = net.Dial("tcp", MAddr)
+	}
+
 	con.mu.Unlock()
 
 	if err != nil {
@@ -774,6 +785,12 @@ func GoDial(con *ExCon, block *DataBlock) {
 	}
 
 	ac.TpLogInfo("Marking connection %d/%d as open", con.id, con.id_comp)
+
+	//Print peer cert...
+
+	if MTls_enable {
+		logTlsPeer(ac, con)
+	}
 
 	/*  Bug #225 - register connection already when doing to dia
 	MConnMutex.Lock()
@@ -811,6 +828,43 @@ func GoDial(con *ExCon, block *DataBlock) {
 	if nil != err {
 		ac.TpLogError("Failed to close connection: %s", err)
 	}
+}
+
+//Print the TLS pper infos
+func logTlsPeer(ac *atmi.ATMICtx, con *ExCon) {
+
+	ac.TpLogInfo("*** TLS PEER INFO START ***")
+
+	tlscon, _ := con.con.(*tls.Conn)
+
+	state := tlscon.ConnectionState()
+
+	ac.TpLogInfo("HandshakeComplete: %v", state.HandshakeComplete)
+	ac.TpLogInfo("ServerName: %v", state.HandshakeComplete)
+	ac.TpLogInfo("Version: %v", state.Version)
+	ac.TpLogInfo("NegotiatedProtocol: %v", state.NegotiatedProtocol)
+	ac.TpLogInfo("DidResume: %v", state.NegotiatedProtocolIsMutual)
+	ac.TpLogInfo("NegotiatedProtocolIsMutual: %v", state.DidResume)
+	ac.TpLogInfo("CipherSuite: %v", state.CipherSuite)
+
+	ac.TpLogInfo("Certificate chain:")
+	for i, cert := range state.PeerCertificates {
+		subject := cert.Subject
+		issuer := cert.Issuer
+		ac.TpLogInfo("no: %d subject: Country =%v Province=%v Locality=%v "+
+			"Organization=%v OrganizationalUnit=%v CommonName=[%v] SerialNumber=[%v]", i,
+			subject.Country, subject.Province, subject.Locality,
+			subject.Organization, subject.OrganizationalUnit,
+			subject.CommonName, subject.SerialNumber)
+
+		ac.TpLogInfo("no: %d issuer: Country =%v Province=%v Locality=%v "+
+			"Organization=%v OrganizationalUnit=%v CommonName=[%v] SerialNumber=[%v]", i,
+			issuer.Country, issuer.Province, issuer.Locality,
+			issuer.Organization, issuer.OrganizationalUnit,
+			issuer.CommonName, issuer.SerialNumber)
+	}
+
+	ac.TpLogInfo("*** TLS PEER INFO END   ***")
 }
 
 //Call the status service if defined
@@ -912,12 +966,24 @@ func PassiveConnectionListener() {
 		return
 	}
 	ac.TpLogInfo("About to listen on: %s", MAddr)
-	MPassiveLisener, err = net.Listen("tcp", MAddr)
 
-	if err != nil {
-		ac.TpLogError("Failed to listen on [%s]:%s", MAddr, err.Error())
-		MShutdown = RUN_SHUTDOWN_FAIL
-		return
+	if MTls_enable {
+		//TLS Mode...
+		MPassiveLisener, err = tls.Listen("tcp", MAddr, &MTls_config)
+		if err != nil {
+			ac.TpLogError("Failed to listen on [%s]:%s", MAddr, err.Error())
+			MShutdown = RUN_SHUTDOWN_FAIL
+			return
+		}
+	} else {
+
+		MPassiveLisener, err = net.Listen("tcp", MAddr)
+
+		if err != nil {
+			ac.TpLogError("Failed to listen on [%s]:%s", MAddr, err.Error())
+			MShutdown = RUN_SHUTDOWN_FAIL
+			return
+		}
 	}
 
 	for MShutdown == RUN_CONTINUE {
@@ -947,6 +1013,19 @@ func PassiveConnectionListener() {
 				MPassiveLisener.Close()
 				MShutdown = RUN_SHUTDOWN_FAIL
 				return
+			}
+
+			//Print some debug infos about connection...
+			if MTls_enable {
+				tlscon := con.con.(*tls.Conn)
+
+				if err := tlscon.Handshake(); nil != err {
+					ac.TpLogError("Failed to handshake: %s", err)
+					con.con.Close()
+					//continue to wait for connections...
+					continue
+				}
+				logTlsPeer(ac, &con)
 			}
 
 			//Have buffered read/write API to socket

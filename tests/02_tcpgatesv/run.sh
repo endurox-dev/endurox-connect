@@ -48,6 +48,10 @@ xadmin provision -d -vaddubf=test.fd
 
 cd conf
 . settest1
+
+# create test certs...
+./gencert.sh
+
 # Fix some config (logging for testcl to file)
 # - moved to tcpgate config...
 #echo "[@debug]" >> app.ini
@@ -64,11 +68,28 @@ echo "NUMCALL: $NUMCALL"
 
 cd ..
 
+export TEST_HOSTNAME=`hostname -f`
 # Start the system
 xadmin start -y
 
 # Let connections to establish
 sleep 60
+
+################################################################################
+echo " >>> Run TLS test..."
+################################################################################
+NROFCALLS=$NUMCALL
+COMMAND="corr"
+
+# Flush connections
+# This time will start from Passive side...
+testcl $COMMAND $NROFCALLS TCP_P_TLS_A
+RET=$?
+
+if [[ $RET != 0 ]]; then
+        echo "testcl $COMMAND $NROFCALLS TCP_P_TLS_P failed"
+        go_out 54
+fi
 
 ################################################################################
 echo ">>> Running sequence tests"

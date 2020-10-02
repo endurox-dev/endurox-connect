@@ -673,8 +673,8 @@ When socket is shut down, this is number of seconds to wait for unsent or unackn
 to be processed on connection close. If set to *0*, then operating system discards
 any such data on shutdown. If set above (>) *0*, this is number of seconds to
 wait for data to be processed before discarding. If set less (<) than *0*, then
-operating system default policy is used. Default is *-1*.
-
+operating system default policy is used. Default is *-1*. This setting is not
+effective if *tls_enable* is set to *1*.
 
 *nofreelist* = 'Yy'::
 If set to *Y* or *y*, then free list of connection is not maintained. This means
@@ -683,6 +683,39 @@ be rejected as connection not found. This may be used in case if the protocol
 always uses connection id - thus avoid un-needed synchronization of free
 connection list.
 
+*tls_enable* = 'TLS_SETTING'::
+If set to *1*, Transport Layer Security Mode is enabled. Default is *0* - not
+enabled.
+
+*tls_skip_verify* = 'TLS_VERIFY_SETTING'::
+In TLS mode, if set to *1*, then client (active tcpgates) will ignore invalid 
+server certificate. The default is *0* - server must be verified.
+
+*tls_cert_file* = 'TLS_CERT_FILENAME'::
+This is peer certificate/public key filename for TLS session. For passive 
+tcpgatesv roles (server), this is mandatory setting. For active (client) 
+tcpgatesv roles, this is optional. Certificate file must be in X.509 format.
+
+*tls_key_file* = 'TLS_KEY_FILENAME'::
+This is peer certificate private key filename for TLS session. For passive 
+tcpgatesv roles (server), this is mandatory setting. For active (client) 
+tcpgatesv roles, this is optional. Key file must be in X.509 format.
+
+*tls_ca_roots* = 'TLS_CA_ROOTS_FILES'::
+This list of Root Certificate Authority certificate chains, used for client/server
+certificate validation. Certificates must be in X.509 format. This is optional,
+if not specified system CA roots are used for certificate validation.
+
+*tls_client_auth* = 'TLS_CLIENT_AUTH_SETTING'::
+If value is set to *1*, passive (server) tcpgatesv will validate incoming client
+certificate against CA roots, if client certificate is invalid, connection
+will be rejected/closed. Default value is *0* - do not validate client certificate.
+
+*tls_min_version* = 'TLS_MIN_VERSION_SETTING'::
+For TLS mode this indicates minimum TLS protocol version used for sessions.
+Valid values are *TLS10* - TLS 1.0, *TLS11* - TLS 1.1, *TLS12* - TLS 1.2 and
+"TLS13" - TLS 1.3. Default value is not specified, where peers will negotiate
+the protocol.
 
 EXIT STATUS
 -----------

@@ -40,8 +40,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -479,18 +477,12 @@ func MarkConnAsFree(ac *atmi.ATMICtx, con *ExCon) {
 //@param address ip address is format ip:port
 //@param ip (out) ip address - parsed
 //@param port (out) port parsed
-func SetIPPort(ac *atmi.ATMICtx, address string, ip *string, port *int) {
+func SetIPPort(ac *atmi.ATMICtx, addr net.Addr, ip *string, port *int) {
 
-	//Set IP/PORT
-	tmpip := strings.Split(address, ":")
+    *port = addr.(*net.TCPAddr).Port
+    *ip = addr.(*net.TCPAddr).IP.String()
 
-	*ip = tmpip[0]
-
-	if len(tmpip) > 1 {
-		*port, _ = strconv.Atoi(tmpip[1])
-	}
-
-	ac.TpLogDebug("Parsing [%s] got %s:%d", address, *ip, *port)
+	ac.TpLogDebug("Got %s:%d", *ip, *port)
 
 }
 
@@ -799,8 +791,8 @@ func GoDial(con *ExCon, block *DataBlock) {
 	MConnMutex.Unlock()
 	*/
 
-	SetIPPort(ac, con.con.LocalAddr().String(), &con.ourip, &con.outport)
-	SetIPPort(ac, con.con.RemoteAddr().String(), &con.theirip, &con.theirport)
+	SetIPPort(ac, con.con.LocalAddr(), &con.ourip, &con.outport)
+	SetIPPort(ac, con.con.RemoteAddr(), &con.theirip, &con.theirport)
 
 	//Bug #304
 	//con.is_open = true
@@ -1040,8 +1032,8 @@ func PassiveConnectionListener() {
 
 			//Fill conn details here!
 
-			SetIPPort(ac, con.con.LocalAddr().String(), &con.ourip, &con.outport)
-			SetIPPort(ac, con.con.RemoteAddr().String(), &con.theirip, &con.theirport)
+			SetIPPort(ac, con.con.LocalAddr(), &con.ourip, &con.outport)
+			SetIPPort(ac, con.con.RemoteAddr(), &con.theirip, &con.theirport)
 
 			//Here it is open for 100%
 			con.is_open = true

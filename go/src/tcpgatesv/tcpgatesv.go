@@ -533,11 +533,9 @@ func Init(ac *atmi.ATMICtx) int {
 				MTls_min_version = tls.VersionTLS11
 			case "TLS12":
 				MTls_min_version = tls.VersionTLS12
-			case "TLS13":
-				MTls_min_version = tls.VersionTLS13
 			default:
 				ac.TpLogError("Invalid tls_min_version [%s], " +
-					"expected: TLS10,TLS11,TLS12,TLS13")
+					"expected: TLS10,TLS11,TLS12")
 				return FAIL
 			}
 			break

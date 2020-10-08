@@ -4,7 +4,7 @@
 # Generate test CA, Client cert, Server Cert
 #
 
-TEST_HOSTNAME=`hostname -f`
+TEST_HOSTNAME=`hostname`
 echo "Host name is [$TEST_HOSTNAME]"
 
 # Generate root CA

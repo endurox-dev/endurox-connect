@@ -68,7 +68,7 @@ echo "NUMCALL: $NUMCALL"
 
 cd ..
 
-export TEST_HOSTNAME=`hostname -f`
+export TEST_HOSTNAME=`hostname`
 # Start the system
 xadmin start -y
 

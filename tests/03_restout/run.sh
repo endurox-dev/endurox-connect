@@ -147,6 +147,8 @@ if [[ $RET != 13 ]]; then
 	go_out 30
 fi
 
+echo "Wait 15s to services free up..."
+sleep 15
 
 ################################################################################
 echo "VIEW HTTP Errors, OK"
@@ -270,6 +272,9 @@ if [[ $RET != 13 ]]; then
 	go_out 3
 fi
 
+echo "Wait 15s to services free up..."
+sleep 15
+
 ################################################################################
 echo "JSON2UBF test case - juerrors, no entry"
 ################################################################################
@@ -322,6 +327,9 @@ if [[ $RET != 13 ]]; then
 	echo "testcl $COMMAND: failed (ret must be 13, but got: $RET)"
 	go_out 7
 fi
+
+echo "Wait 15s to services free up..."
+sleep 15
 
 ###############################################################################
 echo "JSON2UBF, HTTP errors, NENT"

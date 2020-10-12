@@ -21,8 +21,9 @@ LOGFILE=log/shell_out.log
 > $LOGFILE
 
 #
-# Create the env..
+# Create the env.. (remove any configs if has)...
 #
+rm conf/app.ini 2>/dev/null
 
 #
 # So we need to add some demo server
@@ -37,7 +38,7 @@ xadmin provision -d \
         -vusv1_cmdline=restincl \
         -vusv1_tag=RESTIN \
         -vusv1_log='${NDRX_APPHOME}/log/restin.log' \
-        -vtimeout=2
+        -vtimeout=8
 
 cd conf
 

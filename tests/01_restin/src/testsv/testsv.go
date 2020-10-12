@@ -93,8 +93,8 @@ func LONGOP(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 
 	//Print the buffer to stdout
 	ub.TpLogPrintUBF(atmi.LOG_DEBUG, "Incoming request:")
-	ac.TpLogWarn("Sleeping 4 sec...")
-	time.Sleep(4000 * time.Millisecond)
+	ac.TpLogWarn("Sleeping 10 sec...")
+	time.Sleep(10000 * time.Millisecond)
 
 	//Resize buffer, to have some more space
 	if err := ub.TpRealloc(1024); err != nil {

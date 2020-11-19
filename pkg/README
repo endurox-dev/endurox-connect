@@ -25,3 +25,4 @@ Releases:
 2.4.22 - Feature #509 - added EX_IF_METHOD for ext (web method post/get, etc..)
 2.4.24 - Feature #531 - Optmizations (linger flag, less data array compies, quicker copies)
 2.4.26 - Feature #596 - tls support in tcpgatesv
+2.4.28 - Bug #607 - tcpgatesv if invalid tls_ca_roots is given, no error is returned

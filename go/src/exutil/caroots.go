@@ -61,10 +61,13 @@ func LoadRootCAs(ac *atmi.ATMICtx, carootsfiles string) error {
 
 		caCert, err := ioutil.ReadFile(crt_arr[i])
 		if err != nil {
-			ac.TpLogError("Failed to load cert [%s]: %s", crt_arr[i], err)
-			return fmt.Errorf("Failed to load cert [%s]: %s", crt_arr[i], err)
+			ac.TpLogError("Failed to read CA root cert [%s]: %s", crt_arr[i], err)
+			return fmt.Errorf("Failed to read CA root cert [%s]: %s", crt_arr[i], err)
 		}
-		MRootCAs.AppendCertsFromPEM(caCert)
+		if !MRootCAs.AppendCertsFromPEM(caCert) {
+			ac.TpLogError("Failed to load/parse CA root cert [%s]", crt_arr[i])
+			return fmt.Errorf("Failed to load/parse CA root cert [%s]", crt_arr[i])
+        }
 	}
 
 	ac.TpLogInfo("Roots loaded OK")

@@ -696,7 +696,7 @@ func Init(ac *atmi.ATMICtx) int {
 	//Load roots if any...
 	if MTls_ca_roots != "" && MTls_enable {
 		if err := exutil.LoadRootCAs(ac, MTls_ca_roots); nil != err {
-			ac.TpLogError("Failed to load CA roots", err.Error())
+			ac.TpLogError("Failed to load CA roots: %s", err.Error())
 			return FAIL
 		}
 	}

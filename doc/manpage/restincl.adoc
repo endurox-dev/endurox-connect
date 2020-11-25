@@ -768,7 +768,7 @@ Failure
 
 EXAMPLE
 
-To see the usage different usage settings, see *tests/01_restin/runtime/conf/restin.ini'*.
+To see the usage different usage settings, see *tests/01_restin/runtime/conf/restin.ini*.
 
 BUGS
 ----

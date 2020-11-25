@@ -537,8 +537,8 @@ Failure
 
 EXAMPLE
 
-To see the usage different usage settings, see *tests/03_restout/runtime/conf/restout.ini'* and
-the corresponding rest-in services are defined in *tests/03_restout/runtime/conf/restin.ini'*.
+To see the usage different usage settings, see *tests/03_restout/runtime/conf/restout.ini* and
+the corresponding rest-in services are defined in *tests/03_restout/runtime/conf/restin.ini*.
 
 BUGS
 ----

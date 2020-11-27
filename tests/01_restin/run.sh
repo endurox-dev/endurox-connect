@@ -166,19 +166,19 @@ do
 
 	
 	if [[ "$RSP" != *"$CKSUM1"* ]]; then
-		echo "Expected $CKSUM1 to appear"
+		echo "Expected $CKSUM1 to appear but got [$RSP]"
 		popd
 		go_out 69
 	fi
 	
 	if [[ "$RSP" != *"$CKSUM2"* ]]; then
-		echo "Expected $CKSUM2 to appear"
+		echo "Expected $CKSUM2 to appear but got [$RSP]"
 		popd
 		go_out 68
 	fi
 	
 	if [[ "$RSP" != *"$CKSUM3"* ]]; then
-		echo "Expected $CKSUM3 to appear"
+		echo "Expected $CKSUM3 to appear but got [$RSP]"
 		popd
 		go_out 67
 	fi

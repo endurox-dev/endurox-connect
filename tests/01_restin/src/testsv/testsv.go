@@ -10,11 +10,6 @@ import (
 	atmi "github.com/endurox-dev/endurox-go"
 )
 
-const (
-	SUCCEED = 0
-	FAIL    = -1
-)
-
 //Will set the trace file
 func GETFILE(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 
@@ -435,6 +430,26 @@ func Init(ac *atmi.ATMICtx) int {
 	}
 
 	if err := ac.TpAdvertise("REQPARAMS", "REQPARAMS", REQPARAMS); err != nil {
+		fmt.Println(err)
+		return atmi.FAIL
+	}
+
+	if err := ac.TpAdvertise("FILEUPLOAD", "FILEUPLOAD", FILEUPLOAD); err != nil {
+		fmt.Println(err)
+		return atmi.FAIL
+	}
+
+	if err := ac.TpAdvertise("UPLDERR", "UPLDERR", UPLDERR); err != nil {
+		fmt.Println(err)
+		return atmi.FAIL
+	}
+
+	if err := ac.TpAdvertise("REQERRCODES", "REQERRCODES", REQERRCODES); err != nil {
+		fmt.Println(err)
+		return atmi.FAIL
+	}
+
+	if err := ac.TpAdvertise("RSPERRFILTER", "RSPERRFILTER", RSPERRFILTER); err != nil {
 		fmt.Println(err)
 		return atmi.FAIL
 	}

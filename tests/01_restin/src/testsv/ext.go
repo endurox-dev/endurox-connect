@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"strconv"
 	"ubftab"
 
 	atmi "github.com/endurox-dev/endurox-go"
@@ -346,4 +348,60 @@ func REQPARAMS(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 
 	ac.TpReturn(atmi.TPSUCCESS, 0, ub, 0)
 
+}
+
+//Just receive some request
+//Set the tpurcode and in case of data 3, set error response too
+func REQERRCODES(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
+
+	ret := SUCCEED
+	urcode := 0
+	//Get UBF Handler
+	ub, _ := ac.CastToUBF(&svc.Data)
+	ac.TpLogSetReqFile(ub, "", "")
+
+	//Return to the caller
+	defer func() {
+		if SUCCEED == ret {
+			ac.TpReturn(atmi.TPSUCCESS, int64(urcode), ub, 0)
+		} else {
+			ac.TpReturn(atmi.TPFAIL, int64(urcode), ub, 0)
+		}
+	}()
+
+	//Print the buffer to stdout
+	ub.TpLogPrintUBF(atmi.LOG_DEBUG, "Incoming request (REQERRCODES):")
+
+	data, _ := ub.BGetString(ubftab.EX_IF_REQDATA, 0)
+
+	urcode, _ = strconv.Atoi(data)
+
+	ac.TpLogInfo("Got data: %s - %d", data, urcode)
+
+	if urcode == 3 {
+		ret = FAIL
+	}
+
+}
+
+//Filter & prepare body with reporting the actual
+//Response
+func RSPERRFILTER(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
+
+	//Get UBF Handler
+	ub, _ := ac.CastToUBF(&svc.Data)
+
+	ac.TpLogSetReqFile(ub, "", "")
+
+	errCode, _ := ub.BGetInt(ubftab.EX_IF_ECODE, 0)
+	errMsg, _ := ub.BGetString(ubftab.EX_IF_EMSG, 0)
+	urCode, _ := ub.BGetInt(ubftab.EX_IF_TPURCODE, 0)
+	src, _ := ub.BGetString(ubftab.EX_IF_ERRSRC, 0)
+
+	rspmsg := fmt.Sprintf("ERR-URCODE-%d-%d-%s-%s", errCode, urCode, src, errMsg)
+
+	ub.BChg(ubftab.EX_IF_RSPDATA, 0, rspmsg)
+	ub.BChg(ubftab.EX_NETRCODE, 0, "200")
+
+	ac.TpReturn(atmi.TPSUCCESS, 0, ub, 0)
 }

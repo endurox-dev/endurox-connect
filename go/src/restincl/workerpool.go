@@ -206,8 +206,11 @@ func genRspHeaders(ac *atmi.ATMICtx, bufu *atmi.TypedUBF, w http.ResponseWriter,
 //@w	handler for writting response to
 //if postSvc is set to true, that indicates that service was called and now
 //response is being generated (i.e. messager convert on incoming was ok)
+//@param loadurcode shall urcode be loaded
+//@param rctx Request context
 func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
-	w http.ResponseWriter, atmiErr atmi.ATMIError, reqlogOpen bool, postSvc bool) {
+	w http.ResponseWriter, atmiErr atmi.ATMIError, reqlogOpen bool, postSvc bool,
+	loadurcode bool, rctx *RequestContext) {
 
 	var rsp []byte
 	var err atmi.ATMIError
@@ -264,6 +267,24 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 
 		ac.TpLogInfo("err=%v", err)
 
+		//Load the error codes, if missing
+
+		if atmi.BMINVAL < err.Code() {
+			//Add error fields to putput buffer..
+			bufu.BAdd(ubftab.EX_IF_ECODE, err.Code())
+			bufu.BAdd(ubftab.EX_IF_EMSG, err.Message())
+			bufu.BAdd(ubftab.EX_IF_ERRSRC, rctx.errSrc)
+		}
+
+		//Return TPURCODE in case, if we did call the service
+		//And there is chance that data is loaded
+		if loadurcode && 0 == err.Code() || atmi.TPEOTYPE == err.Code() ||
+			atmi.TPESVCFAIL == err.Code() {
+			//Add return code.. (
+			urcode, _ := ac.TpURCode()
+			bufu.BAdd(ubftab.EX_IF_TPURCODE, urcode)
+		}
+
 		//OK we are at ext, execute the error filters, if any
 		if !postSvc {
 			//This is incoming error, run the incoming error handler
@@ -291,6 +312,12 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 		if out_err {
 			runChain(ac, svc, buf, false, svc.Fouterr_arr,
 				"filter-outgoing-error-opt(fouterr)")
+		}
+
+		//Process files if
+		if svc.Fileupload {
+			//Ignore error, nothing much there may happen
+			handleFileUploadRsp(ac, bufu, svc, rctx)
 		}
 
 		//OK, check the status code
@@ -811,16 +838,20 @@ func runChain(ac *atmi.ATMICtx, svc *ServiceMap, buf atmi.TypedBuffer, mand bool
 func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter,
 	req *http.Request) int {
 
+	var rctx RequestContext
 	var flags int64 = 0
 	var buf atmi.TypedBuffer
 	var err atmi.ATMIError
+	do_upload := false //perform file download?
 	reqlogOpen := false
+	rctx.errSrc = ERRSRC_RESTIN //Default error source rest-in process
+
 	ac.TpLog(atmi.LOG_DEBUG, "Got URL [%s], caller: %s", req.URL, req.RemoteAddr)
 
 	if "" != svc.Svc || svc.Echo {
 
 		var body []byte
-		if !svc.Parseform {
+		if !svc.Parseform && !svc.Fileupload {
 
 			body, _ = ioutil.ReadAll(req.Body)
 			ac.TpLogDebug("Requesting service [%s] buffer [%s]",
@@ -838,12 +869,12 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter,
 				ac.TpLogError("failed to alloca ubf buffer %d:[%s]",
 					err1.Code(), err1.Message())
 
-				genRsp(ac, nil, svc, w, err1, false, false)
+				genRsp(ac, nil, svc, w, err1, false, false, false, &rctx)
 				return atmi.FAIL
 			}
 
-			//Load the body
-			if !svc.Parseform {
+			//Load the body (if allowed)
+			if !svc.Parseform && !svc.Fileupload {
 
 				if errU := bufu.BChg(ubftab.EX_IF_REQDATA, 0, body); errU != nil {
 
@@ -854,7 +885,7 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter,
 						fmt.Sprintf("Failed to set body data in EX_IF_REQDATA %d:[%s]",
 							errU.Code(), errU.Message()))
 
-					genRsp(ac, nil, svc, w, errA, false, false)
+					genRsp(ac, nil, svc, w, errA, false, false, false, &rctx)
 					return atmi.FAIL
 				}
 			}
@@ -867,7 +898,7 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter,
 					fmt.Sprintf("Failed to parse headers %d:[%s]",
 						errU.Code(), errU.Message()))
 
-				genRsp(ac, nil, svc, w, errA, false, false)
+				genRsp(ac, nil, svc, w, errA, false, false, false, &rctx)
 				return atmi.FAIL
 			}
 
@@ -879,7 +910,7 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter,
 						errU.Code(), errU.Message()))
 
 				ac.TpLogError("Failed to set request URL")
-				genRsp(ac, nil, svc, w, errA, false, false)
+				genRsp(ac, nil, svc, w, errA, false, false, false, &rctx)
 				return atmi.FAIL
 			}
 
@@ -891,7 +922,7 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter,
 						errU.Code(), errU.Message()))
 
 				ac.TpLogError("Failed to set request Method")
-				genRsp(ac, nil, svc, w, errA, false, false)
+				genRsp(ac, nil, svc, w, errA, false, false, false, &rctx)
 				return atmi.FAIL
 			}
 
@@ -903,12 +934,17 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter,
 					fmt.Sprintf("Failed to parse Query params %d:[%s]",
 						errU.Code(), errU.Message()))
 
-				genRsp(ac, nil, svc, w, errA, false, false)
+				genRsp(ac, nil, svc, w, errA, false, false, false, &rctx)
 				return atmi.FAIL
 			}
 
 			//Parse for in requested..
-			if svc.Parseform {
+			if svc.Fileupload {
+
+				ac.TpLogInfo("Processing file upload - after filters")
+				do_upload = true
+
+			} else if svc.Parseform {
 				if errF := req.ParseForm(); errF != nil {
 					ac.TpLogError("Failed to parse form: [%s]", errF.Error())
 				} else {
@@ -929,7 +965,7 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter,
 								fmt.Sprintf("Failed to add EX_IF_REQFORMN %d:[%s]",
 									errU.Code(), errU.Message()))
 
-							genRsp(ac, nil, svc, w, errA, false, false)
+							genRsp(ac, nil, svc, w, errA, false, false, false, &rctx)
 							return atmi.FAIL
 						}
 
@@ -942,7 +978,7 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter,
 								fmt.Sprintf("Failed to add EX_IF_REQFORMV %d:[%s]",
 									errU.Code(), errU.Message()))
 
-							genRsp(ac, nil, svc, w, errA, false, false)
+							genRsp(ac, nil, svc, w, errA, false, false, false, &rctx)
 							return atmi.FAIL
 						}
 					} //for form value
@@ -960,7 +996,7 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter,
 				ac.TpLogError("failed to alloca ubf buffer %d:[%s]\n",
 					err1.Code(), err1.Message())
 
-				genRsp(ac, nil, svc, w, err1, false, false)
+				genRsp(ac, nil, svc, w, err1, false, false, false, &rctx)
 				return atmi.FAIL
 			}
 
@@ -973,7 +1009,7 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter,
 					fmt.Sprintf("Failed to parse headers %d:[%s]",
 						errU.Code(), errU.Message()))
 
-				genRsp(ac, nil, svc, w, errA, false, false)
+				genRsp(ac, nil, svc, w, errA, false, false, false, &rctx)
 				return atmi.FAIL
 			}
 
@@ -983,7 +1019,7 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter,
 
 				ac.TpLogError("Failed req: [%s]", string(body))
 
-				genRsp(ac, nil, svc, w, err1, false, false)
+				genRsp(ac, nil, svc, w, err1, false, false, false, &rctx)
 				return atmi.FAIL
 			}
 			if svc.Format == "r" || svc.Format == "regexp" {
@@ -1011,7 +1047,7 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter,
 
 				ac.TpLogError("Failed req: [%s]", string(body))
 
-				genRsp(ac, nil, svc, w, err1, false, false)
+				genRsp(ac, nil, svc, w, err1, false, false, false, &rctx)
 				return atmi.FAIL
 			}
 
@@ -1026,7 +1062,7 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter,
 				ac.TpLogError("failed to alloc string/text buffer %d:[%s]\n",
 					err1.Code(), err1.Message())
 
-				genRsp(ac, nil, svc, w, err1, false, false)
+				genRsp(ac, nil, svc, w, err1, false, false, false, &rctx)
 				return atmi.FAIL
 			}
 
@@ -1041,7 +1077,7 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter,
 			if nil != err1 {
 				ac.TpLogError("failed to alloc carray/bin buffer %d:[%s]\n",
 					err1.Code(), err1.Message())
-				genRsp(ac, nil, svc, w, err1, false, false)
+				genRsp(ac, nil, svc, w, err1, false, false, false, &rctx)
 				return atmi.FAIL
 			}
 
@@ -1056,7 +1092,7 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter,
 			if nil != err1 {
 				ac.TpLogError("failed to alloc carray/bin buffer %d:[%s]\n",
 					err1.Code(), err1.Message())
-				genRsp(ac, nil, svc, w, err1, false, false)
+				genRsp(ac, nil, svc, w, err1, false, false, false, &rctx)
 				return atmi.FAIL
 			}
 
@@ -1094,7 +1130,7 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter,
 		if err != nil {
 			ac.TpLogError("ATMI Error %d:[%s]\n", err.Code(), err.Message())
 
-			genRsp(ac, buf, svc, w, err, false, false)
+			genRsp(ac, buf, svc, w, err, false, false, false, &rctx)
 			return atmi.FAIL
 		}
 
@@ -1129,21 +1165,41 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter,
 
 				runChain(ac, svc, buf, false, svc.Finopt_arr,
 					"filter-incoming-optional(finopt)")
+			} else {
+				//Error source is mandatory filter
+				rctx.errSrc = ERRSRC_FINMAN
+			}
+		}
+
+		//Download files after filters (no file handling in filters)
+		//So that that it would be possible to reject any possible DOS attacks
+		//against disk full
+		//So the filters can validate headers
+		if do_upload {
+			bufu, _ := ac.CastToUBF(buf.GetBuf())
+
+			if errA := handleFileUploadReq(ac, bufu, svc, req, &rctx); nil != errA {
+				genRsp(ac, buf, svc, w, errA, false, false, false, &rctx)
+				return atmi.FAIL
 			}
 		}
 
 		if nil != err {
-			genRsp(ac, buf, svc, w, err, reqlogOpen, false)
+			genRsp(ac, buf, svc, w, err, reqlogOpen, false, false, &rctx)
 		} else if svc.Echo {
 			//Do not send service, just echo buffer back
-			genRsp(ac, buf, svc, w, err, reqlogOpen, true)
+			genRsp(ac, buf, svc, w, err, reqlogOpen, true, false, &rctx)
 		} else if svc.Asynccall {
 			_, err := ac.TpACall(svc.Svc, buf, flags|atmi.TPNOREPLY)
-			genRsp(ac, buf, svc, w, err, reqlogOpen, true)
+			//Now service is response for errors
+			rctx.errSrc = ERRSRC_SERVICE
+			genRsp(ac, buf, svc, w, err, reqlogOpen, true, false, &rctx)
 		} else {
+			//Now service is response for errors
+			rctx.errSrc = ERRSRC_SERVICE
 			_, err := ac.TpCall(svc.Svc, buf, flags)
 
-			genRsp(ac, buf, svc, w, err, reqlogOpen, true)
+			genRsp(ac, buf, svc, w, err, reqlogOpen, true, true, &rctx)
 		}
 	}
 

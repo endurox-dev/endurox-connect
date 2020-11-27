@@ -72,6 +72,204 @@ function go_out {
     popd 2>/dev/null
     exit $1
 }
+
+
+###############################################################################
+echo "Check EXT error filter service fail (tpurcode 3)"
+###############################################################################
+{
+
+for i in {1..100}
+do
+
+	RSP=`curl -H "Content-Type: text/plain" -X POST -d "3" http://localhost:8080/ext_svcerrors 2>&1`
+
+
+	if [[ "$RSP" != *"ERR-URCODE-11-3-S"* ]]; then
+		echo "Expected [ERR-URCODE-11-3-] to appear in rsp but got [$RSP]"
+		popd
+		go_out 72
+	fi
+	
+done
+
+}
+
+###############################################################################
+echo "Check EXT error filter service OK (tpurcode 4)"
+###############################################################################
+{
+	
+
+for i in {1..100}
+do
+
+	RSP=`curl -H "Content-Type: text/plain" -X POST -d "4" http://localhost:8080/ext_svcerrors 2>&1`
+
+
+	if [[ "$RSP" != *"ERR-URCODE-0-4-"* ]]; then
+		echo "Expected [ERR-URCODE-0-4-] to appear in rsp but got [$RSP]"
+		popd
+		go_out 71
+	fi
+	
+done
+
+}
+
+###############################################################################
+echo "Check EXT file upload (disk failure / error filter rsp)"
+###############################################################################
+{
+	
+	
+for i in {1..100}
+do
+
+	RSP=`curl -i -F "files[]=@../binary.test.response" http://localhost:8080/ext_fileupload_inval 2>&1`
+
+
+	if [[ "$RSP" != *"DISK FAILURE"* ]]; then
+		echo "Expected [DISK FAILURE] to appear in rsp but got [$RSP]"
+		popd
+		go_out 70
+	fi
+	
+done
+
+}
+
+###############################################################################
+echo "Check EXT file upload (keep delete all files)"
+###############################################################################
+{
+	
+	# get the checksum of the files
+	pushd .
+	cd ../
+	# remove any restin files
+	rm -rf runtime/tmp/@restin* 2>/dev/null
+	
+	CKSUM1=`cksum binary.test.response`
+	CKSUM2=`cksum test_upload.blob`
+	CKSUM3=`cksum Makefile`
+	CKSUM4=`cksum BSDmakefile`
+	
+for i in {1..100}
+do
+
+	RSP=`curl -i -F "files[]=@binary.test.response" -F "files[]=@test_upload.blob" -F "files[]=@Makefile" -F "files[]=@BSDmakefile"  http://localhost:8080/ext_fileupload 2>&1`
+
+	
+	if [[ "$RSP" != *"$CKSUM1"* ]]; then
+		echo "Expected $CKSUM1 to appear"
+		popd
+		go_out 69
+	fi
+	
+	if [[ "$RSP" != *"$CKSUM2"* ]]; then
+		echo "Expected $CKSUM2 to appear"
+		popd
+		go_out 68
+	fi
+	
+	if [[ "$RSP" != *"$CKSUM3"* ]]; then
+		echo "Expected $CKSUM3 to appear"
+		popd
+		go_out 67
+	fi
+	
+	if [[ "$RSP" != *"$CKSUM4"* ]]; then
+		echo "Expected $CKSUM4 to appear"
+		popd
+		go_out 66
+	fi
+	
+done
+	
+	echo "Checking that all files are removed from temp..."
+	CNT=`ls -1 runtime/tmp/@restin* 2>/dev/null | wc -l`
+	
+	if [ "X$CNT" != "X0" ]; then
+	
+		echo "Invalid count of temp files left: $CNT"
+		popd
+		go_out 65
+	fi	
+	popd
+
+}
+
+
+###############################################################################
+echo "Check EXT file upload (keep one upload file)"
+###############################################################################
+{
+	
+	# get the checksum of the files
+	pushd .
+	cd ../
+	# remove any restin files
+	rm -rf runtime/tmp/@restin* 2>/dev/null
+	
+	CKSUM1=`cksum binary.test.response`
+	CKSUM2=`cksum test_upload.blob`
+	CKSUM3=`cksum Makefile`
+	
+for i in {1..100}
+do
+
+	RSP=`curl -i -F "files[]=@binary.test.response" -F "files[]=@test_upload.blob" -F "files[]=@Makefile"  http://localhost:8080/ext_fileupload 2>&1`
+
+	
+	if [[ "$RSP" != *"$CKSUM1"* ]]; then
+		echo "Expected $CKSUM1 to appear"
+		popd
+		go_out 64
+	fi
+	
+	if [[ "$RSP" != *"$CKSUM2"* ]]; then
+		echo "Expected $CKSUM2 to appear"
+		popd
+		go_out 63
+	fi
+	
+	if [[ "$RSP" != *"$CKSUM3"* ]]; then
+		echo "Expected $CKSUM3 to appear"
+		popd
+		go_out 62
+	fi
+	
+done
+
+	echo "Testing leaved files..."
+	# move back to test start..
+	# Check that first file is there (match by cksum)
+	cd runtime/tmp
+		
+	for f in @restin*
+	do
+		CKSUM_TMP=`cksum $f | cut -d ' ' -f1`
+		CKSUM3_TMP=`echo "$CKSUM3" | cut -d ' ' -f1`
+		
+		if [ "X$CKSUM_TMP" != "X$CKSUM3_TMP" ]; then
+		
+			echo "Invalid upload leaved, must be third file [$CKSUM_TMP] vs [$CKSUM3_TMP]"
+		
+			# leave...
+			popd
+			go_out 61
+		else
+			echo "$CKSUM_TMP matches $CKSUM3_TMP for $f"
+		fi
+		
+	done
+
+	# leave runtime dir	
+	popd
+	
+} >> $LOGFILE 2>&1
+
 ###############################################################################
 echo "Check EXT mode QUERY"
 ###############################################################################

@@ -148,8 +148,12 @@ echo "Check EXT file upload (keep delete all files)"
 	pushd .
 	cd ../
 	# remove any restin files
-	rm -rf runtime/tmp/@restin* 2>/dev/null
+	rm -rf runtime/tmp/@restin* test_upload.blob 2>/dev/null
 	
+	echo "Generating test blob"
+	openssl rand -out test_upload.blob 4000000 || exit 99
+	echo "Generating test blob (OK continue)"
+
 	CKSUM1=`cksum binary.test.response`
 	CKSUM2=`cksum test_upload.blob`
 	CKSUM3=`cksum Makefile`

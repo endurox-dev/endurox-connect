@@ -192,7 +192,7 @@ do
 done
 	
 	echo "Checking that all files are removed from temp..."
-	CNT=`ls -1 runtime/tmp/@restin* 2>/dev/null | wc -l`
+	CNT=`ls -1 runtime/tmp/@restin* 2>/dev/null | wc -l | awk '{print $1}'`
 	
 	if [ "X$CNT" != "X0" ]; then
 	

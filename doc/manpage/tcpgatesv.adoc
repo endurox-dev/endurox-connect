@@ -457,13 +457,12 @@ accept the max number of connections, set by 'max_connections' parameter.
 The default is *P* - Passive.
 
 *ip* = 'IP_ADDRESS'::
-In case of active mode ('type' = *A*), this is ip address to connect
-to remote server. In case of passive mode ('type' = *P*), this indicates
-the binding ip address - on which *tcpgatesv* binary shall listen for
-incoming connections.
-The default is *0.0.0.0*.
+In case of active mode ('type' = *A*), this is ip address or network host name
+of the remote server. In case of passive mode ('type' = *P*), this indicates
+the binding ip address (or binding network host name) - on which *tcpgatesv* 
+binary shall listen for incoming connections. The default is *0.0.0.0*.
 
-*port* = 'TPC_PORT_NUMBER'::
+*port* = 'TCP_PORT_NUMBER'::
 In case of active mode ('type' = *A*), this is port number to connect to.
 In case of passive mode ('type' = *P*), this is port number to listen
 on for incoming connections.

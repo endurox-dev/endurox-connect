@@ -1197,7 +1197,15 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter,
 		} else {
 			//Now service is response for errors
 			rctx.errSrc = ERRSRC_SERVICE
-			_, err := ac.TpCall(svc.Svc, buf, flags)
+
+			/*
+				_, err := ac.TpCall(svc.Svc, buf, flags)
+			*/
+			if svc.TransactionHandler {
+
+			} else {
+				err = txCall(ac, buf, svc, req, w, &rctx, flags)
+			}
 
 			genRsp(ac, buf, svc, w, err, reqlogOpen, true, true, &rctx)
 		}

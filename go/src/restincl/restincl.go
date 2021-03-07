@@ -191,6 +191,9 @@ type ServiceMap struct {
 
 	StaticDir  string       `json:"staticdir"` //Static files directory
 	FileServer http.Handler //File server handler for static content
+
+	TransactionHandler bool `json:"transaction_handler"` // Is this transaction handler route?
+	NoAbort            bool `json:"noabort"`             // Do not abort global transaction if service failed
 }
 
 //Route information structure for Handles with Regexp path
@@ -310,6 +313,20 @@ func (h *RegexpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// no pattern matched; send 404 response
 	http.NotFound(w, r)
+}
+
+//Basic setup of the route
+//Such as Syntactic sugar setups
+func routeSetup(svc *ServiceMap) error {
+
+	if svc.TransactionHandler {
+		svc.Errors = "ext"
+		svc.Conv = "ext"
+		//special value, really not used
+		svc.Svc = "@RINTX"
+	}
+
+	return nil
 }
 
 //Remap the error from string to int constant
@@ -449,7 +466,7 @@ func parseHTTPErrorMap(ac *atmi.ATMICtx, svc *ServiceMap) error {
 func printSvcSummary(ac *atmi.ATMICtx, svc *ServiceMap) {
 	ac.TpLogWarn("Service: %s, Url: %s, Async mode: %t, Log request svc: [%s], "+
 		"Errors:%d (%s), Async echo %t, "+
-		"Filters: inman:%s/inopt:%s/inerr:%s/outman:%s/outopt:%s/outerr:%s",
+		"Filters: inman:%s/inopt:%s/inerr:%s/outman:%s/outopt:%s/outerr:%s, noabort: %t",
 		svc.Svc,
 		svc.Url,
 		svc.Asynccall,
@@ -457,7 +474,8 @@ func printSvcSummary(ac *atmi.ATMICtx, svc *ServiceMap) {
 		svc.Errors_int,
 		svc.Errors,
 		svc.Asyncecho,
-		svc.Finman, svc.Finopt, svc.Finerr, svc.Foutman, svc.Foutopt, svc.Fouterr)
+		svc.Finman, svc.Finopt, svc.Finerr, svc.Foutman, svc.Foutopt, svc.Fouterr,
+		svc.NoAbort)
 
 	ac.TpLogWarn("fileupload:%t tempdir:[%s]", svc.Fileupload, svc.Tempdir)
 }

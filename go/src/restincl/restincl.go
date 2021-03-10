@@ -223,6 +223,7 @@ var M_defaults ServiceMap
 var M_tls_enable int16 = FALSE
 var M_tls_cert_file string
 var M_tls_key_file string
+var M_do_tpopen bool = false //Shall we open TP for threads
 
 //Conversion types
 var M_convs = map[string]int{
@@ -324,6 +325,10 @@ func routeSetup(svc *ServiceMap) error {
 		svc.Conv = "ext"
 		//special value, really not used
 		svc.Svc = "@RINTX"
+
+		//Mark that workers require tpopen / close
+
+		M_do_tpopen = true
 	}
 
 	return nil
@@ -679,6 +684,9 @@ func appinit(ac *atmi.ATMICtx) error {
 		case "tls_key_file":
 			M_tls_key_file, _ = buf.BGetString(u.EX_CC_VALUE, occ)
 			break
+		case "tpopen":
+			M_do_tpopen = true
+			break
 		case "defaults":
 			//Override the defaults
 			jsonDefault, _ := buf.BGetByteArr(u.EX_CC_VALUE, occ)
@@ -694,6 +702,10 @@ func appinit(ac *atmi.ATMICtx) error {
 				if jerr := parseHTTPErrorMap(ac, &M_defaults); err != nil {
 					return jerr
 				}
+			}
+
+			if err := routeSetup(&M_defaults); nil != err {
+				return err
 			}
 
 			remapErrors(&M_defaults)
@@ -752,6 +764,10 @@ func appinit(ac *atmi.ATMICtx) error {
 				ac.TpLog(atmi.LOG_ERROR,
 					fmt.Sprintf("Failed to parse config key %s: %s",
 						fldName, err))
+				return err
+			}
+
+			if err := routeSetup(&tmp); nil != err {
 				return err
 			}
 
@@ -915,7 +931,9 @@ func appinit(ac *atmi.ATMICtx) error {
 
 	ac.TpLogInfo("About to init woker pool, number of workers: %d", M_workers)
 
-	initPool(ac)
+	if err := initPool(ac); nil != err {
+		return err
+	}
 
 	return nil
 }
@@ -927,6 +945,12 @@ func unInit(ac *atmi.ATMICtx, retCode int) {
 		nr := <-M_freechan
 
 		ac.TpLogWarn("Terminating %d context", nr)
+
+		//Close transactions
+		if M_do_tpopen {
+			M_ctxs[nr].TpClose()
+		}
+
 		M_ctxs[nr].TpTerm()
 		M_ctxs[nr].FreeATMICtx()
 	}

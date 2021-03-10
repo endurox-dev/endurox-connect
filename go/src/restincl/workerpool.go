@@ -1202,7 +1202,7 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter,
 				_, err := ac.TpCall(svc.Svc, buf, flags)
 			*/
 			if svc.TransactionHandler {
-
+				err = txHandler(ac, buf, svc, req, w, &rctx, flags)
 			} else {
 				err = txCall(ac, buf, svc, req, w, &rctx, flags)
 			}
@@ -1230,6 +1230,13 @@ func initPool(ac *atmi.ATMICtx) error {
 		if err != nil {
 			ac.TpLogError("Failed to create context: %s", err.Message())
 			return err
+		}
+
+		if M_do_tpopen {
+			if err = ctx.TpOpen(); nil != err {
+				ac.TpLogError("Failed to tpopen(): %s", err.Error())
+				return err
+			}
 		}
 
 		M_ctxs = append(M_ctxs, ctx)

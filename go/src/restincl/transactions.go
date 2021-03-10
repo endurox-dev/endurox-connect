@@ -111,12 +111,49 @@ func txHandler(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap, req *htt
 	//Normal json responses
 	defer func() {
 
-		if nil != err {
+		http_status := http.StatusOK
+
+		if nil != ret {
 			rspData.ErrorCode = ret.Code()
 			rspData.ErrorMessage = ret.Message()
 		} else {
 			rspData.ErrorCode = 0
 			rspData.ErrorMessage = "Succeed"
+		}
+
+		//Return http response codes correspodingly & marshal the response
+
+		if nil != ret && (ret.Code() == atmi.TPEINVAL || ret.Code() == atmi.TPEPROTO) {
+
+			http_status = http.StatusBadRequest
+
+		} else if nil != ret && ret.Code() > 0 {
+
+			//in this case it is 500
+			http_status = http.StatusInternalServerError
+		}
+
+		//Load the response body...
+
+		rspBody, err := json.Marshal(&rspData)
+
+		if nil != err {
+			ac.TpLogError("Failed to prepare response: %s", err.Error())
+			http_status = http.StatusInternalServerError
+		} else {
+
+			err := bufu.BChg(ubftab.EX_IF_RSPDATA, 0, rspBody)
+
+			if err != nil {
+				ac.TpLogError("Failed to set response body: %s", err.Error())
+				http_status = http.StatusInternalServerError
+			}
+		}
+
+		//Setup the response code finally
+
+		if err := bufu.BChg(ubftab.EX_NETRCODE, 0, http_status); nil != err {
+			ac.TpLogError("Failed to set EX_NETRCODE to %d: %s", http_status, err.Error())
 		}
 
 	}()
@@ -126,9 +163,8 @@ func txHandler(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap, req *htt
 	errJ := json.Unmarshal(body, &reqData)
 
 	if nil != errJ {
-
 		return atmi.NewCustomATMIError(atmi.TPEINVAL,
-			fmt.Sprintf("Failed to parse request JSON: %s", errJ.Error()))
+			fmt.Sprintf("Failed to parse JSON request: %s", errJ.Error()))
 	}
 
 	rspData.Operation = reqData.Operation

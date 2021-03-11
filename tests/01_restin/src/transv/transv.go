@@ -10,6 +10,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"ubftab"
 
 	atmi "github.com/endurox-dev/endurox-go"
 )
@@ -54,25 +55,39 @@ func QADD(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 //@param svc Service call information
 func QGET(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 
-	ret := atmi.SUCCEED
-
 	var qctl atmi.TPQCTL
+
+	ret := atmi.SUCCEED
+	//Get UBF Handler
+	ub, _ := ac.CastToUBF(&svc.Data)
 
 	//Return to the caller
 	defer func() {
 
 		ac.TpLogCloseReqFile()
 		if atmi.SUCCEED == ret {
-			ac.TpReturn(atmi.TPSUCCESS, 0, &svc.Data, 0)
+			ac.TpReturn(atmi.TPSUCCESS, 0, ub, 0)
 		} else {
-			ac.TpReturn(atmi.TPFAIL, 0, &svc.Data, 0)
+			ac.TpReturn(atmi.TPFAIL, 0, ub, 0)
 		}
 	}()
+
+	//Resize buffer, to have some more space
+	used, _ := ub.BUsed()
+	if err := ub.TpRealloc(used + 1024); err != nil {
+		ac.TpLogError("TpRealloc() Got error: %d:[%s]\n", err.Code(), err.Message())
+		ret = atmi.FAIL
+		return
+	}
 
 	//Get the msg
 	if err := ac.TpDequeue("QSPACE1", "MYQ1", &qctl, &svc.Data, 0); nil != err {
 		fmt.Printf("TpDequeue() failed: ATMI Error %d:[%s]\n", err.Code(), err.Message())
 		ret = atmi.FAIL
+
+		//Load the error code of Q
+		ub.BChg(ubftab.T_LONG_2_FLD, 0, err.Code())
+
 		return
 	}
 
@@ -86,6 +101,11 @@ func Init(ac *atmi.ATMICtx) int {
 	ac.TpLogWarn("Doing server init...")
 
 	if err := ac.TpAdvertise("QADD", "QADD", QADD); err != nil {
+		fmt.Println(err)
+		return atmi.FAIL
+	}
+
+	if err := ac.TpAdvertise("QGET", "QGET", QGET); err != nil {
 		fmt.Println(err)
 		return atmi.FAIL
 	}

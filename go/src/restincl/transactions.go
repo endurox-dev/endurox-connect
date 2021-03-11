@@ -254,21 +254,27 @@ func txCall(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap, req *http.R
 
 	var err atmi.ATMIError
 
-	txreq := req.Header.Get(TX_REQ_HDR)
+	tidreq := req.Header.Get(TX_REQ_HDR)
 
-	if txreq != "" {
+	if tidreq != "" {
 
-		err = ac.TpResumeString(txreq, 0)
+		var resum_flags int64
+
+		if svc.TxNoOptim {
+			resum_flags |= atmi.TPTXNOOPTIM
+		}
+
+		err = ac.TpResumeString(tidreq, resum_flags)
 
 		if nil != err {
 			ac.TpLogError("Failed to resume transaction [%s] for svc call [%s]",
-				txreq, svc.Svc)
+				tidreq, svc.Svc)
 			ac.UserLog("Failed to resume transaction [%s] for svc call [%s]",
-				txreq, svc.Svc)
+				tidreq, svc.Svc)
 			return err
 		}
 
-		ac.TpLogDebug("Resumed global transaction [%s]", txreq)
+		ac.TpLogDebug("Resumed global transaction [%s]", tidreq)
 	}
 
 	if svc.NoAbort {
@@ -279,7 +285,7 @@ func txCall(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap, req *http.R
 
 	if ac.TpGetLev() > 0 {
 
-		txrsp, err_susp := ac.TpSuspendString(0)
+		tidrsp, err_susp := ac.TpSuspendString(0)
 
 		if nil != err_susp {
 			ac.TpLogError("Failed to suspend transaction for %s call: %s", svc.Svc,
@@ -288,8 +294,8 @@ func txCall(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap, req *http.R
 				err_susp.Message())
 			//Ignore and continue... (do not return tran header)
 		} else {
-			ac.TpLogDebug("Transaction suspended [%s]", txrsp)
-			w.Header().Set(TX_RSP_HDR, txrsp)
+			ac.TpLogDebug("Transaction suspended [%s]", tidrsp)
+			w.Header().Set(TX_RSP_HDR, tidrsp)
 		}
 	}
 

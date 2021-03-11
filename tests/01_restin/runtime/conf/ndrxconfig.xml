@@ -131,6 +131,13 @@
 			<srvid>2000</srvid>
 			<sysopt>-e ${NDRX_APPHOME}/log/testsv.log -r</sysopt>
 		</server>
+		<server name="transv">
+			<min>1</min>
+			<max>1</max>
+			<srvid>2020</srvid>
+			<cctag>TMQ</cctag>
+			<sysopt>-e ${NDRX_APPHOME}/log/transv.log -r</sysopt>
+		</server>
 		<server name="cpmsrv">
 			<min>1</min>
 			<max>1</max>

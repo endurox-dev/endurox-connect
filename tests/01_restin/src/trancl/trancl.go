@@ -40,6 +40,28 @@ type TxRspData struct {
 	Tptranid     string `json:"tptranid,omitempty"`
 }
 
+/**
+ * Enqueue message body
+ */
+type Enqmsg struct {
+	Msgid    int64  `json:"T_LONG_FLD"`
+	SomeData string `json:"T_STRING_FLD"`
+}
+
+/**
+ * Generic response
+ *
+ */
+type Genrsp struct {
+
+	//Have all fields form Enqmsg
+	Enqmsg
+
+	ErrorCode    int    `json:"EX_IF_ECODE"`
+	ErrorMessage string `json:"EX_IF_EMSG"`
+	ErrorCodeQ   int    `json:"T_LONG_2_FLD"` //Error code from queue
+}
+
 //Call the operation
 //@param ac ATMI Context
 //@param op operation name
@@ -114,10 +136,142 @@ func callTranApi(ac *atmi.ATMICtx, op string, timeout uint64, flags int64, tptra
 
 }
 
+//Enqueue message
+//@param ac ATMI context
+//@param tptranid transaction id for the enqueue scope
+//@param longfld long filed value
+//@return new TID (updated), ATMI error or -1 for generic error, 0 for ok
+func enqueue(ac *atmi.ATMICtx, tptranid string, longfld int64) (string, int) {
+
+	var enq Enqmsg
+	var enqrsp Genrsp
+
+	enq.Msgid = longfld
+	enq.SomeData = fmt.Sprintf("This is message No. %d", longfld)
+
+	reqmsg, err := json.Marshal(&enq)
+
+	if nil != err {
+		ac.TpLogError("Failed to marshal request: %s", err.Error())
+		return tptranid, atmi.FAIL
+	}
+
+	req, err := http.NewRequest("POST", WS_URL+"/enqueue", bytes.NewBuffer(reqmsg))
+
+	if err != nil {
+		ac.TpLogError("Failed to prepare request: %s", err.Error())
+		return tptranid, atmi.FAIL
+	}
+
+	//Set transaction header
+	req.Header.Set("endurox-tptranid-req", tptranid)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+
+	if err != nil {
+		ac.TpLogError("Failed to request: %s", err.Error())
+		return tptranid, atmi.FAIL
+	}
+
+	defer resp.Body.Close()
+
+	ac.TpLogInfo("response StatusCode: %d", resp.StatusCode)
+
+	body, _ := ioutil.ReadAll(resp.Body)
+
+	tidrsp := resp.Header.Get("endurox-tptranid-rsp")
+
+	err = json.Unmarshal(body, &enqrsp)
+
+	if nil != err {
+		ac.TpLogError("TESTERROR: Failed to unmarshal: %s", err.Error())
+		return tidrsp, atmi.FAIL
+	}
+
+	ac.TpLogInfo("ErrorCode: [%d]", enqrsp.ErrorCode)
+	ac.TpLogInfo("ErrorMessage: [%s]", enqrsp.ErrorMessage)
+
+	//Return TID, if have one..
+
+	return tidrsp, enqrsp.ErrorCode
+
+}
+
+//Dequeue message
+//@param ac ATMI context
+//@param tptranid transaction id for the enqueue scope
+//@param longfld long field (check value)
+//@return ATMI error or -1 for generic error, 0 for ok
+func dequeue(ac *atmi.ATMICtx, longfld int64) int {
+
+	var enq Enqmsg
+	var enqrsp Genrsp
+
+	enq.Msgid = longfld
+	enq.SomeData = fmt.Sprintf("This is message No. %d", longfld)
+
+	req, err := http.NewRequest("POST", WS_URL+"/dequeue", bytes.NewBuffer([]byte("{}")))
+
+	if err != nil {
+		ac.TpLogError("Failed to prepare request: %s", err.Error())
+		return atmi.FAIL
+	}
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+
+	if err != nil {
+		ac.TpLogError("Failed to request: %s", err.Error())
+		return atmi.FAIL
+	}
+
+	defer resp.Body.Close()
+
+	ac.TpLogInfo("response StatusCode: %d", resp.StatusCode)
+
+	body, _ := ioutil.ReadAll(resp.Body)
+
+	err = json.Unmarshal(body, &enqrsp)
+
+	if nil != err {
+		ac.TpLogError("TESTERROR: Failed to unmarshal: %s", err.Error())
+		return atmi.FAIL
+	}
+
+	ac.TpLogInfo("ErrorCode: [%d]", enqrsp.ErrorCode)
+	ac.TpLogInfo("ErrorMessage: [%s]", enqrsp.ErrorMessage)
+	ac.TpLogInfo("ErrorCodeQ: [%d]", enqrsp.ErrorCodeQ)
+
+	//Return the error firstly...
+	if enqrsp.ErrorCode > 0 {
+
+		if enqrsp.ErrorCodeQ > 0 {
+			return enqrsp.ErrorCodeQ
+		}
+
+		return enqrsp.ErrorCode
+	}
+
+	//validate the content
+	if enqrsp.Msgid != enq.Msgid {
+		ac.TpLogError("Invalid msgid expected %d got %d", enq.Msgid, enqrsp.Msgid)
+		return atmi.FAIL
+	}
+
+	if enqrsp.SomeData != enq.SomeData {
+		ac.TpLogError("Invalid SomeData expected [%s] got [%s]", enq.Msgid, enqrsp.Msgid)
+		return atmi.FAIL
+	}
+
+	return 0
+
+}
+
 //Run the test case
 func apprun(ac *atmi.ATMICtx) error {
 
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 2; i++ {
 
 		tid, ecode := callTranApi(ac, "tpbegin", 60, 0, "")
 
@@ -165,6 +319,104 @@ func apprun(ac *atmi.ATMICtx) error {
 		}
 	}
 
+	for i := 0; i < 100; i++ {
+
+		//Run some real transactions
+		tid, ecode := callTranApi(ac, "tpbegin", 60, 0, "")
+
+		if 0 != ecode {
+			ac.TpLogError("TESTERROR: (2) tpbegin Expected OK, got %d", ecode)
+			return errors.New(fmt.Sprintf("TESTERROR: (2) tpbegin Expected OK, got %d", ecode))
+		}
+
+		ac.TpLogInfo("Transaction [%s] started OK", tid)
+
+		//Enqueue under the transaction some stuff 1
+		tid, ecode = enqueue(ac, tid, 1)
+
+		if 0 != ecode {
+			ac.TpLogError("TESTERROR: (1) enqueue Expected OK, got %d", ecode)
+			return errors.New(fmt.Sprintf("TESTERROR: (1) enqueue Expected OK, got %d", ecode))
+		}
+
+		//Enqueue under the transaction some stuff 2
+		tid, ecode = enqueue(ac, tid, 2)
+
+		if 0 != ecode {
+			ac.TpLogError("TESTERROR: (2) enqueue Expected OK, got %d", ecode)
+			return errors.New(fmt.Sprintf("TESTERROR: (2) enqueue Expected OK, got %d", ecode))
+		}
+
+		if i%2 == 0 {
+
+			//abort transaction
+			tid, ecode = callTranApi(ac, "tpabort", 0, 0, tid)
+
+			if 0 != ecode {
+				ac.TpLogError("TESTERROR: (2) tpabort Expected OK, got %d", ecode)
+				return errors.New(fmt.Sprintf("TESTERROR: (2) tpabort Expected OK, got %d", ecode))
+			}
+
+			ac.TpLogInfo("Transaction [%s] aborted OK", tid)
+
+			//Try to dequeue..., shall be empty...
+			ecode = dequeue(ac, 1)
+			if atmi.TPEDIAGNOSTIC != ecode {
+
+				ac.TpLogError("TESTERROR: (1) dequeue Expected TPEDIAGNOSTIC, got %d", ecode)
+				return errors.New(fmt.Sprintf("TESTERROR: (1) dequeue Expected TPEDIAGNOSTIC, got %d", ecode))
+
+			}
+
+			//Try to enqueue after the transaction is over..., expected to fail...
+
+			//Enqueue under the transaction some stuff 2
+			ac.TpLogInfo("Enqueue outside transaction tid [%s]", tid)
+			tid, ecode = enqueue(ac, tid, 3)
+
+			if 0 == ecode {
+				ac.TpLogError("TESTERROR: (2.1) enqueue Expected fail, got %d tid = [%s]", ecode, tid)
+				return errors.New(fmt.Sprintf("TESTERROR: (2.1) enqueue Expected fail, got %d tid = [%s]", ecode, tid))
+			}
+
+		} else {
+
+			//commit transaction
+			tid, ecode = callTranApi(ac, "tpcommit", 0, 0, tid)
+
+			if 0 != ecode {
+				ac.TpLogError("TESTERROR: (3) tpcommit Expected OK, got %d", ecode)
+				return errors.New(fmt.Sprintf("TESTERROR: (3) tpcommit Expected OK, got %d", ecode))
+			}
+
+			//Dequeue 2x msgs ... & validate
+
+			ecode = dequeue(ac, 1)
+
+			if 0 != ecode {
+				ac.TpLogError("TESTERROR: (2) dequeue Expected OK, got %d", ecode)
+				return errors.New(fmt.Sprintf("TESTERROR: (2) dequeue Expected OK, got %d", ecode))
+			}
+
+			ecode = dequeue(ac, 2)
+
+			if 0 != ecode {
+				ac.TpLogError("TESTERROR: (3) dequeue Expected OK, got %d", ecode)
+				return errors.New(fmt.Sprintf("TESTERROR: (3) dequeue Expected OK, got %d", ecode))
+			}
+
+			//space empty...
+			ecode = dequeue(ac, 3)
+			if atmi.TPEDIAGNOSTIC != ecode {
+
+				ac.TpLogError("TESTERROR: (4) dequeue Expected TPEDIAGNOSTIC, got %d", ecode)
+				return errors.New(fmt.Sprintf("TESTERROR: (4) dequeue Expected TPEDIAGNOSTIC, got %d", ecode))
+
+			}
+
+		}
+	}
+
 	return nil
 
 }
@@ -176,11 +428,6 @@ func appinit(ac *atmi.ATMICtx) error {
 
 	if err := ac.TpInit(); err != nil {
 		return errors.New(err.Error())
-	}
-
-	if len(os.Args) < 2 {
-		return errors.New(fmt.Sprintf("Missing arguments: %s <command>",
-			os.Args[0]))
 	}
 
 	return nil

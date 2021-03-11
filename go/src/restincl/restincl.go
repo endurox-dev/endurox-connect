@@ -193,7 +193,9 @@ type ServiceMap struct {
 	FileServer http.Handler //File server handler for static content
 
 	TransactionHandler bool `json:"transaction_handler"` // Is this transaction handler route?
-	NoAbort            bool `json:"noabort"`             // Do not abort global transaction if service failed
+	NoAbort            bool `json:"txnoabort"`           // Do not abort global transaction if service failed
+	TxNoOptim          bool `json:"txnooptim"`           // Do not optimize known resource managers
+
 }
 
 //Route information structure for Handles with Regexp path
@@ -599,6 +601,10 @@ func appinit(ac *atmi.ATMICtx) error {
 	M_defaults.Errfmt_text = ERRFMT_TEXT_DEFAULT
 	M_defaults.Asynccall = ASYNCCALL_DEFAULT
 	M_defaults.Errfmt_view_onsucc = ERRFMT_VIEW_ONSUCC_DEFAULT
+
+	//Do not use known rm optimization, so that each time
+	//transaction life is validated.
+	M_defaults.TxNoOptim = true
 
 	M_workers = WORKERS
 

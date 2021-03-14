@@ -191,6 +191,11 @@ type ServiceMap struct {
 
 	StaticDir  string       `json:"staticdir"` //Static files directory
 	FileServer http.Handler //File server handler for static content
+
+	TransactionHandler bool `json:"transaction_handler"` // Is this transaction handler route?
+	NoAbort            bool `json:"txnoabort"`           // Do not abort global transaction if service failed
+	TxNoOptim          bool `json:"txnooptim"`           // Do not optimize known resource managers
+
 }
 
 //Route information structure for Handles with Regexp path
@@ -220,6 +225,7 @@ var M_defaults ServiceMap
 var M_tls_enable int16 = FALSE
 var M_tls_cert_file string
 var M_tls_key_file string
+var M_do_tpopen bool = false //Shall we open TP for threads
 
 //Conversion types
 var M_convs = map[string]int{
@@ -310,6 +316,24 @@ func (h *RegexpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// no pattern matched; send 404 response
 	http.NotFound(w, r)
+}
+
+//Basic setup of the route
+//Such as Syntactic sugar setups
+func routeSetup(svc *ServiceMap) error {
+
+	if svc.TransactionHandler {
+		svc.Errors = "ext"
+		svc.Conv = "ext"
+		//special value, really not used
+		svc.Svc = "@RINTX"
+
+		//Mark that workers require tpopen / close
+
+		M_do_tpopen = true
+	}
+
+	return nil
 }
 
 //Remap the error from string to int constant
@@ -449,7 +473,7 @@ func parseHTTPErrorMap(ac *atmi.ATMICtx, svc *ServiceMap) error {
 func printSvcSummary(ac *atmi.ATMICtx, svc *ServiceMap) {
 	ac.TpLogWarn("Service: %s, Url: %s, Async mode: %t, Log request svc: [%s], "+
 		"Errors:%d (%s), Async echo %t, "+
-		"Filters: inman:%s/inopt:%s/inerr:%s/outman:%s/outopt:%s/outerr:%s",
+		"Filters: inman:%s/inopt:%s/inerr:%s/outman:%s/outopt:%s/outerr:%s, noabort: %t",
 		svc.Svc,
 		svc.Url,
 		svc.Asynccall,
@@ -457,7 +481,8 @@ func printSvcSummary(ac *atmi.ATMICtx, svc *ServiceMap) {
 		svc.Errors_int,
 		svc.Errors,
 		svc.Asyncecho,
-		svc.Finman, svc.Finopt, svc.Finerr, svc.Foutman, svc.Foutopt, svc.Fouterr)
+		svc.Finman, svc.Finopt, svc.Finerr, svc.Foutman, svc.Foutopt, svc.Fouterr,
+		svc.NoAbort)
 
 	ac.TpLogWarn("fileupload:%t tempdir:[%s]", svc.Fileupload, svc.Tempdir)
 }
@@ -577,6 +602,10 @@ func appinit(ac *atmi.ATMICtx) error {
 	M_defaults.Asynccall = ASYNCCALL_DEFAULT
 	M_defaults.Errfmt_view_onsucc = ERRFMT_VIEW_ONSUCC_DEFAULT
 
+	//Do not use known rm optimization, so that each time
+	//transaction life is validated.
+	M_defaults.TxNoOptim = true
+
 	M_workers = WORKERS
 
 	if err := ac.TpInit(); err != nil {
@@ -661,6 +690,9 @@ func appinit(ac *atmi.ATMICtx) error {
 		case "tls_key_file":
 			M_tls_key_file, _ = buf.BGetString(u.EX_CC_VALUE, occ)
 			break
+		case "tpopen":
+			M_do_tpopen = true
+			break
 		case "defaults":
 			//Override the defaults
 			jsonDefault, _ := buf.BGetByteArr(u.EX_CC_VALUE, occ)
@@ -676,6 +708,10 @@ func appinit(ac *atmi.ATMICtx) error {
 				if jerr := parseHTTPErrorMap(ac, &M_defaults); err != nil {
 					return jerr
 				}
+			}
+
+			if err := routeSetup(&M_defaults); nil != err {
+				return err
 			}
 
 			remapErrors(&M_defaults)
@@ -734,6 +770,10 @@ func appinit(ac *atmi.ATMICtx) error {
 				ac.TpLog(atmi.LOG_ERROR,
 					fmt.Sprintf("Failed to parse config key %s: %s",
 						fldName, err))
+				return err
+			}
+
+			if err := routeSetup(&tmp); nil != err {
 				return err
 			}
 
@@ -897,7 +937,9 @@ func appinit(ac *atmi.ATMICtx) error {
 
 	ac.TpLogInfo("About to init woker pool, number of workers: %d", M_workers)
 
-	initPool(ac)
+	if err := initPool(ac); nil != err {
+		return err
+	}
 
 	return nil
 }
@@ -909,6 +951,12 @@ func unInit(ac *atmi.ATMICtx, retCode int) {
 		nr := <-M_freechan
 
 		ac.TpLogWarn("Terminating %d context", nr)
+
+		//Close transactions
+		if M_do_tpopen {
+			M_ctxs[nr].TpClose()
+		}
+
 		M_ctxs[nr].TpTerm()
 		M_ctxs[nr].FreeATMICtx()
 	}

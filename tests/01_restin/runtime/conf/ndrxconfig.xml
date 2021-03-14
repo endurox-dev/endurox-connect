@@ -1,0 +1,162 @@
+<?xml version="1.0" ?>
+<endurox>
+	<!--
+		*** For more info see ndrxconfig.xml(5) man page. ***
+	-->
+	<appconfig>
+	
+		<!-- 
+			ALL BELLOW ONES USES <sanity> periodical timer
+			Sanity check time, sec
+		-->
+		<sanity>1</sanity>
+		
+		<!--
+			Seconds in which we should send service refresh to other node.
+		-->
+		<brrefresh>5</brrefresh>
+		
+		<!-- 
+			Do process reset after 1 sec 
+		-->
+		<restart_min>1</restart_min>
+		
+		<!-- 
+			If restart fails, then boot after +5 sec of previous wait time
+		-->
+		<restart_step>1</restart_step>
+		
+		<!-- 
+			If still not started, then max boot time is a 30 sec. 
+		-->
+		<restart_max>5</restart_max>
+		
+		<!--  
+			<sanity> timer, usage end
+		-->
+		
+		<!-- 
+		Time (seconds) after attach when program will start do sanity & respawn checks,
+		starts counting after configuration load 
+		-->
+		<restart_to_check>20</restart_to_check>
+		
+		
+		<!-- 
+			Setting for pq command, should ndrxd collect service 
+			queue stats automatically If set to Y or y, 
+			then queue stats are on. Default is off.
+		-->
+		<gather_pq_stats>Y</gather_pq_stats>
+		
+	</appconfig>
+	<defaults>
+	
+		<min>1</min>
+		<max>2</max>
+		
+		<!-- 
+			Kill the process which have not started in <start_max> time
+		-->
+		<autokill>1</autokill>
+		
+		<!-- 
+			The maximum time while process can hang in 'starting' state i.e.
+			have not completed initialization, sec X <= 0 = disabled  
+		-->
+		<start_max>2</start_max>
+		
+		<!--
+			Ping server in every X seconds (step is <sanity>).
+		-->
+		<pingtime>10</pingtime>
+		
+		<!--
+			Max time in seconds in which server must respond.
+			The granularity is sanity time.
+			X <= 0 = disabled 
+		-->
+		<ping_max>30</ping_max>
+		
+		<!--
+			Max time to wait until process should exit on shutdown
+			X <= 0 = disabled 
+		-->
+		<end_max>3</end_max>
+		
+		<!-- 
+			Interval, in seconds, by which signal sequence -2, -15, -9, -9.... will be sent
+			to process until it have been terminated.
+		-->
+		<killtime>1</killtime>
+		
+	</defaults>
+	<servers>
+		<server name="cconfsrv">
+			<min>2</min>
+			<max>2</max>
+			<srvid>1</srvid>
+			<sysopt>-e ${NDRX_APPHOME}/log/cconfsrv.log -r</sysopt>
+		</server>
+		<server name="tpevsrv">
+			<min>2</min>
+			<max>2</max>
+			<srvid>20</srvid>
+			<sysopt>-e ${NDRX_APPHOME}/log/tpevsrv.log -r</sysopt>
+		</server>
+		<server name="tmsrv">
+			<min>1</min>
+			<max>1</max>
+			<cctag>TRAN</cctag>
+			<srvid>200</srvid>
+			<sysopt>-e ${NDRX_APPHOME}/log/tmsrv-rm1.log -r -- -t1 -l${NDRX_APPHOME}/tmlogs/rm2</sysopt>
+		</server>    
+		<server name="tmsrv">
+			<min>1</min>
+			<max>1</max>
+			<srvid>240</srvid>
+			<cctag>TMQ</cctag>
+			<sysopt>-e ${NDRX_APPHOME}/log/tmsrv-rm1.log -r -- -t1 -l${NDRX_APPHOME}/tmlogs/rm2</sysopt>
+		</server>
+		<server name="tmqueue">
+			<min>1</min>
+			<max>1</max>
+			<srvid>300</srvid>
+			<cctag>TMQ</cctag>
+			<sysopt>-e ${NDRX_APPHOME}/log/tmqueue-rm2.log -r -- -m QSPACE1 -s1</sysopt>
+		</server>
+		<server name="testsv">
+			<min>1</min>
+			<max>1</max>
+			<srvid>2000</srvid>
+			<sysopt>-e ${NDRX_APPHOME}/log/testsv.log -r</sysopt>
+		</server>
+		<server name="transv">
+			<min>1</min>
+			<max>1</max>
+			<srvid>2020</srvid>
+			<cctag>TRAN</cctag>
+			<sysopt>-e ${NDRX_APPHOME}/log/transv.log -r</sysopt>
+		</server>
+		<server name="cpmsrv">
+			<min>1</min>
+			<max>1</max>
+			<srvid>9999</srvid>
+			<sysopt>-e ${NDRX_APPHOME}/log/cpmsrv.log -r -- -k3 -i1</sysopt>
+		</server>
+	</servers>
+	<!-- 
+		Client section 
+	-->
+	<clients>
+  
+		<client cmdline="restincl">
+			<exec tag="RESTIN" autostart="Y" subsect="" log="${NDRX_APPHOME}/log/restin.log"/>
+		</client>
+		
+		<client cmdline="restincl">
+			<exec tag="TRAN" autostart="Y" cctag="TRAN" subsect="" log="${NDRX_APPHOME}/log/restin-tran.log"/>
+		</client>
+    
+	</clients>
+</endurox>

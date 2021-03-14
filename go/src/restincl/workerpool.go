@@ -1197,7 +1197,15 @@ func handleMessage(ac *atmi.ATMICtx, svc *ServiceMap, w http.ResponseWriter,
 		} else {
 			//Now service is response for errors
 			rctx.errSrc = ERRSRC_SERVICE
-			_, err := ac.TpCall(svc.Svc, buf, flags)
+
+			/*
+				_, err := ac.TpCall(svc.Svc, buf, flags)
+			*/
+			if svc.TransactionHandler {
+				err = txHandler(ac, buf, svc, req, w, &rctx, flags)
+			} else {
+				err = txCall(ac, buf, svc, req, w, &rctx, flags)
+			}
 
 			genRsp(ac, buf, svc, w, err, reqlogOpen, true, true, &rctx)
 		}
@@ -1222,6 +1230,13 @@ func initPool(ac *atmi.ATMICtx) error {
 		if err != nil {
 			ac.TpLogError("Failed to create context: %s", err.Message())
 			return err
+		}
+
+		if M_do_tpopen {
+			if err = ctx.TpOpen(); nil != err {
+				ac.TpLogError("Failed to tpopen(): %s", err.Error())
+				return err
+			}
 		}
 
 		M_ctxs = append(M_ctxs, ctx)

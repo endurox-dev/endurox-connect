@@ -14,6 +14,27 @@ pushd .
 rm -rf runtime/log 2>/dev/null
 mkdir runtime/log 
 
+rm -rf runtime/tmlogs/rm1 2>/dev/null
+mkdir runtime/tmlogs/rm1
+
+#
+# For tmQ
+#
+rm -rf runtime/tmlogs/rm2 2>/dev/null
+mkdir runtime/tmlogs/rm2
+
+rm -rf runtime/qdata 2>/dev/null
+mkdir runtime/qdata
+
+# Normally provided by provision, but probably those all build systems
+# has already old provision with out this extension env
+if [ "$(uname)" == "Darwin" ]; then
+	export NDRX_LIBEXT="dylib"
+else
+	export NDRX_LIBEXT="so"
+fi
+
+
 cd runtime
 
 LOGFILE=log/shell_out.log
@@ -73,6 +94,18 @@ function go_out {
     exit $1
 }
 
+
+
+###############################################################################
+echo "Checking transactional Web Services API"
+###############################################################################
+trancl
+
+if [[ $? -ne 0 ]]; then
+	echo "Transactional WS API failed"
+	popd
+	go_out 73
+fi
 
 ###############################################################################
 echo "Check EXT error filter service fail (tpurcode 3)"

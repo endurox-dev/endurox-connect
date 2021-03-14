@@ -1121,7 +1121,8 @@ header set, the error *TPESYSTEM* (code 12) is returned, as internally
 to *false* and call is made to previously already called resource manager, then
 it is possible that *TPETRAN* (code 14) would be returned. Recommended way is to
 to leave 'txnooptim' as *true*, as this ensures that transaction is terminated
-as soon as possible.
+as soon as possible, in there is less chance for orphaned transaction, in case
+known RM on *TMJOIN* on rolled back transaction does not return error code.
 
 
 ==== Performing commit twice (in case if HTTP REST call time-out)

@@ -1086,14 +1086,14 @@ To call XATMI service in transaction mode, following steps must be accomplished
 is configured with NULL switch, routes for transaction handler and resource
 are defined):
 
-1. Call the transaction_handler API for 'tpbegin' operation, e.g. /tran_api
+1. Call the transaction_handler API for *tpbegin* operation, e.g. /tran_api
 
 2. Calling service route, ensure that header 'endurox-tptranid-req' is set
 to value returned by 1. field 'tptranid'. Service response return 'endurox-tptranid-rsp'
 header. This shall be saved for next operation.
 
 3. Calling another service route, set header 'endurox-tptranid-req' to value
-returned by *2* response header 'endurox-tptranid-rsp'.
+returned by 2. response header 'endurox-tptranid-rsp'.
 
 4. To perform commit, call transaction_handler API with operation set to *tpcommit*.
 'tptranid' must be set here to header 'endurox-tptranid-rsp' value returned from

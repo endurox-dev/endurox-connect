@@ -51,18 +51,7 @@ func GETFILE(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 //@param svc Service call information
 func FAILSV1(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 
-	ret := SUCCEED
-
-	//Return to the caller
-	defer func() {
-		if SUCCEED == ret {
-			ac.TpReturn(atmi.TPSUCCESS, 0, &svc.Data, 0)
-		} else {
-			ac.TpReturn(atmi.TPFAIL, 0, &svc.Data, 0)
-		}
-	}()
-
-	ret = FAIL
+	ac.TpReturn(atmi.TPFAIL, 0, &svc.Data, 0)
 
 	return
 }

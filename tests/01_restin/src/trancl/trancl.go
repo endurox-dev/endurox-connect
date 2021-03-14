@@ -136,12 +136,19 @@ func callTranApi(ac *atmi.ATMICtx, op string, timeout uint64, flags int64, tptra
 
 }
 
+//As enqueueURL, wrapper to enqueue
+func enqueue(ac *atmi.ATMICtx, tptranid string, longfld int64) (string, int) {
+
+	return enqueueURL(ac, tptranid, longfld, "/enqueue")
+}
+
 //Enqueue message
 //@param ac ATMI context
 //@param tptranid transaction id for the enqueue scope
 //@param longfld long filed value
+//@param url path to acces
 //@return new TID (updated), ATMI error or -1 for generic error, 0 for ok
-func enqueue(ac *atmi.ATMICtx, tptranid string, longfld int64) (string, int) {
+func enqueueURL(ac *atmi.ATMICtx, tptranid string, longfld int64, url string) (string, int) {
 
 	var enq Enqmsg
 	var enqrsp Genrsp
@@ -156,7 +163,7 @@ func enqueue(ac *atmi.ATMICtx, tptranid string, longfld int64) (string, int) {
 		return tptranid, atmi.FAIL
 	}
 
-	req, err := http.NewRequest("POST", WS_URL+"/enqueue", bytes.NewBuffer(reqmsg))
+	req, err := http.NewRequest("POST", WS_URL+url, bytes.NewBuffer(reqmsg))
 
 	if err != nil {
 		ac.TpLogError("Failed to prepare request: %s", err.Error())
@@ -415,6 +422,65 @@ func apprun(ac *atmi.ATMICtx) error {
 			}
 
 		}
+
+		////////////////////////////////////////////////////////////////////////
+		//Check auto-abort settings...
+		////////////////////////////////////////////////////////////////////////
+
+		////////////////////////////////////////////////////////////////////////
+		//Enqueue to bad, but txnoabort is true
+		////////////////////////////////////////////////////////////////////////
+		tid, ecode = callTranApi(ac, "tpbegin", 60, 0, "")
+
+		if 0 != ecode {
+			ac.TpLogError("TESTERROR: (2) tpbegin Expected OK, got %d", ecode)
+			return errors.New(fmt.Sprintf("TESTERROR: (2) tpbegin Expected OK, got %d", ecode))
+		}
+
+		ac.TpLogInfo("NOFAIL: Transaction [%s] started OK", tid)
+
+		tid, ecode = enqueueURL(ac, tid, 1, "/enqueue_nofail")
+
+		if atmi.TPESVCFAIL != ecode {
+			ac.TpLogError("TESTERROR: (1) enqueue_nofail Expected TPESVCFAIL, got %d", ecode)
+			return errors.New(fmt.Sprintf("TESTERROR: (1) enqueue_nofail Expected TPESVCFAIL, got %d", ecode))
+		}
+
+		//Commit shall be OK
+		tid, ecode = callTranApi(ac, "tpcommit", 0, 0, tid)
+
+		if 0 != ecode {
+			ac.TpLogError("TESTERROR: (4) tpcommit Expected OK, got %d", ecode)
+			return errors.New(fmt.Sprintf("TESTERROR: (4) tpcommit Expected OK, got %d", ecode))
+		}
+
+		////////////////////////////////////////////////////////////////////////
+		//Enqueue to bad, but txnoabort is false (default)_
+		////////////////////////////////////////////////////////////////////////
+		tid, ecode = callTranApi(ac, "tpbegin", 60, 0, "")
+
+		if 0 != ecode {
+			ac.TpLogError("TESTERROR: (2) tpbegin Expected OK, got %d", ecode)
+			return errors.New(fmt.Sprintf("TESTERROR: (2) tpbegin Expected OK, got %d", ecode))
+		}
+
+		ac.TpLogInfo("NOFAIL: Transaction [%s] started OK", tid)
+
+		tid, ecode = enqueueURL(ac, tid, 1, "/enqueue_fail")
+
+		if atmi.TPESVCFAIL != ecode {
+			ac.TpLogError("TESTERROR: (1) enqueue_nofail Expected TPESVCFAIL, got %d", ecode)
+			return errors.New(fmt.Sprintf("TESTERROR: (1) enqueue_nofail Expected TPESVCFAIL, got %d", ecode))
+		}
+
+		//Commit shall be OK
+		tid, ecode = callTranApi(ac, "tpcommit", 0, 0, tid)
+
+		if atmi.TPEABORT != ecode {
+			ac.TpLogError("TESTERROR: (5) tpcommit Expected TPEABORT, got %d", ecode)
+			return errors.New(fmt.Sprintf("TESTERROR: (5) tpcommit Expected TPEABORT, got %d", ecode))
+		}
+
 	}
 
 	return nil

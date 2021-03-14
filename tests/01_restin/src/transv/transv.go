@@ -94,6 +94,16 @@ func QGET(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	return
 }
 
+//TXFAIL generate fail (note that this is process in transaction context)
+//@param ac ATMI Context
+//@param svc Service call information
+func TXFAIL(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
+
+	ac.TpReturn(atmi.TPFAIL, 0, &svc.Data, 0)
+
+	return
+}
+
 //Server init, called when process is booted
 //@param ac ATMI Context
 func Init(ac *atmi.ATMICtx) int {
@@ -106,6 +116,11 @@ func Init(ac *atmi.ATMICtx) int {
 	}
 
 	if err := ac.TpAdvertise("QGET", "QGET", QGET); err != nil {
+		fmt.Println(err)
+		return atmi.FAIL
+	}
+
+	if err := ac.TpAdvertise("TXFAIL", "TXFAIL", TXFAIL); err != nil {
 		fmt.Println(err)
 		return atmi.FAIL
 	}

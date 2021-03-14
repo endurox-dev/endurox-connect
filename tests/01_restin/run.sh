@@ -24,7 +24,7 @@ rm -rf runtime/tmlogs/rm2 2>/dev/null
 mkdir runtime/tmlogs/rm2
 
 rm -rf runtime/qdata 2>/dev/null
-mkdir runtime/qdata/rm2
+mkdir runtime/qdata
 
 # Normally provided by provision, but probably those all build systems
 # has already old provision with out this extension env

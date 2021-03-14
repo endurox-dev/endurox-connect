@@ -18,9 +18,8 @@ rm runtime/log/* 2>/dev/null
 
 cd runtime
 
-
+export GODEBUG=x509ignoreCN=0
 NUMCALL=100
-
 NUMCALL40=40
 archs=`uname -m`
 if [ "X$archs" == "Xarmv7l" ]; then

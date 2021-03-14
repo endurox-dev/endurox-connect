@@ -180,14 +180,14 @@ The response is generated in following way:
 found in *EX_IF_RSPHV*. If Conent-Type is not provided in response, 'text/plain'
 is used.
 
-*NOTE:* The conv mode works only with 'ext' error handling mode. And error
-handling mode 'ext' works only with buffer conversion mode 'ext'. See more
-details bellow for 'ext' error handler mode.
+*NOTE:* The 'conv' mode works only with *ext* error handling mode. And error
+handling mode *ext* works only with buffer conversion mode *ext*. See more
+details bellow for *ext* error handler mode.
 
 ==== File Upload
 
 *restincl* supports file upload to temporary folder 'TEMP_DIR' set by *tempdir* flag.
-File upload works only in 'ext' buffer mode. Upload mode is enabled by setting 
+File upload works only in *ext* buffer mode. Upload mode is enabled by setting 
 *fileupload* parameter to *true*.
 
 The upload process performs following
@@ -715,7 +715,7 @@ filled with NULLs, then start NULLs will be converted to JSON anyway.
 Default is *false*.
 
 *errfmt_view_rsp*  = 'ERRFMT_VIEW_RSP'::
-View name to be used when sending the errors 'json2view' errors. In case of 1) 
+View name to be used when sending the errors *json2view* errors. In case of 1) 
 if there is error and response buffer does not have error fields, view
 'errfmt_view_rsp' will be instantiated and fields will set with the error code.
 If 'errfmt_view_rsp' is invalid, then response will contain '{}' - empty JSON
@@ -802,7 +802,7 @@ The default value is as described *above*.
 If set to *true*, that will indicate the request logging file name shall not be
 provided back in buffer to caller in response.
 Default value for field is *false*, meaning that if conversion type is set to
-*json2ubf* and request logging is used, then field 'EX_NREQLOGFILE' will be provided
+*json2ubf* and request logging is used, then field *EX_NREQLOGFILE* will be provided
 back in response to caller.
 
 *echo* = 'ECHO_MODE'::
@@ -823,7 +823,7 @@ expression format is used. Default value is 'EX_IF_URL'.
 *parseform* = 'true|false'::
 If set to *true* then URL and Post body is parsed and *EX_IF_REQFORMN*/*EX_IF_REQFORMV*
 pairs are filled. In this case *EX_IF_REQDATA* field is not setup. This flag functions
-only in conv/error mode *ext*. Flag cannot be used together with *fileupload*
+only in conv/error mode *ext*. Flag cannot be used together with 'fileupload'.
 
 
 *finman* = 'SERVICE_LIST'::
@@ -837,23 +837,23 @@ is optional list. Any failed service will be ignored and chain execution will
 continue. Default is empty.
 
 *finerr* = 'SERVICE_LIST'::
-Comma separated list of services to be executed when in 'ext' mode incoming
-mandatory filters or buffer setup failed. In case if EX_NETRCODE is present,
+Comma separated list of services to be executed when in *ext* mode incoming
+mandatory filters or buffer setup failed. In case if *EX_NETRCODE* is present,
 it is assumed that buffer content is ready for response generation. This is 
 optional service list. Default is empty.
 
 *foutman* = 'SERVICE_LIST'::
-Comma separated list of services to be executed when in 'ext' mode input filters
+Comma separated list of services to be executed when in *ext* mode input filters
 and target service was OK. This is mandatory list, any service error will trigger
 *fouterr* chain to process.
 
 *foutopt* = 'SERVICE_LIST'::
-Comma separated list of services to be executed when in 'ext' mode input filters, 
+Comma separated list of services to be executed when in *ext* mode input filters, 
 target service was OK and *foutman* list were executed OK. This is optional list, 
 any service errors will be ignored.
 
 *fouterr* = 'SERVICE_LIST'::
-Comma separated list of services to be executed when in 'ext' mode target service
+Comma separated list of services to be executed when in *ext* mode target service
 or outgoing mandatory filters have failed. In case if *EX_NETRCODE* is present 
 (set by this or previous services), it is assumed that buffer content is ready 
 for response generation. This is optional service list. Default is empty.
@@ -866,9 +866,31 @@ This flag functions only in conv/error mode *ext*. Flag cannot be used together
 with *parseform*
 
 *tempdir* = 'TEMP_DIR'::
-Temporary directory where to upload the files. This is used only for *fileupload*
+Temporary directory where to upload the files. This is used only for 'fileupload'
 URL mode. Parameter is optional, and default setting is OS temp directory which
 usually is "/tmp".
+
+*transaction_handler* = 'true|false'::
+If this flag is set to *true*, then route is configured as destination for transaction
+management. I.e. this opens a REST API with which transactions may be started,
+committed or aborted. Default value for this parameter is *false*.
+The REST API details are described bellow in section
+*TRANSACTION MANAGEMENT API*. This mode may be configured as single parameter for
+whole route. Internally it uses 'conv' = *ext*, so it is possible to use
+incoming and outgoing filters around the transaction API. So *svc* is required
+for this route.
+
+*txnoabort* = 'true|false'::
+Do not abort transaction, in case if service failed (the XATMI rules of
+*tpcall(3)* here). The default is *false*, meaning that if service fails,
+transaction ID in response header 'endurox-tptranid-rsp' is updated with marking
+transaction must be aborted with commit will be requested.
+
+*txnooptim* = 'true|false'::
+Do not optimize the list of involved resource managers (e.g. databases) in global
+transaction. This setting allows to detect expired transactions when performing
+the calls. Otherwise expired transaction is detected at commit or abort point.
+The default value is *true*.
 
 
 == STATIC ROUTES EXAMPLE
@@ -894,6 +916,269 @@ resources directory.
 
 . 'index.html' in the same way if at host root index is access then, will be provided from
 'static' folder.
+
+
+== TRANSACTION MANAGEMENT API
+
+This section describes special built-in API which purpose is to allow to invoke
+XATMI services with-in global transaction. Where the global transaction is
+managed by web services consumer.
+
+To enable transactions API, special route shall be configured. For example:
+
+--------------------------------------------------------------------------------
+
+/tran_api={"transaction_handler":true}
+
+--------------------------------------------------------------------------------
+
+API works as performing http *POST* of JSON message to the route. And in reply
+API provides result JSON with error code, error message and transaction id (if
+applicable).
+
+In any case of success or error JSON body is returned (if it was possible to
+generate response). In case if request was success, HTTP code *200* is returned. 
+In case if request is invalid (invalid args, etc), response code is set to *400*,
+in case if some Enduro/X internal issues has happened, status code *500* is returned.
+
+
+=== Legend of data types used in messages
+
+.List of basic data types
+|=========================================================
+|Type name |Description
+|<Type>..X | Field length (range) form 0 to X.
+|<Type>X..Y |  Field length (range) from X to Y.
+|<Type>X | Fixed field length (range) X.
+|LONG | Signed long field. 32bit or 64bit value. Depending on platform.
+In case if range is specified and upper value is greater than *10*, then
+for 32bit platforms this is defaulted to *10*.
+|STRING | String value. May contains all ASCII characters according to JSON standard.
+|INT | Signed integer type, 32bit type.
+|ULONG | Unsigned long number. 32 or 64 bit value. . Depending on platform.
+In case if range is specified and upper value is greater than *10*, then
+for 32bit platforms this is defaulted to *10*.
+|=========================================================
+
+=== Request message
+
+Request shall be HTTP POST JSON to the specified URL. 
+
+.API Request message
+[width="80%", options="header"]
+|=========================================================
+|JSON field|Format|Cond|Description
+|operation|STRING1..16|Mand|Values:
+*tpbegin* - begin transaction.
+
+*tpcommit* - commit transaction.
+
+*tpabort* - abort transaction.
+|timeout|ULONG1..20|Optional|Transaction timeout in seconds. If not specified, default
+value *0* is used, which means maximum transaction time. Field is used only 
+when operation is *tpbegin*, otherwise ignored.
+|flags|LONG1..20|Opt|Reserved for future use, and if specified, shall be set to *0*.
+|tptranid|STRING1..256|Mand|Transaction token value. Used for *tpcommit*, *tpabort*.
+|=========================================================
+
+
+*Request example message - begin transaction*
+
+--------------------------------------------------------------------------------
+
+{
+    "operation":"tpbegin"
+    ,"timeout":60
+    ,"flags":0
+}
+
+--------------------------------------------------------------------------------
+
+*Request example message - commit transaction*
+
+--------------------------------------------------------------------------------
+
+{
+    "operation":"tpcommit"
+    "flags":0
+    ,"tptranid":"AABZWlQzb1VCQWtKUXdQNVF2UyttVTlpMlh5cDdyc0FFQUFnREkAAAAAAAAAAAAAAAAAAAEAAgDIAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAA"
+}
+
+--------------------------------------------------------------------------------
+
+=== Response message
+
+.API response message
+[width="80%", options="header"]
+|=========================================================
+|JSON field|Format|Cond|Description
+|operation|STRING1..16|Mand|Echo from original call.
+|error_code|INT1..2|Mand|XATMI Error code. See section *Error codes and it's meaning*
+for codes. In case of success *0* is returned.
+|error_message|STRING1..1024|Mand|Error description. In case of success success, value *Succeed*
+is returned.
+|tptranid|STRING1..256|Mand|Transaction token value returned by *tpbegin* or echo
+from *tpcommit* or *tabort* calls.
+|=========================================================
+
+*NOTE:* The system which processes responses shall ignore any unknown (for which
+system is not aware of) which might appear in future releases on *restincl*.
+
+*Response example message - begin transaction*
+
+--------------------------------------------------------------------------------
+{
+    "operation":"tpcommit"
+    ,"error_code":0
+    ,"error_message":"Succeed"
+    ,"tptranid":"AABZWlQzb1VCQTdZMElsem9ZVGpPREl4ZkZVMkxHUHdFQUFnREkAAAAAAAAAAAAAAAAAAAEAAgDIAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAA"
+}
+
+--------------------------------------------------------------------------------
+
+*Response example message - commit transaction*
+
+--------------------------------------------------------------------------------
+
+{   
+    "operation":"tpcommit"
+    ,"error_code":0
+    ,"error_message":"Succeed"
+    ,"tptranid":"AABZWlQzb1VCQTdZMElsem9ZVGpPREl4ZkZVMkxHUHdFQUFnREkAAAAAAAAAAAAAAAAAAAEAAgDIAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAA"
+}
+
+--------------------------------------------------------------------------------
+
+*Response example message - commit transaction (error)*
+
+--------------------------------------------------------------------------------
+
+{
+    "operation":"tpcommit"
+    ,"error_code":1
+    ,"error_message":"1:TPEABORT (last error 1: tpcommit: Transaction was marked for abort and aborted now)"
+    ,"tptranid":"AQBZWlQzb1VCQXBnVDBiaVQ1VHRtaFplY0JkamhhOXdFQUFnREkAAAAAAAAAAAAAAAAAAAEAAgDIAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAA"
+}
+
+--------------------------------------------------------------------------------
+
+=== Transaction token/identifier (tptranid) notes
+
+Value is platform architecture dependent (CPU, OS version, data model).
+Value may be re-used in the same Enduro/X cluster strictly if other server
+has the same architecture and the other server has accessible originating *tmsrv(8)*
+instance.
+
+=== Calling services in transaction mode.
+
+XATMI service may be put in the transactions mode, in case if in request special
+header is set with the transaction id previously returned by transactions API.
+This header is used for what ever *conv* mode used. When XATMI server process
+finishes it returns updated transaction id header. For next service call or
+API operations last known transaction id must be used (if available).
+
+Transaction mode is supported only synchronous service invocations, i.e. flags
+*async* and *asyncecho*  must be *false* (which is default values). Transaction
+headers are ignored in these modes.
+
+To call XATMI service in transaction mode, following steps must be accomplished
+(assuming that service's transaction group is configured and that *restincl*
+is configured with NULL switch, routes for transaction handler and resource
+are defined):
+
+1. Call the transaction_handler API for 'tpbegin' operation, e.g. /tran_api
+
+2. Calling service route, ensure that header 'endurox-tptranid-req' is set
+to value returned by 1. field 'tptranid'. Service response return 'endurox-tptranid-rsp'
+header. This shall be saved for next operation.
+
+3. Calling another service route, set header 'endurox-tptranid-req' to value
+returned by *2* response header 'endurox-tptranid-rsp'.
+
+4. To perform commit, call transaction_handler API with operation set to *tpcommit*.
+'tptranid' must be set here to header 'endurox-tptranid-rsp' value returned from
+step 3. In case if 3. did time-out, then use 'endurox-tptranid-rsp' from step 2.
+
+For sample code of transaction usage see 
+*endurox-connect/tests/01_restin/src/trancl/trancl.go* source code.
+
+=== Additional notes for error handling in transaction mode calls
+
+This section lists additional aspects that needs to be considered while calling
+services in transaction modes.
+
+==== Transaction timed-out by tmsrv while handling some REST calls
+
+If route flag 'txnooptim' (default *true*) is set to *true* and  transaction 
+is expired when performing service calls with 'endurox-tptranid-req'
+header set, the error *TPESYSTEM* (code 12) is returned, as internally 
+*tpresume(3)* call would fail with this error code. If flag 'txnooptim' is set
+to *false* and call is made to previously already called resource manager, then
+it is possible that *TPETRAN* (code 14) would be returned. Recommended way is to
+to leave 'txnooptim' as *true*, as this ensures that transaction is terminated
+as soon as possible.
+
+
+==== Performing commit twice (in case if HTTP REST call time-out)
+
+Retry commits currently are not supported. Thus if particular 'tptranid' did
+succeed with *tpcommit* (error was 0), if performing commit again, error *TPEABORT* (code 1)
+would be returned. This is due to fact that *tmsrv(8)* does not hold the history
+of transactions, and by trying commit unknown transaction tmsrv reports it is *TPEABORT*
+this would be the typical case when unknown transaction id is being committed but 
+tmsrv rolled it back due to time-out.
+
+
+=== Sample configuration
+
+*restincl* must be configured with standard NULL switch (*libndrxxanulls.so*), 
+other switches are not supported. NULL switch ensures that process may participate
+in global transaction by not touching any real resources by it self.
+
+To put *restincl* in NULL switch mode, requires to certain configuration to
+be used and also instance of *tmsrv(8)* is required.
+
+Fragment from *ndrxconfig.xml(5)*:
+
+--------------------------------------------------------------------------------
+<?xml version="1.0" ?>
+<endurox>
+...
+    <servers>
+    ...
+                <server name="tmsrv">
+                        <min>1</min>
+                        <max>1</max>
+                        <cctag>TRAN</cctag>
+                        <srvid>200</srvid>
+                        <sysopt>-e ${NDRX_APPHOME}/log/tmsrv-rm1.log -r -- -t1 -l${NDRX_APPHOME}/tmlogs/rm2</sysopt>
+                </server> 
+    </servers>
+    ...
+        <clients>
+        ...
+                <client cmdline="restincl">
+                        <exec tag="TRAN" autostart="Y" cctag="TRAN" subsect="" log="${NDRX_APPHOME}/log/restin-tran.log"/>
+                </client>
+        ...
+        </clients>
+...
+</endurox>
+--------------------------------------------------------------------------------
+
+Fragment from *app.ini(5)* definition of NULL transaction group:
+
+--------------------------------------------------------------------------------
+...
+[@global/TRAN]
+NDRX_XA_RES_ID=1
+NDRX_XA_OPEN_STR=-
+NDRX_XA_CLOSE_STR=-
+NDRX_XA_DRIVERLIB=libndrxxanulls.so
+NDRX_XA_RMLIB=-
+NDRX_XA_LAZY_INIT=1
+...
+--------------------------------------------------------------------------------
 
 
 == EXIT STATUS

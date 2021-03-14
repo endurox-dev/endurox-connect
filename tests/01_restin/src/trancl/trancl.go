@@ -27,7 +27,7 @@ type TxReqData struct {
 	Operation string `json:"operation"`
 	Timeout   uint64 `json:"timeout"`
 	Flags     int64  `json:"flags"`
-	Tptranid  string `json:"tptranid"`
+	Tptranid  string `json:"tptranid,omitempty"`
 }
 
 /**

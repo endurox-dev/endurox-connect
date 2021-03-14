@@ -18,6 +18,8 @@ rm runtime/log/* 2>/dev/null
 
 cd runtime
 
+# having some issues on aix
+export GODEBUG=x509ignoreCN=0
 
 NUMCALL=100
 

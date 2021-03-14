@@ -932,6 +932,10 @@ To enable transactions API, special route shall be configured. For example:
 
 --------------------------------------------------------------------------------
 
+Such configured route basically works as *ext* mode destination, thus filter
+calls such *finman*, *finopt*, etc.. are available and can be configured for the
+route.
+
 API works as performing http *POST* of JSON message to the route. And in reply
 API provides result JSON with error code, error message and transaction id (if
 applicable).
@@ -1017,8 +1021,9 @@ when operation is *tpbegin*, otherwise ignored.
 for codes. In case of success *0* is returned.
 |error_message|STRING1..1024|Mand|Error description. In case of success success, value *Succeed*
 is returned.
-|tptranid|STRING1..256|Mand|Transaction token value returned by *tpbegin* or echo
-from *tpcommit* or *tabort* calls.
+|tptranid|STRING1..256|Cond|Transaction token value returned by *tpbegin* or echo
+from *tpcommit* or *tabort* calls. Field is returned whenever transaction identifier is
+available.
 |=========================================================
 
 *NOTE:* The system which processes responses shall ignore any unknown (for which

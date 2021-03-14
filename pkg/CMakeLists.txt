@@ -61,6 +61,7 @@ SET (NDRX_BLD_VERSION   $ENV{NDRX_BLD_VERSION})
 SET (NDRX_BLD_RELEASE   $ENV{NDRX_BLD_RELEASE})
 SET (NDRX_BLD_TAG       $ENV{NDRX_BLD_TAG})
 SET (NDRX_BLD_BRANCH    $ENV{NDRX_BLD_BRANCH})
+SET (NDRX_BLD_COMMIT    $ENV{NDRX_BLD_COMMIT})
 SET (NDRX_BLD_FLAGS     $ENV{NDRX_BLD_FLAGS})
 
 
@@ -83,6 +84,8 @@ if( ${CMAKE_OS_NAME} STREQUAL "LINUX" )
         set(EX_OS_LINUX "1")
 elseif(${CMAKE_OS_NAME} STREQUAL "AIX")
 	set(EX_OS_AIX "1")
+	set ( CMAKE_C_FLAGS "-D_SEM_SEMUN_UNDEFINED -D_MSGQSUPPORT -D_THREAD_SAFE -pthread -maix64 -Wl,-brtl -Wl,-G ${CMAKE_C_FLAGS}")
+	set ( CMAKE_CXX_FLAGS "-D_SEM_SEMUN_UNDEFINED -D_MSGQSUPPORT -D_THREAD_SAFE -pthread -maix64 -Wl,-brtl -Wl,-G ${CMAKE_CXX_FLAGS}")
 elseif(${CMAKE_OS_NAME} STREQUAL "HP-UX")
 	set(EX_OS_HPUX "1")
 elseif(${CMAKE_OS_NAME} STREQUAL "SUNOS")
@@ -121,7 +124,15 @@ install (FILES
     PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_EXECUTE GROUP_READ WORLD_EXECUTE WORLD_READ
     DESTINATION bin)
     
+# check that a2x actually works, on aix there is a2x but it is not asciidoc
+
+execute_process(COMMAND a2x "--version" RESULT_VARIABLE RET)
 if(A2X_EXECUTABLE)
+
+    if( NOT ${RET} MATCHES "0")
+        message("a2x does not work - disabling doc...")
+        unset(A2X_EXECUTABLE)
+    elseif()
 	# Install manpages (if any
 	install (FILES
 		../doc/manpage/restincl.8
@@ -157,6 +168,7 @@ if(A2X_EXECUTABLE)
   		../doc/docbook-xsl.css
 		DESTINATION share/endurox-connect/doc/html/guides
   		OPTIONAL)
+    endif()
 endif()
 	
 ################################################################################
@@ -250,22 +262,37 @@ if(APTPROG)
 	set(CPACK_GENERATOR "${CPACK_GENERATOR};DEB")
 endif()
 
+INCLUDE (${CMAKE_ROOT}/Modules/CheckTypeSize.cmake)
+CHECK_TYPE_SIZE("void*"  EX_SIZEOF_VOIDPTR)
+MATH (EXPR EX_PLATFORM_BITS "${EX_SIZEOF_VOIDPTR} * 8")
 #
 # Fix arch for AIX
 #
 IF(CMAKE_SYSTEM_PROCESSOR MATCHES "^powerpc")
-	set(CPACK_RPM_PACKAGE_ARCHITECTURE "ppc")
+        set(CPACK_RPM_PACKAGE_ARCHITECTURE "ppc")
 ENDIF()
+
+set(EX_CPU_ARCH "${CMAKE_SYSTEM_PROCESSOR}_${EX_PLATFORM_BITS}")
+
+#
+# MAP the CPU name
+#
+if( (${EX_CPU_ARCH} STREQUAL "x86_64_64") OR (${EX_CPU_ARCH} STREQUAL "amd64_64") OR
+      (${EX_CPU_ARCH} STREQUAL "386_64") OR (${EX_CPU_ARCH} STREQUAL "amd64")
+      OR (${EX_CPU_ARCH} STREQUAL "i386_64") )
+    set(EX_CPU_ARCH "x86_64")
+endif()
 
 message("Generator: ${CPACK_GENERATOR}")
 
-set(CPACK_PACKAGE_CONTACT "madars.vitolins@gmail.com")
+set(CPACK_PACKAGE_CONTACT "contact@mavimax.com")
 set(CPACK_PACKAGE_VERSION ${VERSION})
+set(CPACK_PACKAGE_VENDOR "Mavimax Ltd")
 #set(CPACK_DEBIAN_PACKAGE_DEPENDS "endurox")
 #set(CPACK_RPM_PACKAGE_REQUIRES "endurox")
 string(TOLOWER ${PROJECT_NAME} PROJECT_NAME_LO)
 message("CPack:Debug: PROJECT NAME = ${PROJECT_NAME_LO}")
-set(CPACK_PACKAGE_FILE_NAME         ${PROJECT_NAME_LO}-${VERSION}-${RELEASE}.${LSB_RELEASE_OUTPUT_OS}${LSB_RELEASE_OUTPUT_VER}.${CMAKE_SYSTEM_PROCESSOR})
+set(CPACK_PACKAGE_FILE_NAME         ${PROJECT_NAME_LO}-${VERSION}-${RELEASE}.${LSB_RELEASE_OUTPUT_OS}${LSB_RELEASE_OUTPUT_VER}.${EX_CPU_ARCH})
 message("CPack:Debug: CPACK_PACKAGE_FILE_NAME = ${CPACK_PACKAGE_FILE_NAME}")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Enduro/X Connectivity Module")
 set(CPACK_DEBIAN_PACKAGE_DESCRIPTION  ${CPACK_PACKAGE_DESCRIPTION})

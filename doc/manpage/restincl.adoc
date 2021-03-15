@@ -982,7 +982,7 @@ Request shall be HTTP POST JSON to the specified URL.
 value *0* is used, which means maximum transaction time. Field is used only 
 when operation is *tpbegin*, otherwise ignored.
 |flags|LONG1..20|Opt|Reserved for future use, and if specified, shall be set to *0*.
-|tptranid|STRING1..256|Mand|Transaction token value. Used for *tpcommit*, *tpabort*.
+|tptranid|STRING1..256|Cond|Transaction token value. Used for *tpcommit*, *tpabort*.
 |=========================================================
 
 

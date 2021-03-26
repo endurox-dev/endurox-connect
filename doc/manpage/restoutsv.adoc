@@ -542,15 +542,11 @@ the corresponding rest-in services are defined in *tests/03_restout/runtime/conf
 
 BUGS
 ----
-Report bugs to madars.vitolins@gmail.com
+Report bugs to support@mavimax.com
 
 SEE ALSO
 --------
 *restincl(8)* *tcpgatesv(8)*
-
-BUGS
-----
-Report bugs to madars.vitolins@gmail.com
 
 COPYING
 -------

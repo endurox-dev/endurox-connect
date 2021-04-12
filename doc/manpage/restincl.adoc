@@ -1118,11 +1118,12 @@ If route flag 'txnooptim' (default *true*) is set to *true* and  transaction
 is expired when performing service calls with 'endurox-tptranid-req'
 header set, the error *TPESYSTEM* (code 12) is returned, as internally 
 *tpresume(3)* call would fail with this error code. If flag 'txnooptim' is set
-to *false* and call is made to previously already called resource manager, then
+to *false* and call is made to previously already called resource manager (RM), then
 it is possible that *TPETRAN* (code 14) would be returned. Recommended way is to
 to leave 'txnooptim' as *true*, as this ensures that transaction is terminated
-as soon as possible, in there is less chance for orphaned transaction, in case
-known RM on *TMJOIN* on rolled back transaction does not return error code.
+as soon as possible, and there is less chance for orphaned transaction, in case
+if for known RM on *TMJOIN* (if supported) on rolled back transaction does 
+not return error code.
 
 
 ==== Performing commit twice (in case if HTTP REST call time-out)

@@ -1033,7 +1033,7 @@ system is not aware of) which might appear in future releases on *restincl*.
 
 --------------------------------------------------------------------------------
 {
-    "operation":"tpcommit"
+    "operation":"tpbegin"
     ,"error_code":0
     ,"error_message":"Succeed"
     ,"tptranid":"AABZWlQzb1VCQTdZMElsem9ZVGpPREl4ZkZVMkxHUHdFQUFnREkAAAAAAAAAAAAAAAAAAAEAAgDIAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAA"

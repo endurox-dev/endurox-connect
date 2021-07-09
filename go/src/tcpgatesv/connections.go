@@ -952,7 +952,7 @@ func PassiveConnectionListener() {
 	var err error
 
 	if nil != err {
-		fmt.Fprintf(os.Stderr, "Failed to create ATMI Context: %d:%s",
+		fmt.Fprintf(os.Stderr, "Failed to create ATMI Context: %d:%s\n",
 			errA.Code(), errA.Message())
 		MShutdown = RUN_SHUTDOWN_FAIL
 		return
@@ -986,14 +986,14 @@ func PassiveConnectionListener() {
 			con.ctx, errA = atmi.NewATMICtx()
 
 			if nil != errA {
-				fmt.Fprintf(os.Stderr, "Failed to create ATMI "+
+				ac.TpLogError("Failed to create ATMI "+
 					"Context for connection: %d:%s",
 					errA.Code(), errA.Message())
 				MShutdown = RUN_SHUTDOWN_FAIL
 				return
 			}
 
-			fmt.Fprintf(os.Stderr, "Got connection atmi object: %p",
+			ac.TpLogInfo("Got connection atmi object: %p",
 				con.ctx)
 
 			SetupConnection(&con)

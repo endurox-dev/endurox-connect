@@ -116,7 +116,7 @@
 			<max>1</max>
 			<srvid>60</srvid>
 			<cctag>RM1TMQ</cctag>
-			<sysopt>-e ${NDRX_APPHOME}/log/tmqueue-rm1.log -r -- -m SAMPLESPACE -s1</sysopt>
+			<sysopt>-e ${NDRX_APPHOME}/log/tmqueue-rm1.log -r -- -s1</sysopt>
 		</server>
 		<server name="tpbridge">
 			<min>1</min>

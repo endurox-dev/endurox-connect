@@ -123,7 +123,7 @@
 			<max>1</max>
 			<srvid>300</srvid>
 			<cctag>TMQ</cctag>
-			<sysopt>-e ${NDRX_APPHOME}/log/tmqueue-rm2.log -r -- -m QSPACE1 -s1</sysopt>
+			<sysopt>-e ${NDRX_APPHOME}/log/tmqueue-rm2.log -r -- -s1</sysopt>
 		</server>
 		<server name="testsv">
 			<min>1</min>

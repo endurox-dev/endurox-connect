@@ -59,7 +59,8 @@ xadmin provision -d \
         -vusv1_cmdline=restincl \
         -vusv1_tag=RESTIN \
         -vusv1_log='${NDRX_APPHOME}/log/restin.log' \
-        -vtimeout=8
+        -vtimeout=8 \
+	-vqSpace=QSPACE1
 
 cd conf
 

@@ -19,6 +19,7 @@ mkdir runtime/log
 
 cd runtime
 
+xadmin ps
 #
 # Create the env..
 #

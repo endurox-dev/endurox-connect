@@ -176,7 +176,8 @@ NROFCALLS=$(($NUMCALL+5))
 NROFCALLS_CMP=$NUMCALL
 COMMAND="async_call"
 
- > log/testsv.log
+# why?
+# > log/testsv.log
 testcl async_call $NROFCALLS TCP_P_ASYNC_A
 RET=$?
 
@@ -452,6 +453,11 @@ echo ">>> Test for any log errors"
 if [ "X`grep TESTERROR log/*.log`" != "X" ]; then
         echo "Test error detected!"
         go_out 20
+fi
+
+if [ "X`grep panic.go log/*.log`" != "X" ]; then
+        echo "panic.go error detected!"
+        go_out 21
 fi
 
 # The go_out will do the shutdown!

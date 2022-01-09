@@ -3,7 +3,8 @@ SOURCEDIR=.
 SOURCES := $(shell find $(SOURCEDIR) -name '*.go')
 
 BINARY=testsv
-LDFLAGS=-race
+#LDFLAGS=-race
+LDFLAGS=
 
 VERSION=1.0.0
 BUILD_TIME=`date +%FT%T%z`

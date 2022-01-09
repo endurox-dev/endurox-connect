@@ -11,6 +11,11 @@ ulimit -c unlimited
 # Load other config... stack size, etc
 source ~/ndrx_home
 
+#
+# Temporary fix for Support #754
+#
+export GODEBUG="asyncpreemptoff=1"
+
 > ./test.out
 # Have some terminal output...
 tail -f test.out &

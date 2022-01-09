@@ -11,7 +11,7 @@
  * AGPL or Mavimax's license for commercial use.
  * -----------------------------------------------------------------------------
  * AGPL license:
- * 
+ *
  * This program is free software; you can redistribute it and/or modify it under
  * the terms of the GNU Affero General Public License, version 3 as published
  * by the Free Software Foundation;
@@ -21,8 +21,8 @@
  * PARTICULAR PURPOSE. See the GNU Affero General Public License, version 3
  * for more details.
  *
- * You should have received a copy of the GNU Affero General Public License along 
- * with this program; if not, write to the Free Software Foundation, Inc., 
+ * You should have received a copy of the GNU Affero General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
  * 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
  * -----------------------------------------------------------------------------
@@ -53,6 +53,7 @@ var MSeqOutMutex = &sync.Mutex{} //For out message sequencing
 
 var MSeqOutMsgs map[int64][]*ATMIOutBlock
 
+/*
 //Get next work load block
 //@param id connect id
 //@return Message out or nil (EOF)
@@ -76,20 +77,44 @@ func XATMIDispatchCallNext(id int64) *ATMIOutBlock {
 
 	return ret
 }
+*/
 
 //Process messages in loop for given connection id
 //@param[in] id  connection id
-//@param[in] block call blcok
 func XATMIDispatchCallRunner(id int64, block *ATMIOutBlock) {
 
-	var nextBlock *ATMIOutBlock
+	//var nextBlock *ATMIOutBlock
 
 	nrOurs := block.nr
 	pool := block.pool //pool shall no change here amog the enqueued objects
 
+	/*
 	for nextBlock = block; nil != nextBlock; nextBlock = XATMIDispatchCallNext(id) {
 		XATMIDispatchCall(nextBlock.pool, nrOurs,
 			nextBlock.ctxData, nextBlock.buf, nextBlock.cd, false)
+	}
+	*/
+
+	for {
+		/* read block */
+		MSeqOutMutex.Lock()
+		
+		if (len(MSeqOutMsgs[id])==0) {
+			MSeqOutMsgs[id] = nil
+			MSeqOutMutex.Unlock()
+			break;
+		}
+		block = MSeqOutMsgs[id][0]
+		MSeqOutMutex.Unlock()
+
+		XATMIDispatchCall(block.pool, nrOurs,
+			block.ctxData, block.buf, block.cd, false)
+		
+		/* delete block */
+		MSeqOutMutex.Lock()
+		MSeqOutMsgs[id] = MSeqOutMsgs[id][1:]
+		MSeqOutMutex.Unlock()
+		
 	}
 
 	//Free up the chan
@@ -126,6 +151,6 @@ func XATMIDispatchCallSeq(id int64, pool *XATMIPool, nr int, ctxData *atmi.TPSRV
 	}
 
 	MSeqOutMutex.Unlock()
-
 }
+
 /* vim: set ts=4 sw=4 et smartindent: */

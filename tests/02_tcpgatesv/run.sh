@@ -19,7 +19,8 @@ rm runtime/log/* 2>/dev/null
 cd runtime
 
 # having some issues on aix
-export GODEBUG=x509ignoreCN=0
+export GODEBUG=x509ignoreCN=0,$GODEBUG
+export NDRX_SILENT=Y
 
 NUMCALL=100
 NUMCALL40=40
@@ -113,6 +114,11 @@ if [[ $RET != 0 ]]; then
 fi
 
 echo ">>> Running sequence tests (2)"
+
+#
+# Have seq counters restarted...
+#
+xadmin sreload testsv
 
 testcl $COMMAND $NROFCALLS TCP_P_SEQ_A
 RET=$?

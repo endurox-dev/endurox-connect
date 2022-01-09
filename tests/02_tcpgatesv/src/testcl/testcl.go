@@ -4,9 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"time"
 	"strconv"
 	u "ubftab"
-
+	"exutil"
 	atmi "github.com/endurox-dev/endurox-go"
 )
 
@@ -192,32 +193,35 @@ func apprun(ac *atmi.ATMICtx) error {
 		ba[0] = 0
 
 		ub, errA := ac.NewUBF(3000)
-
-		if errA := ub.BChg(u.EX_NETCONNID, 0, "2"); nil != errA {
-			ac.TpLogError("Failed to set EX_NETDATA %d:%s",
+		
+		if nil != errA {
+			ac.TpLogError("Failed to allocate UBF buffer %d:%s",
 				errA.Code(), errA.Message())
 			return errors.New(errA.Message())
+		}
+		
+		var errU atmi.UBFError
+		
+		if errU = ub.BChg(u.EX_NETCONNID, 0, "2"); nil != errU {
+			ac.TpLogError("Failed to set EX_NETDATA %d:%s",
+				errU.Code(), errU.Message())
+			return errors.New(errU.Message())
 		}
 
 		//Send the stuff out!!!
 		//To async target
 		for i := 0; i < nrOfTimes; i++ {
 
-			if nil != errA {
-				ac.TpLogError("Failed to allocate UBF buffer %d:%s",
-					errA.Code(), errA.Message())
-				return errors.New(errA.Message())
-			}
-
-			if errA := ub.BChg(u.EX_NETDATA, 0, ba); nil != errA {
+			if errU = ub.BChg(u.EX_NETDATA, 0, ba); nil != errU {
 				ac.TpLogError("Failed to set EX_NETDATA %d:%s",
-					errA.Code(), errA.Message())
-				return errors.New(errA.Message())
+					errU.Code(), errU.Message())
+				return errors.New(errU.Message())
 			}
 
 			//The reply here kills the buffer,
 			//Thus we need a copy...
 			ub.TpLogPrintUBF(atmi.LOG_INFO, "Calling server")
+			
 			if _, errA := ac.TpACall(gw, ub, atmi.TPNOREPLY); nil != errA {
 				ac.TpLogError("Failed to call [%s] %d:%s",
 					gw, errA.Code(), errA.Message())
@@ -226,6 +230,31 @@ func apprun(ac *atmi.ATMICtx) error {
 
 			ba[0]++
 		}
+		
+		//Wait for results... say 5 min?
+		var watch exutil.StopWatch
+		var nrRcvd int
+		watch.Reset()
+		for watch.GetDetlaSec() < (5*60) && nrRcvd!=nrOfTimes {
+			//Get number 
+			if _, errA = ac.TpCall("SEQRES", ub, 0); nil != errA {
+				ac.TpLogError("Failed to call SEQRES %d:%s",
+					errA.Code(), errA.Message())
+			}
+				
+			//The response should succeed
+			if nrRcvd, errU = ub.BGetInt(u.T_LONG_FLD, 0); nil != errU {
+				ac.TpLogError("TESTERROR: Failed to get T_LONG_FLD: %s",
+					errU.Message())
+				return errors.New(errU.Message())
+			}
+			
+			ac.TpLogInfo("nrRcvd=%d", nrRcvd);
+			
+			time.Sleep(1 * time.Second)
+			
+		}
+		ac.TpAssertEqualPanic(nrOfTimes, nrRcvd, "TESTERROR: Msgs sent and received does not match")
 
 		break
 	case "async_call", "nocon":

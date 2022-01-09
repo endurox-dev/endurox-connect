@@ -512,34 +512,41 @@ func Init(ac *atmi.ATMICtx) int {
 	}
 	//Advertize TESTSVC
 	if err := ac.TpAdvertise("TESTSVC", "TESTSVC", TESTSVC); err != nil {
-		ac.TpLogError("Failed to Advertise: ATMI Error %d:[%s]\n",
+		ac.TpLogError("Failed to Advertise: ATMI Error %d:[%s]",
 			err.Code(), err.Message())
 		return atmi.FAIL
 	}
 
 	if err := ac.TpAdvertise("CORSVC", "CORSVC", CORSVC); err != nil {
-		ac.TpLogError("Failed to Advertise: ATMI Error %d:[%s]\n",
+		ac.TpLogError("Failed to Advertise: ATMI Error %d:[%s]",
 			err.Code(), err.Message())
 		return atmi.FAIL
 	}
 
 	if err := ac.TpAdvertise("CONSTAT", "CONSTAT", CONSTAT); err != nil {
-		ac.TpLogError("Failed to Advertise: ATMI Error %d:[%s]\n",
+		ac.TpLogError("Failed to Advertise: ATMI Error %d:[%s]",
 			err.Code(), err.Message())
 		return atmi.FAIL
 	}
 
 	if err := ac.TpAdvertise("TESTOFFSET", "TESTOFFSET", TESTOFFSET); err != nil {
-		ac.TpLogError("Failed to Advertise: ATMI Error %d:[%s]\n",
+		ac.TpLogError("Failed to Advertise: ATMI Error %d:[%s]",
 			err.Code(), err.Message())
 		return atmi.FAIL
 	}
 
 	if err := ac.TpAdvertise("SEQTEST", "SEQTEST", SEQTEST); err != nil {
-		ac.TpLogError("Failed to Advertise: ATMI Error %d:[%s]\n",
+		ac.TpLogError("Failed to Advertise: ATMI Error %d:[%s]",
 			err.Code(), err.Message())
 		return atmi.FAIL
 	}
+
+	if err := ac.TpAdvertise("SEQRES", "SEQRES", SEQRES); err != nil {
+		ac.TpLogError("Failed to Advertise: ATMI Error %d:[%s]",
+			err.Code(), err.Message())
+		return atmi.FAIL
+	}
+
 
 	return SUCCEED
 }

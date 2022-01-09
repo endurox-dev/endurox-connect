@@ -19,4 +19,7 @@ Release binaries may be found here: https://www.mavimax.com/downloads
 |Ubuntu 18.04| [![Build Status](http://www.silodev.com:9090/jenkins/buildStatus/icon?job=endurox-connect-ubuntu18)](http://www.silodev.com:9090/jenkins/job/endurox-connect-ubuntu18/)|AIX 7.2| [![Build Status](http://www.silodev.com:9090/jenkins/buildStatus/icon?job=endurox-connect-aix7_2)](http://www.silodev.com:9090/jenkins/job/endurox-connect-aix7_2/)|
 
 
+# Releases
+
+- Version 8.0.0 released on 09/01/2022 (stable) Support #754
 

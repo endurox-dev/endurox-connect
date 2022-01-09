@@ -544,6 +544,33 @@ BUGS
 ----
 Report bugs to support@mavimax.com
 
+*Golang compiler problems:*
+
+go1.14 introduced use of *SIGURG* for internal purposes of the language runtime.
+This causes Enduro/X Unix system calls to interrupt with *EINTR*, which can lead
+to incorrect work of the binary using Enduro/X Go bindings.
+
+The bug is reported here: https://github.com/golang/go/issues/50521
+
+While this bug is not fixed, the *restoutsv* shall be started with following
+environment variable set:
+
+--------------------------------------------------------------------------------
+
+export GODEBUG="asyncpreemptoff=1"
+
+--------------------------------------------------------------------------------
+
+The setting may be applied to *app.ini* in *[@global]* section as:
+
+--------------------------------------------------------------------------------
+
+[@global]
+...
+GODEBUG=asyncpreemptoff=1
+
+--------------------------------------------------------------------------------
+
 SEE ALSO
 --------
 *restincl(8)* *tcpgatesv(8)*

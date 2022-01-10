@@ -50,7 +50,7 @@ type ATMIOutBlock struct {
 }
 
 var MSeqOutMutex = &sync.Mutex{} //For out message sequencing
-
+var MNrMessages = 0              //Number of messages enqueued
 var MSeqOutMsgs map[int64][]*ATMIOutBlock
 
 /*
@@ -89,32 +89,34 @@ func XATMIDispatchCallRunner(id int64, block *ATMIOutBlock) {
 	pool := block.pool //pool shall no change here amog the enqueued objects
 
 	/*
-	for nextBlock = block; nil != nextBlock; nextBlock = XATMIDispatchCallNext(id) {
-		XATMIDispatchCall(nextBlock.pool, nrOurs,
-			nextBlock.ctxData, nextBlock.buf, nextBlock.cd, false)
-	}
+		for nextBlock = block; nil != nextBlock; nextBlock = XATMIDispatchCallNext(id) {
+			XATMIDispatchCall(nextBlock.pool, nrOurs,
+				nextBlock.ctxData, nextBlock.buf, nextBlock.cd, false)
+		}
 	*/
 
 	for {
 		/* read block */
 		MSeqOutMutex.Lock()
-		
-		if (len(MSeqOutMsgs[id])==0) {
+
+		if len(MSeqOutMsgs[id]) == 0 {
 			MSeqOutMsgs[id] = nil
 			MSeqOutMutex.Unlock()
-			break;
+			break
 		}
 		block = MSeqOutMsgs[id][0]
 		MSeqOutMutex.Unlock()
 
 		XATMIDispatchCall(block.pool, nrOurs,
 			block.ctxData, block.buf, block.cd, false)
-		
+
 		/* delete block */
 		MSeqOutMutex.Lock()
 		MSeqOutMsgs[id] = MSeqOutMsgs[id][1:]
+		MNrMessages--
 		MSeqOutMutex.Unlock()
-		
+		MSeqNotif <- true
+
 	}
 
 	//Free up the chan
@@ -131,6 +133,11 @@ func XATMIDispatchCallRunner(id int64, block *ATMIOutBlock) {
 func XATMIDispatchCallSeq(id int64, pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 	buf *atmi.TypedUBF, cd int) {
 
+	//Clear the input channel..
+	for len(MSeqNotif) > 0 {
+		<-MSeqNotif
+	}
+
 	//Lock the queues
 	MSeqOutMutex.Lock()
 
@@ -142,7 +149,7 @@ func XATMIDispatchCallSeq(id int64, pool *XATMIPool, nr int, ctxData *atmi.TPSRV
 		startNew = true
 	}
 	MSeqOutMsgs[id] = append(MSeqOutMsgs[id], &block)
-
+	MNrMessages++
 	if startNew {
 		go XATMIDispatchCallRunner(id, &block)
 	} else {
@@ -151,6 +158,14 @@ func XATMIDispatchCallSeq(id int64, pool *XATMIPool, nr int, ctxData *atmi.TPSRV
 	}
 
 	MSeqOutMutex.Unlock()
+
+	if MNrMessages >= MWorkersOut {
+		//Wait on channel...
+		//Stop the main thread to avoid consuming all incoming messages
+		//If flow is one direction only (i.e. full async transfer)
+		<-MSeqNotif
+	}
+
 }
 
 /* vim: set ts=4 sw=4 et smartindent: */

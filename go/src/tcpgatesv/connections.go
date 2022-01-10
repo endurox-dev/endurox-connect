@@ -114,8 +114,9 @@ type ExCon struct {
 
 	conmode string //Connection mode, [A]ctive or [P]assive
 
-	busy   bool             //Is connection busy?
-	inIdle exutil.StopWatch //Max idle time
+	busy      bool             //Is connection busy?
+	schedZero bool             //Periodic zero shall be sent
+	inIdle    exutil.StopWatch //Max idle time
 }
 
 //We need a hash list of open connection (no matter incoming our outgoing...)
@@ -137,6 +138,7 @@ var MCorrWaiterMutex = &sync.Mutex{}
 //(outgoing)
 
 var Mfreeconns chan *ExCon
+var MSeqNotif chan bool
 var MfreeconsLock sync.Mutex
 var MPassiveLisener net.Listener
 
@@ -205,6 +207,9 @@ func MarkConnAsBusy(ac *atmi.ATMICtx, con *ExCon, dontWait bool) bool {
 	}
 
 	MfreeconsLock.Unlock()
+
+	//Run zero if was scheduled...
+	RunZeroSched(ac, con)
 
 	return true
 }
@@ -479,8 +484,8 @@ func MarkConnAsFree(ac *atmi.ATMICtx, con *ExCon) {
 //@param port (out) port parsed
 func SetIPPort(ac *atmi.ATMICtx, addr net.Addr, ip *string, port *int) {
 
-    *port = addr.(*net.TCPAddr).Port
-    *ip = addr.(*net.TCPAddr).IP.String()
+	*port = addr.(*net.TCPAddr).Port
+	*ip = addr.(*net.TCPAddr).IP.String()
 
 	ac.TpLogDebug("Got %s:%d", *ip, *port)
 

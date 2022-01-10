@@ -11,7 +11,7 @@
  * AGPL or Mavimax's license for commercial use.
  * -----------------------------------------------------------------------------
  * AGPL license:
- * 
+ *
  * This program is free software; you can redistribute it and/or modify it under
  * the terms of the GNU Affero General Public License, version 3 as published
  * by the Free Software Foundation;
@@ -21,8 +21,8 @@
  * PARTICULAR PURPOSE. See the GNU Affero General Public License, version 3
  * for more details.
  *
- * You should have received a copy of the GNU Affero General Public License along 
- * with this program; if not, write to the Free Software Foundation, Inc., 
+ * You should have received a copy of the GNU Affero General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
  * 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
  * -----------------------------------------------------------------------------
@@ -43,6 +43,34 @@ var MZeroStopwatch exutil.StopWatch
 var MStatusRefreshStopWatch exutil.StopWatch
 var MInIdleCheckStopWatch exutil.StopWatch
 
+//Send zero
+func RunZero(ac *atmi.ATMICtx, con *ExCon) {
+	var block DataBlock
+
+	if MFramingOffset > 0 {
+		//Go by default set to 0
+		block.data = make([]byte, MFramingLen)
+	}
+
+	p_block := &block
+	ac.TpLogInfo("Sending zero length message to id:%d conn_id: %d ",
+		con.id, con.id_comp)
+
+	con.outgoing <- p_block
+	con.schedZero = false
+}
+
+//Check zero schedule & run if needed.
+//If connections are bussy all the time, the bellow RunZeroOverOpenCons
+//might not be executed, thus if for example we receive messages only
+//at max load, then we might not send a periodic zero to remote node
+//thus connection might be reset.
+func RunZeroSched(ac *atmi.ATMICtx, con *ExCon) {
+	if con.schedZero {
+		RunZero(ac, con)
+	}
+}
+
 //Send zero length messages over the channels
 func RunZeroOverOpenCons(ac *atmi.ATMICtx) {
 
@@ -52,16 +80,6 @@ func RunZeroOverOpenCons(ac *atmi.ATMICtx) {
 	for _, v := range MConnectionsComp {
 
 		if v.is_open {
-			var block DataBlock
-
-			if MFramingOffset > 0 {
-				//Go by default set to 0
-				block.data = make([]byte, MFramingLen)
-			}
-
-			p_block := &block
-			ac.TpLogInfo("Sending zero length message to id:%d conn_id: %d ",
-				v.id, v.id_comp)
 
 			//Remove connection from free list
 			//Maybe we can leave it as un-used?
@@ -71,11 +89,11 @@ func RunZeroOverOpenCons(ac *atmi.ATMICtx) {
 			stat := MarkConnAsBusy(ac, v, true)
 
 			if stat {
-
 				ac.TpLogInfo("Send the data block")
-				v.outgoing <- p_block
+				RunZero(ac, v)
 			} else {
-				ac.TpLogInfo("Connection busy -> not sending zero message")
+				ac.TpLogInfo("Connection busy -> scheduling...")
+				v.schedZero = true
 			}
 
 			//Where we make free the connection
@@ -350,4 +368,5 @@ func Periodic(ac *atmi.ATMICtx) int {
 
 	return ret
 }
+
 /* vim: set ts=4 sw=4 et smartindent: */

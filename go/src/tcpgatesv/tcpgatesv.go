@@ -752,6 +752,7 @@ func Init(ac *atmi.ATMICtx) int {
 	MCorrWaiter = make(map[string]*DataBlock)
 
 	Mfreeconns = make(chan *ExCon, MMaxConnections*2)
+	MSeqNotif = make(chan bool, MWorkersOut*2)
 
 	//Advertize Gateway service
 	if err := ac.TpAdvertise(MGateway, MGateway, TCPGATE); err != nil {

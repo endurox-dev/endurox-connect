@@ -11,7 +11,7 @@
  * AGPL or Mavimax's license for commercial use.
  * -----------------------------------------------------------------------------
  * AGPL license:
- * 
+ *
  * This program is free software; you can redistribute it and/or modify it under
  * the terms of the GNU Affero General Public License, version 3 as published
  * by the Free Software Foundation;
@@ -21,8 +21,8 @@
  * PARTICULAR PURPOSE. See the GNU Affero General Public License, version 3
  * for more details.
  *
- * You should have received a copy of the GNU Affero General Public License along 
- * with this program; if not, write to the Free Software Foundation, Inc., 
+ * You should have received a copy of the GNU Affero General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
  * 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
  * -----------------------------------------------------------------------------
@@ -189,8 +189,10 @@ func NetDispatchCall(pool *XATMIPool, nr int, con *ExCon,
 				//Maybe send to channel for reply
 				//And then shutdown (if needed, will by done by con it self)
 				//How about locking, connection is already locked!!!!
-				ac.TpLogDebug("No lock mode")
-				b.nolock = true
+
+				//Really, the incoming thread already holds the lock!
+				//ac.TpLogDebug("No lock mode")
+				//b.nolock = true
 				con.outgoing <- &b
 			}
 		}
@@ -255,4 +257,5 @@ func NetGetCorID(ac *atmi.ATMICtx, buf *atmi.TypedUBF) (string, atmi.ATMIError) 
 
 	return ret, nil
 }
+
 /* vim: set ts=4 sw=4 et smartindent: */

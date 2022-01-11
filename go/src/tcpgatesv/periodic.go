@@ -45,6 +45,7 @@ var MInIdleCheckStopWatch exutil.StopWatch
 
 //Send zero
 func RunZero(ac *atmi.ATMICtx, con *ExCon) {
+
 	var block DataBlock
 
 	if MFramingOffset > 0 {
@@ -58,6 +59,7 @@ func RunZero(ac *atmi.ATMICtx, con *ExCon) {
 
 	con.outgoing <- p_block
 	con.schedZero = false
+
 }
 
 //Check zero schedule & run if needed.

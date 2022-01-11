@@ -238,7 +238,6 @@ func TCPGATE(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	}
 
 	//runtime.GC()
-
 	return
 }
 

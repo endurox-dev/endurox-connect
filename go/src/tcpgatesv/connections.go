@@ -85,7 +85,9 @@ type DataBlock struct {
 
 	tstamp_sent   int64 //Timestamp messag sent, TODO: We need cleanup monitor...
 	send_and_shut bool  //Send and shutdown
-	nolock        bool  //Object is not locked
+	//Should the sender thread unlock?
+	//All senders must hold the lock!
+	//nolock bool
 }
 
 //Enduro/X connection
@@ -494,9 +496,9 @@ func SetIPPort(ac *atmi.ATMICtx, addr net.Addr, ip *string, port *int) {
 //Operate with open connection
 func HandleConnection(con *ExCon) {
 
-	nolock := false
 	dataIn := make(chan []byte)
 	dataInErr := make(chan error)
+	unlock := false
 
 	ok := true
 	ac := con.ctx
@@ -522,12 +524,12 @@ func HandleConnection(con *ExCon) {
 
 		var preAllocUBF *atmi.TypedUBF = nil
 
-		if !nolock {
+		if unlock {
 			MarkConnAsFree(ac, con)
 		}
 
 		//Add the connection to
-		nolock = false
+		//nolock = false
 		ac.TpLogInfo("Conn: %d polling...", con.id_comp)
 		select {
 		case dataIncoming := <-dataIn:
@@ -547,7 +549,7 @@ func HandleConnection(con *ExCon) {
 			//Well we are busy here too, we shall remove our selves from
 			//Connection list...
 			MarkConnAsBusy(ac, con, false)
-
+			unlock = true
 			//1. Check that we do have some reply waiters on connection
 			//Reduce the lock range...
 			MConWaiterMutex.Lock()
@@ -643,7 +645,6 @@ func HandleConnection(con *ExCon) {
 			ok = false
 			break
 		case shutdown := <-con.shutdown:
-			nolock = true
 			if shutdown {
 				ac.TpLogWarn("Shutdown notification received - terminating")
 				ok = false
@@ -652,7 +653,7 @@ func HandleConnection(con *ExCon) {
 		case dataOutgoing := <-con.outgoing:
 
 			//Do not unlock as message was not locked
-			nolock = dataOutgoing.nolock
+			//nolock = dataOutgoing.nolock
 			//The caller did remove our selves from connection list...
 			//Thos conn is already locked to him.
 
@@ -669,6 +670,9 @@ func HandleConnection(con *ExCon) {
 					con.id_comp)
 
 				ok = false
+			} else {
+				//really the caller must hold the lock
+				unlock = true
 			}
 
 			break

@@ -138,6 +138,8 @@ func XATMIDispatchCallSeq(id int64, pool *XATMIPool, nr int, ctxData *atmi.TPSRV
 		<-MSeqNotif
 	}
 
+	dowait := false
+
 	//Lock the queues
 	MSeqOutMutex.Lock()
 
@@ -149,6 +151,7 @@ func XATMIDispatchCallSeq(id int64, pool *XATMIPool, nr int, ctxData *atmi.TPSRV
 		startNew = true
 	}
 	MSeqOutMsgs[id] = append(MSeqOutMsgs[id], &block)
+
 	MNrMessages++
 	if startNew {
 		go XATMIDispatchCallRunner(id, &block)
@@ -157,9 +160,13 @@ func XATMIDispatchCallSeq(id int64, pool *XATMIPool, nr int, ctxData *atmi.TPSRV
 		pool.freechan <- nr
 	}
 
+	if MNrMessages >= MWorkersOut {
+		dowait = true
+	}
+
 	MSeqOutMutex.Unlock()
 
-	if MNrMessages >= MWorkersOut {
+	if dowait {
 		//Wait on channel...
 		//Stop the main thread to avoid consuming all incoming messages
 		//If flow is one direction only (i.e. full async transfer)

@@ -22,6 +22,9 @@ cd runtime
 export GODEBUG=x509ignoreCN=0,$GODEBUG
 export NDRX_SILENT=Y
 
+#
+# these affects at some points number of parallel ATMI contexts + sys limit of Qs...
+#
 NUMCALL=999
 NUMCALL40=200
 archs=`uname -m`
@@ -466,13 +469,14 @@ if [ "X`grep panic.go log/*.log`" != "X" ]; then
         go_out 21
 fi
 
+# The go_out will do the shutdown!
+xadmin stop -y
+
+# catch any stalled processes:
 if [ "X`grep SIGQUIT log/*.log`" != "X" ]; then
         echo "SIGQUIT error detected!"
         go_out 23
 fi
-
-# The go_out will do the shutdown!
-#xadmin stop -c -y
 
 go_out 0
 

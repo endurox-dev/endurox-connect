@@ -85,9 +85,6 @@ type DataBlock struct {
 
 	tstamp_sent   int64 //Timestamp messag sent, TODO: We need cleanup monitor...
 	send_and_shut bool  //Send and shutdown
-	//Should the sender thread unlock?
-	//All senders must hold the lock!
-	//nolock bool
 }
 
 //Enduro/X connection
@@ -136,100 +133,18 @@ var MConWaiterMutex = &sync.Mutex{}
 var MCorrWaiter map[string]*DataBlock
 var MCorrWaiterMutex = &sync.Mutex{}
 
-//Have a channel of connections that are ready to accept the message
-//(outgoing)
-
-var Mfreeconns chan *ExCon
-var MSeqNotif chan bool
 var MfreeconsLock sync.Mutex
 var MPassiveLisener net.Listener
 
-//Remove given connection from channel list (if found there)
-//@return false -> already locked, true -> locked ok
-func MarkConnAsBusy(ac *atmi.ATMICtx, con *ExCon, dontWait bool) bool {
-
-	if MNofreelist {
-		//Assume connection not busy...
-		return false
-	}
-
-	MfreeconsLock.Lock()
-
-	//Bug #305
-	//Copy was not locked, thus we could get the list copied twice and appended
-	//channel twice with the same connections.
-
-	connList := []*ExCon{}
-	in_list := true
-
-	if dontWait && con.busy {
-		MfreeconsLock.Unlock()
-		return false
-	}
-	con.busy = true
-
-	//So we need to pull all connections to the list
-	//Remove our selves
-	con.mu.Lock()
-	ac.TpLogInfo("Removing connection %d/%d from Mfreeconns channel",
-		con.id, con.id_comp)
-	con.mu.Unlock()
-
-	for in_list {
-		select {
-
-		case tmp := <-Mfreeconns:
-
-			if tmp.id_comp != con.id_comp {
-				connList = append(connList, tmp)
-				ac.TpLogDebug("Putting back %d/%d",
-					tmp.id, tmp.id_comp)
-
-			} else {
-				ac.TpLogDebug("Removing connection %d/%d "+
-					"from Mfreeconns channel - found!",
-					con.id, con.id_comp)
-			}
-			break
-		default:
-			in_list = false
-			break
-		}
-	}
-
-	ac.TpLogInfo("Removal of connection %d/%d from Mfreeconns channel done",
-		con.id, con.id_comp)
-
-	//Put all stuff back to channel (with out lock)
-	for _, element := range connList {
-		ac.TpLogDebug("Adding connection %d/%d back to chan",
-			element.id, element.id_comp)
-
-		Mfreeconns <- element
-	}
-
-	MfreeconsLock.Unlock()
-
-	//Run zero if was scheduled...
-	RunZeroSched(ac, con)
-
-	return true
-}
+//Round robin connection selector
+var Mrrcon int = 0
 
 //Get open connection
 //@param ac	ATMI Context
 //@return Connection object acquired or nil (if no connection found)
 func GetOpenConnection(ac *atmi.ATMICtx) *ExCon {
-	ok := false
+
 	var con *ExCon
-
-	if MNofreelist {
-		ac.TpLogError("nofreelist is used, thus cannot get connection...")
-		return nil
-	}
-
-	//Why?
-	//MfreeconsLock.Lock()
 
 	//Have a timout object
 	ac.TpLogInfo("GetOpenConnection: Setting alarm clock to: %d", MConnWaitTime)
@@ -239,41 +154,53 @@ func GetOpenConnection(ac *atmi.ATMICtx) *ExCon {
 		timeout <- true
 	}()
 
-	for !ok {
+	//Just use round-robin lookup over the connections...
 
-		select {
-		case con = <-Mfreeconns:
-			// a read from ch has occurred
-			ac.TpLogInfo("Got connection object %d/%d",
-				con.id, con.id_comp)
-		case <-timeout:
-			// the read from ch has timed out
-			ac.TpLogError("Timeout waiting for connection!")
-			//MfreeconsLock.Unlock()
-			return nil
-		}
+	MConnMutex.Lock()
 
-		//con = <-Mfreeconns
+	i := 0
+	len_c := len(MConnectionsComp)
+	con_ok := false
 
-		//Check that it is in connection hash list of opens
-		//Maybe some old stuff in channel left
-		MConnMutex.Lock()
-
-		ac.TpLogInfo("Checking: %d/%d in connection hash",
-			con.id, con.id_comp)
-
-		if nil != MConnectionsComp[con.id_comp] {
-			ok = true
-		} else {
-			ac.TpLogInfo("Got expired connection: %d, try next",
-				con.id_comp)
-		}
-
-		MConnMutex.Unlock()
+	//Reset if some cons are removed..
+	if Mrrcon >= len_c {
+		Mrrcon = 1
+	} else {
+		Mrrcon++
 	}
 
-	//MfreeconsLock.Unlock()
+	for _, con_v := range MConnectionsComp {
+		//Get first acceptable
+		i++
+		if i >= Mrrcon && con_v.is_open {
+			con = con_v
+			con_ok = true
+			Mrrcon = i
+			break
+		}
+	}
 
+	//Just take first free & reset RR to that position
+	if !con_ok {
+		i = 0
+		for _, con_v := range MConnectionsComp {
+			//Get first acceptable
+			i++
+			if con_v.is_open {
+				con = con_v
+				Mrrcon = i
+				break
+			}
+		}
+	}
+
+	ac.TpLogInfo("Current RR: %d", Mrrcon)
+
+	MConnMutex.Unlock()
+
+	if nil == con {
+		ac.TpLogError("No connection found")
+	}
 	return con
 }
 
@@ -309,8 +236,6 @@ func GetConnectionByID(ac *atmi.ATMICtx, connid int64) *ExCon {
 			return nil
 		}
 
-		MarkConnAsBusy(ac, ret, false)
-
 		return ret
 	} else {
 		ac.TpLogInfo("Search by simple connection id")
@@ -322,16 +247,10 @@ func GetConnectionByID(ac *atmi.ATMICtx, connid int64) *ExCon {
 		if ret == nil {
 			ac.TpLogError("Connection by id %d not found", connid)
 
-		} else {
-			MarkConnAsBusy(ac, ret, false)
 		}
 
 		return ret
 	}
-
-	//If it is simple, then we will iterate over the connections
-	//Should never happen
-	//return nil
 
 }
 
@@ -453,33 +372,6 @@ func ReadConData(con *ExCon, ch chan<- []byte, eCh chan<- error) {
 	}
 }
 
-//Set connection free
-func MarkConnAsFree(ac *atmi.ATMICtx, con *ExCon) {
-
-	//Do not set status, if not maintaining free list
-	if MNofreelist {
-		return
-	}
-
-	MfreeconsLock.Lock()
-	con.busy = false
-	MfreeconsLock.Unlock()
-
-	//Connection ready, submit to list of available conns
-	//(if last msg wast not) ougoing
-	if MReqReply == RR_PERS_ASYNC_INCL_CORR ||
-		MReqReply == RR_PERS_CONN_EX2NET ||
-		MReqReply == RR_PERS_CONN_NET2EX {
-
-		ac.TpLogInfo("Putting connection %d/%d in RR list",
-			con.id, con.id_comp)
-
-		Mfreeconns <- con
-
-		ac.TpLogInfo("After putting %d/%d in RR list", con.id, con.id_comp)
-	}
-}
-
 //Set IP Addreess
 //@param address ip address is format ip:port
 //@param ip (out) ip address - parsed
@@ -498,23 +390,37 @@ func HandleConnection(con *ExCon) {
 
 	dataIn := make(chan []byte)
 	dataInErr := make(chan error)
-	unlock := false
+
+	periodic_time := MPerZero
+
+	var w exutil.StopWatch
 
 	ok := true
 	ac := con.ctx
-	/* Need a:
-	 * - byte array channel
-	 * - error channel for socket
-	 */
+
+	w.Reset()
 
 	if !MTls_enable {
-		//Set options, for normal conn
+
+		/* Need a:
+		 * - byte array channel
+		 * - error channel for socket
+		 */
 		tcpcon := con.con.(*net.TCPConn)
+
+		//Set options, for normal conn
+		tcpcon.SetNoDelay(true)
 
 		if MLinger > -1 {
 			tcpcon.SetLinger(MLinger)
 		}
 	}
+
+	//Really no wakeup
+	if 0 == periodic_time {
+		periodic_time = 9999999
+	}
+
 	//Connection open...
 	NotifyStatus(ac, con.id, con.id_comp, FLAG_CON_ESTABLISHED, con)
 
@@ -524,12 +430,20 @@ func HandleConnection(con *ExCon) {
 
 		var preAllocUBF *atmi.TypedUBF = nil
 
-		if unlock {
-			MarkConnAsFree(ac, con)
+		cur_timeout := periodic_time - int(w.GetDetlaSec())
+
+		//Send zero away if it is time..
+		if cur_timeout <= 0 {
+			w.Reset()
+			cur_timeout = periodic_time
+			//we might get full channel...
+			if MPerZero > 0 {
+				RunZero(ac, con)
+			}
+			//else do nothing...
 		}
 
 		//Add the connection to
-		//nolock = false
 		ac.TpLogInfo("Conn: %d polling...", con.id_comp)
 		select {
 		case dataIncoming := <-dataIn:
@@ -546,10 +460,6 @@ func HandleConnection(con *ExCon) {
 			//If this is connect per call, then we should keep the track
 			//of the calls that wait for specific connetions to be replied
 
-			//Well we are busy here too, we shall remove our selves from
-			//Connection list...
-			MarkConnAsBusy(ac, con, false)
-			unlock = true
 			//1. Check that we do have some reply waiters on connection
 			//Reduce the lock range...
 			MConWaiterMutex.Lock()
@@ -650,6 +560,9 @@ func HandleConnection(con *ExCon) {
 				ok = false
 			}
 			break
+
+		case <-time.After(time.Second * time.Duration(cur_timeout)):
+			break
 		case dataOutgoing := <-con.outgoing:
 
 			//Do not unlock as message was not locked
@@ -670,9 +583,6 @@ func HandleConnection(con *ExCon) {
 					con.id_comp)
 
 				ok = false
-			} else {
-				//really the caller must hold the lock
-				unlock = true
 			}
 
 			break
@@ -695,9 +605,6 @@ func HandleConnection(con *ExCon) {
 	NotifyStatus(ac, con.id, con.id_comp, FLAG_CON_DISCON, con)
 
 	MConnMutex.Unlock()
-
-	//Remove from channel
-	MarkConnAsBusy(ac, con, false)
 
 }
 

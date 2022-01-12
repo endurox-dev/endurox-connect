@@ -546,7 +546,7 @@ by 'EX_NETCONNID', then connection is searched, if not found reject is generated
 if found the message is enqueued. At this point response is generated and send
 back to caller either success (message sent to network thread) or error.
 
-When message is received from network, and correlator service 'corr_svc' returns
+When message is received from network, and correlation service 'corr_svc' returns
 'EX_NETCORR' field, then reply waiter (XATMI request object waiting for reply) is
 located, if found, then reply is passed back to caller. If reply is not found or
 'EX_NETCORR' does not exists in UBF buffer, then incoming message is passed to
@@ -674,13 +674,6 @@ any such data on shutdown. If set above (>) *0*, this is number of seconds to
 wait for data to be processed before discarding. If set less (<) than *0*, then
 operating system default policy is used. Default is *-1*. This setting is not
 effective if *tls_enable* is set to *1*.
-
-*nofreelist* = 'Yy'::
-If set to *Y* or *y*, then free list of connection is not maintained. This means
-that *TCPGATE* service calls with out connection identifier *EX_NETCONNID* will
-be rejected as connection not found. This may be used in case if the protocol
-always uses connection id - thus avoid un-needed synchronization of free
-connection list.
 
 *tls_enable* = 'TLS_SETTING'::
 If set to *1*, Transport Layer Security Mode is enabled. Default is *0* - not

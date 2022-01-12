@@ -166,7 +166,7 @@ func NetDispatchCall(pool *XATMIPool, nr int, con *ExCon,
 		ac.TpLogInfo("Req-reply mode enabled and this is incoming call, " +
 			"do call the service in sync mode")
 
-		_, errA := ac.TpCall(MIncomingSvc, buf, 0)
+		_, errA := ac.TpCall(MIncomingSvc, buf, atmi.TPNOTIME)
 
 		if errA != nil {
 			ac.TpLogError("Failed to call %s service: %d: %s",

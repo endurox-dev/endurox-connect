@@ -40,6 +40,11 @@ import (
 	"strconv"
 	"strings"
 
+	"log"
+	"os/signal"
+	"runtime"
+	"syscall"
+
 	//	"runtime"
 	u "ubftab"
 
@@ -139,8 +144,6 @@ var MActiveConScan int = 5 //scan for new outgoing connections every 10 seconds
 
 var MLinger int = -1 //Set linger <0 is default OS setting
 
-var MNofreelist bool = false //Do not maintain connection pool, if set to true
-
 /* TLS Settings: */
 var MTls_enable bool                    //Is TLS enabled
 var MTls_skip_verify bool               //Ignore non verified connections (continue OK)
@@ -236,6 +239,8 @@ func TCPGATE(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 		//No sequencing...
 		go XATMIDispatchCall(&MoutXPool, nr, ctxData, ub, svc.Cd, true)
 	}
+
+	//XATMIDispatchCall(&MoutXPool, nr, ctxData, ub, svc.Cd, true)
 
 	//runtime.GC()
 	return
@@ -540,6 +545,7 @@ func Init(ac *atmi.ATMICtx) int {
 			break
 
 		//do not handle the connection pool (if always work by connection id...)
+		/* NOT USED ANYMORE! Just round robin over the connections...
 		case "nofreelist":
 			tmp, _ := buf.BGetString(u.EX_CC_VALUE, occ)
 
@@ -549,7 +555,7 @@ func Init(ac *atmi.ATMICtx) int {
 				MNofreelist = true
 			}
 			break
-
+		*/
 		default:
 
 			break
@@ -741,7 +747,7 @@ func Init(ac *atmi.ATMICtx) int {
 		ac.TpLogInfo("TLS Configured")
 	}
 
-	MZeroStopwatch.Reset()
+	//MZeroStopwatch.Reset()
 	MStatusRefreshStopWatch.Reset()
 
 	//Init the maps...
@@ -750,8 +756,8 @@ func Init(ac *atmi.ATMICtx) int {
 	MConWaiter = make(map[int64]*DataBlock)
 	MCorrWaiter = make(map[string]*DataBlock)
 
-	Mfreeconns = make(chan *ExCon, MMaxConnections*2)
-	MSeqNotif = make(chan bool, MWorkersOut*2)
+	//	Mfreeconns = make(chan *ExCon, MMaxConnections*2)
+	//	MSeqNotif = make(chan bool, MWorkersOut*2)
 
 	//Advertize Gateway service
 	if err := ac.TpAdvertise(MGateway, MGateway, TCPGATE); err != nil {
@@ -812,6 +818,18 @@ func Uninit(ac *atmi.ATMICtx) {
 
 //Executable main entry point
 func main() {
+
+	go func() {
+		sigs := make(chan os.Signal, 1)
+		signal.Notify(sigs, syscall.SIGQUIT)
+		buf := make([]byte, 1<<20)
+		for {
+			<-sigs
+			stacklen := runtime.Stack(buf, true)
+			log.Printf("=== received SIGQUIT ===\n*** goroutine dump...\n%s\n*** end\n", buf[:stacklen])
+		}
+	}()
+
 	//Have some context
 	ac, err := atmi.NewATMICtx()
 

@@ -50,7 +50,8 @@ type ATMIOutBlock struct {
 }
 
 var MSeqOutMutex = &sync.Mutex{} //For out message sequencing
-var MNrMessages = 0              //Number of messages enqueued
+var MSeqOutCond = sync.NewCond(MSeqOutMutex)
+var MNrMessages = 0 //Number of messages enqueued
 var MSeqOutMsgs map[int64][]*ATMIOutBlock
 
 /*
@@ -114,9 +115,8 @@ func XATMIDispatchCallRunner(id int64, block *ATMIOutBlock) {
 		MSeqOutMutex.Lock()
 		MSeqOutMsgs[id] = MSeqOutMsgs[id][1:]
 		MNrMessages--
+		MSeqOutCond.Signal()
 		MSeqOutMutex.Unlock()
-		MSeqNotif <- true
-
 	}
 
 	//Free up the chan
@@ -133,15 +133,14 @@ func XATMIDispatchCallRunner(id int64, block *ATMIOutBlock) {
 func XATMIDispatchCallSeq(id int64, pool *XATMIPool, nr int, ctxData *atmi.TPSRVCTXDATA,
 	buf *atmi.TypedUBF, cd int) {
 
-	//Clear the input channel..
-	for len(MSeqNotif) > 0 {
-		<-MSeqNotif
-	}
-
-	dowait := false
-
 	//Lock the queues
 	MSeqOutMutex.Lock()
+
+	//let threads to complete.
+	if MNrMessages >= MWorkersOut {
+		//wait on cond..
+		MSeqOutCond.Wait()
+	}
 
 	startNew := false
 
@@ -160,18 +159,7 @@ func XATMIDispatchCallSeq(id int64, pool *XATMIPool, nr int, ctxData *atmi.TPSRV
 		pool.freechan <- nr
 	}
 
-	if MNrMessages >= MWorkersOut {
-		dowait = true
-	}
-
 	MSeqOutMutex.Unlock()
-
-	if dowait {
-		//Wait on channel...
-		//Stop the main thread to avoid consuming all incoming messages
-		//If flow is one direction only (i.e. full async transfer)
-		<-MSeqNotif
-	}
 
 }
 

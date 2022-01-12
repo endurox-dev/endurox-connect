@@ -39,7 +39,6 @@ import (
 )
 
 //Zero sending periodic stopwatch
-var MZeroStopwatch exutil.StopWatch
 var MStatusRefreshStopWatch exutil.StopWatch
 var MInIdleCheckStopWatch exutil.StopWatch
 
@@ -57,55 +56,11 @@ func RunZero(ac *atmi.ATMICtx, con *ExCon) {
 	ac.TpLogInfo("Sending zero length message to id:%d conn_id: %d ",
 		con.id, con.id_comp)
 
-	con.outgoing <- p_block
-	con.schedZero = false
-
-}
-
-//Check zero schedule & run if needed.
-//If connections are bussy all the time, the bellow RunZeroOverOpenCons
-//might not be executed, thus if for example we receive messages only
-//at max load, then we might not send a periodic zero to remote node
-//thus connection might be reset.
-func RunZeroSched(ac *atmi.ATMICtx, con *ExCon) {
-	if con.schedZero {
-		RunZero(ac, con)
+	select {
+	case con.outgoing <- p_block:
+	default:
+		ac.TpLogDebug("No zero msg -> channel full")
 	}
-}
-
-//Send zero length messages over the channels
-func RunZeroOverOpenCons(ac *atmi.ATMICtx) {
-
-	//Lock all connections
-	MConnMutex.Lock()
-
-	for _, v := range MConnectionsComp {
-
-		if v.is_open {
-
-			//Remove connection from free list
-			//Maybe we can leave it as un-used?
-			//If we wait for connection here, we get deadlock!!!!
-			//Thus if connection is busy then message is going to that side
-			//already, thus no need to send here.
-			stat := MarkConnAsBusy(ac, v, true)
-
-			if stat {
-				ac.TpLogInfo("Send the data block")
-				RunZero(ac, v)
-			} else {
-				ac.TpLogInfo("Connection busy -> scheduling...")
-				v.schedZero = true
-			}
-
-			//Where we make free the connection
-		} else {
-			ac.TpLogInfo("conn %d/%d is not yet open - not sending zero msg",
-				v.id, v.id_comp)
-		}
-	}
-
-	MConnMutex.Unlock()
 
 }
 
@@ -329,15 +284,6 @@ func Periodic(ac *atmi.ATMICtx) int {
 			err.Message())
 		return atmi.FAIL
 
-	}
-
-	//Send the zero length messages to network...
-	if MPerZero > 0 && MZeroStopwatch.GetDetlaSec() > int64(MPerZero) {
-		ac.TpLogDebug("Time for periodic zero message over " +
-			"the active connections")
-		RunZeroOverOpenCons(ac)
-
-		MZeroStopwatch.Reset()
 	}
 
 	if MStatusRefresh > 0 && MStatusRefreshStopWatch.GetDetlaSec() > int64(MStatusRefresh) {

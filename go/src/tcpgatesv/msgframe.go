@@ -460,16 +460,7 @@ func PutMessage(ac *atmi.ATMICtx, con *ExCon, data []byte) error {
 			return errors.New(errMsg)
 		}
 
-		/*
-			err = con.writer.Flush()
-
-			if nil != err {
-				errMsg := fmt.Sprintf("Failed to flush socket: %s", err)
-				ac.TpLogError(errMsg)
-				return errors.New(errMsg)
-			}
-		*/
-		ac.TpLogInfo("Written %d bytes to socket", nw+hdr_bytes)
+		ac.TpLogInfo("Written %d bytes to socket flush", nw+hdr_bytes)
 
 	} else {
 

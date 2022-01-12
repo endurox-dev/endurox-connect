@@ -22,8 +22,8 @@ cd runtime
 export GODEBUG=x509ignoreCN=0,$GODEBUG
 export NDRX_SILENT=Y
 
-NUMCALL=100
-NUMCALL40=40
+NUMCALL=999
+NUMCALL40=200
 archs=`uname -m`
 if [ "X$archs" == "Xarmv7l" ]; then
 	# have some memory issues on rpi
@@ -464,6 +464,11 @@ fi
 if [ "X`grep panic.go log/*.log`" != "X" ]; then
         echo "panic.go error detected!"
         go_out 21
+fi
+
+if [ "X`grep SIGQUIT log/*.log`" != "X" ]; then
+        echo "SIGQUIT error detected!"
+        go_out 23
 fi
 
 # The go_out will do the shutdown!

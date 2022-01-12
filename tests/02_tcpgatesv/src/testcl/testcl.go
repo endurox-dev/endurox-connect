@@ -55,9 +55,9 @@ func runMany(gw string, n int) {
 
 	//Test case with correlation
 	ba[0] = 'A' //Test case A
-	ba[1] = 'B' + byte(n%40)
-	ba[2] = 'C' + byte(n%40)
-	ba[3] = 'D' + byte(n%40)
+	ba[1] = 'B' + byte(int((n>>10)&0x1f))
+	ba[2] = 'C' + byte(int((n>>5)&0x1f))
+	ba[3] = 'D' + byte(int(n&0x1f))
 
 	correl := string(ba[:4])
 
@@ -422,10 +422,16 @@ func apprun(ac *atmi.ATMICtx) error {
 			}
 
 			//Test case with correlation
+/*
 			ba[0] = 'A' //Test case A
 			ba[1] = 'B' + byte(i%10)
 			ba[2] = 'C' + byte(i%10)
 			ba[3] = 'D' + byte(i%10)
+*/
+            ba[0] = 'A' //Test case A
+	        ba[1] = 'B' + byte(int((i>>10)&0x1f))
+	        ba[2] = 'C' + byte(int((i>>5)&0x1f))
+	        ba[3] = 'D' + byte(int(i&0x1f))
 
 			correl := string(ba[:4])
 

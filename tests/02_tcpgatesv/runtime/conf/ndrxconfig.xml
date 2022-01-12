@@ -94,6 +94,8 @@
 			Reload the process on change
 		-->
 		<reloadonchange>Y</reloadonchange>
+		<!-- -3 will print stacks for stucked servers. -->
+		<killseq>3,2,9</killseq>
 	</defaults>
 	<servers>
 		<server name="cconfsrv">

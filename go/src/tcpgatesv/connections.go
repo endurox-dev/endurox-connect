@@ -693,6 +693,7 @@ func GoDial(con *ExCon, block *DataBlock) {
 	}
 
 	ac.TpLogInfo("Marking connection %d/%d as open", con.id, con.id_comp)
+	con.inIdle.Reset();
 
 	//Print peer cert...
 

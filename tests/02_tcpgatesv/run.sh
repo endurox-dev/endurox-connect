@@ -78,7 +78,8 @@ export TEST_HOSTNAME=`hostname`
 xadmin start -y
 
 # Let connections to establish
-sleep 60
+echo "Wait 90 for connections (seems on AIX TLS is slow to establish)"
+sleep 90
 
 ################################################################################
 echo " >>> Run TLS test..."

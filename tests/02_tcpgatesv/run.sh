@@ -25,7 +25,7 @@ export NDRX_SILENT=Y
 #
 # these affects at some points number of parallel ATMI contexts + sys limit of Qs...
 #
-NUMCALL=999
+NUMCALL=400
 NUMCALL40=200
 archs=`uname -m`
 if [ "X$archs" == "Xarmv7l" ]; then
@@ -100,7 +100,7 @@ fi
 ################################################################################
 echo ">>> Running sequence tests"
 ################################################################################
-NROFCALLS=40000
+NROFCALLS=80000
 
 # seems like for osx this causes too high usage
 # i.e. too mahy wakeups

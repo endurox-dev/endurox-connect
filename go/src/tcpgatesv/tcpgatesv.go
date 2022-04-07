@@ -43,6 +43,7 @@ import (
 	"log"
 	"os/signal"
 	"runtime"
+	"sync"
 	"syscall"
 
 	//	"runtime"
@@ -156,6 +157,9 @@ var MTls_min_version uint16             //minum tls version
 //Resolved TLS settings
 var MTls_certificate tls.Certificate
 var MTls_config tls.Config
+
+//Wait for connections to complete, i.e. clean shutdown
+var MConWait sync.WaitGroup
 
 //TCPGATE service
 //@param ac ATMI Context

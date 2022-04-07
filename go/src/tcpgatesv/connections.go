@@ -258,36 +258,40 @@ func GetConnectionByID(ac *atmi.ATMICtx, connid int64) *ExCon {
 func CloseAllConnections(ac *atmi.ATMICtx) {
 	ac.TpLogInfo("Closing all open connections...")
 
-	var ch map[int64]*ExCon
-	ch = make(map[int64]*ExCon)
-
 	MConnMutex.Lock()
-	for k, v := range MConnectionsSimple {
-		ch[k] = v
+
+	//Request shutdown for connects...
+	for _, v := range MConnectionsSimple {
+		v.shutdown <- true
 	}
+
 	MConnMutex.Unlock()
 
-	//Will run in non locked mode...
-	for k, v := range ch {
+	MConWait.Wait()
 
-		ac.TpLogInfo("Closing %d (%d)", k, v.id)
+	/*
+		//Will run in non locked mode...
+		for k, v := range ch {
 
-		//Send infos that connection is closed.
-		//No need these will be closed when go threads exit...
-		//NotifyStatus(ac, v.id, FLAG_CON_DISCON)
+			ac.TpLogInfo("Closing %d (%d)", k, v.id)
 
-		v.mu.Lock()
-		if nil != v.con {
-			if err := v.con.Close(); err != nil {
-				ac.TpLogError("Failed to close connection id %d: %s",
-					k, err.Error())
-			} else {
-				ac.TpLogInfo("Connection closed ok")
+			//Send infos that connection is closed.
+			//No need these will be closed when go threads exit...
+			//NotifyStatus(ac, v.id, FLAG_CON_DISCON)
+
+			v.mu.Lock()
+			if nil != v.con {
+				if err := v.con.Close(); err != nil {
+					ac.TpLogError("Failed to close connection id %d: %s",
+						k, err.Error())
+				} else {
+					ac.TpLogInfo("Connection closed ok")
+				}
 			}
-		}
-		v.mu.Unlock()
+			v.mu.Unlock()
 
-	}
+		}
+	*/
 }
 
 //This assumes that MConnections is locked
@@ -388,6 +392,9 @@ func SetIPPort(ac *atmi.ATMICtx, addr net.Addr, ip *string, port *int) {
 
 //Operate with open connection
 func HandleConnection(con *ExCon) {
+
+	MConWait.Add(1)
+	defer MConWait.Done()
 
 	dataIn := make(chan []byte)
 	dataInErr := make(chan error)
@@ -694,6 +701,7 @@ func GoDial(con *ExCon, block *DataBlock) {
 	}
 
 	ac.TpLogInfo("Marking connection %d/%d as open", con.id, con.id_comp)
+	con.inIdle.Reset();
 
 	//Print peer cert...
 

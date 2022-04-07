@@ -22,7 +22,10 @@ cd runtime
 export GODEBUG=x509ignoreCN=0,$GODEBUG
 export NDRX_SILENT=Y
 
-NUMCALL=999
+#
+# these affects at some points number of parallel ATMI contexts + sys limit of Qs...
+#
+NUMCALL=400
 NUMCALL40=200
 archs=`uname -m`
 if [ "X$archs" == "Xarmv7l" ]; then
@@ -75,7 +78,8 @@ export TEST_HOSTNAME=`hostname`
 xadmin start -y
 
 # Let connections to establish
-sleep 60
+echo "Wait 90 for connections (seems on AIX TLS is slow to establish)"
+sleep 90
 
 ################################################################################
 echo " >>> Run TLS test..."
@@ -96,7 +100,7 @@ fi
 ################################################################################
 echo ">>> Running sequence tests"
 ################################################################################
-NROFCALLS=40000
+NROFCALLS=80000
 
 # seems like for osx this causes too high usage
 # i.e. too mahy wakeups
@@ -466,13 +470,14 @@ if [ "X`grep panic.go log/*.log`" != "X" ]; then
         go_out 21
 fi
 
+# The go_out will do the shutdown!
+xadmin stop -y
+
+# catch any stalled processes:
 if [ "X`grep SIGQUIT log/*.log`" != "X" ]; then
         echo "SIGQUIT error detected!"
         go_out 23
 fi
-
-# The go_out will do the shutdown!
-#xadmin stop -c -y
 
 go_out 0
 

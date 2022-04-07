@@ -798,6 +798,8 @@ func Uninit(ac *atmi.ATMICtx) {
 	}
 
 	//Close any open connection
+    //Wait on connection go-routines to complete
+    //We can just push to those routines a shutdown message and wait...
 	CloseAllConnections(ac)
 
 	//We will close all atmi contexts, but we will not reply to them,

@@ -28,3 +28,4 @@ Releases:
 2.4.28 - Bug #607 - tcpgatesv if invalid tls_ca_roots is given, no error is returned
 2.4.30 - Feature #606 - file upload
 2.5.0 - Feature #640 - transactions API
+2.5.2 - Bug #770

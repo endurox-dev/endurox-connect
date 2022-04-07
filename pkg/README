@@ -29,3 +29,4 @@ Releases:
 2.4.30 - Feature #606 - file upload
 2.5.0 - Feature #640 - transactions API
 8.0.0 - Building against endurox-go@v8.0, Support #754, Bug #757
+8.0.2 - Bug #770

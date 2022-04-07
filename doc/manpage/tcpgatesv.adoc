@@ -202,8 +202,8 @@ To send message to network in use following UBF buffer (tpcall(3)):
 
 'EX_NETCONNID' - connection id either compiled or simple. The compiled connection
 id can be used when generating response back to network. The connection id is
-composed of 64bit integer, where first 24 bits are connection id, and oldest 40bits
-are set to UTC epoch milliseconds since start of 1970. The compiled it can be used
+composed of 64bit integer, where first 24 bits are connection id, and oldest 39bits
+are set to UTC epoch milliseconds since start of 1970. The compiled id can be used
 for doing reply to exact connection.
 
 'EX_NETCORR' - Optional Correlator string, used for synchronous connections.

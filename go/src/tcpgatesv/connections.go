@@ -307,6 +307,7 @@ func GetNewConnectionId(ac *atmi.ATMICtx) (int64, int64, int64) {
 
 			if atmi.ExSizeOfLong() == 8 {
 				compiled_id = tstamp<<24 | (i & 0xffffff)
+				compiled_id &= 0x7fffffffffffffff;
 			} else {
 				//Have 16 bit time stamp and 15 bit txn id
 				compiled_id = tstamp<<15 | (i & 0x7fff)

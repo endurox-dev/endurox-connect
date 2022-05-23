@@ -731,6 +731,13 @@ func genRsp(ac *atmi.ATMICtx, buf atmi.TypedBuffer, svc *ServiceMap,
 	w.Header().Set("Content-Length", strconv.Itoa(len(rsp)))
 
 	w.Write(rsp)
+
+	//Avoid gc use...
+	//Support #780. In case if debug logging was enabled mem usage keeps growing
+	//probably time on logs somehow triggers GC not to work?
+	if nil != buf {
+		ac.TpFree(buf.GetBuf())
+	}
 }
 
 //Common function parsing http request headers

@@ -725,7 +725,7 @@ http://localhost:8080/view/ok 2>&1 )`
 	RSP_EXPECTED="{\"REQUEST1\":{\"tshort1\":8,\
 \"tlong1\":11111,\
 \"tstring1\":[\"HELLO RESPONSE\",\"INCOMING TEST\",\"\"],\
-\"rspcode\":\"0\",\
+\"rspcode\":0,\
 \"rspmessage\":\"\"}}"
         echo "Response: [$RSP]"
 
@@ -757,7 +757,7 @@ http://localhost:8080/view/ok/errsucc 2>&1 )`
 	RSP_EXPECTED="{\"REQUEST1\":{\"tshort1\":8,\
 \"tlong1\":11111,\
 \"tstring1\":[\"HELLO RESPONSE\",\"INCOMING TEST\",\"\"],\
-\"rspcode\":\"0\",\
+\"rspcode\":0,\
 \"rspmessage\":\"SUCCEED\"}}"
 	echo "Response: [$RSP]"
 
@@ -786,7 +786,7 @@ do
 }" \
 http://localhost:8080/view/ok/errsucc 2>&1 )`
 
-	RSP_EXPECTED="{\"RSPV\":{\"rspcode\":\"4\",\"rspmessage\":\"4:T\"}}"
+	RSP_EXPECTED="{\"RSPV\":{\"rspcode\":4,\"rspmessage\":\"4:T\"}}"
 	echo "Response: [$RSP]"
 
 	if [[ "X$RSP" != "X$RSP_EXPECTED" ]]; then
@@ -902,7 +902,7 @@ do
 }" \
 http://localhost:8080/view/fail 2>&1 )`
 
-	RSP_EXPECTED="{\"RSPV\":{\"rspcode\":\"11\",\"rspmessage\":\"11:\"}}"
+	RSP_EXPECTED="{\"RSPV\":{\"rspcode\":11,\"rspmessage\":\"11:\"}}"
 	echo "Response: [$RSP]"
 
 	if [[ "X$RSP" != "X$RSP_EXPECTED" ]]; then
@@ -956,7 +956,7 @@ do
 }" \
 http://localhost:8080/view/async 2>&1 )`
 
-	RSP_EXPECTED="{\"RSPV\":{\"rspcode\":\"0\",\"rspmessage\":\"SUC\"}}"
+	RSP_EXPECTED="{\"RSPV\":{\"rspcode\":0,\"rspmessage\":\"SUC\"}}"
 	echo "Response: [$RSP]"
 
 	if [[ "X$RSP" != "X$RSP_EXPECTED" ]]; then
@@ -1088,7 +1088,7 @@ http://localhost:8080/view/fail/einline 2>&1 )`
     RSP_EXPECTED="{\"REQUEST1\":{\"tshort1\":8,\
 \"tlong1\":11111,\
 \"tstring1\":[\"HELLO RESPONSE\",\"INCOMING TEST\",\"\"],\
-\"rspcode\":\"11"
+\"rspcode\":11"
         echo "Response: [$RSP]"
 
     if [[ "X$RSP" != "X$RSP_EXPECTED"* ]]; then
@@ -1115,7 +1115,7 @@ do
 }" \
 http://localhost:8080/view/fail/efirst 2>&1 )`
 
-    RSP_EXPECTED="{\"RSPV\":{\"rspcode\":\"11\",\"rspmessage\":\"11:\"}}"
+    RSP_EXPECTED="{\"RSPV\":{\"rspcode\":11,\"rspmessage\":\"11:\"}}"
         echo "Response: [$RSP]"
 
     if [[ "X$RSP" != "X$RSP_EXPECTED" ]]; then

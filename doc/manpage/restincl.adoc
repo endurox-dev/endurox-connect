@@ -778,6 +778,14 @@ where static contents is kept. Note that if file name at the route does not matc
 then file server will attempt to to upload 'index.html'. If 'index.html' is not
 available, then directory listing will be provided back to caller.
 
+*parseheaders* = 'PARSE_HEADERS'::
+If set to *true*, for 'conv' modes *json2ubf* and *ext* HTTP headers will be
+parsed and will be provided back in response. Fields used header transporting are following:
+Request headers are loaded into: *EX_IF_REQHN* (request header name) and *EX_IF_REQHV*
+(request header value) *UBF* field occurrences and on response, headers are read
+from *EX_IF_RSPHN* (response header name) and *EX_IF_RSPHV* (response header value) *UBF*
+field occurrences. Default setting is *false*.
+
 --------------------------------------------------------------------------------
 
 "errors_fmt_http_map":"<ATMI_ERROR_CODE_1>:<HTTP_STATUS_CODE_1>,...,

@@ -10,7 +10,7 @@ import (
 	atmi "github.com/endurox-dev/endurox-go"
 )
 
-//Will set the trace file
+// Will set the trace file
 func GETFILE(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 
 	ret := SUCCEED
@@ -46,9 +46,9 @@ func GETFILE(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	return
 }
 
-//FAILSV1 service - returns error to caller, always
-//@param ac ATMI Context
-//@param svc Service call information
+// FAILSV1 service - returns error to caller, always
+// @param ac ATMI Context
+// @param svc Service call information
 func FAILSV1(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 
 	ac.TpReturn(atmi.TPFAIL, 0, &svc.Data, 0)
@@ -56,9 +56,9 @@ func FAILSV1(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	return
 }
 
-//LONGOP service
-//@param ac ATMI Context
-//@param svc Service call information
+// LONGOP service
+// @param ac ATMI Context
+// @param svc Service call information
 func LONGOP(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 
 	ret := SUCCEED
@@ -113,9 +113,9 @@ func LONGOP(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	return
 }
 
-//DATASV1 service
-//@param ac ATMI Context
-//@param svc Service call information
+// DATASV1 service
+// @param ac ATMI Context
+// @param svc Service call information
 func DATASV1(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 
 	ret := SUCCEED
@@ -281,9 +281,9 @@ func DATASV1(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	return
 }
 
-//LONGOP2 service (works with any buffer type)
-//@param ac ATMI Context
-//@param svc Service call information
+// LONGOP2 service (works with any buffer type)
+// @param ac ATMI Context
+// @param svc Service call information
 func LONGOP2(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 
 	//Return to the caller
@@ -297,8 +297,8 @@ func LONGOP2(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	return
 }
 
-//Server init, called when process is booted
-//@param ac ATMI Context
+// Server init, called when process is booted
+// @param ac ATMI Context
 func Init(ac *atmi.ATMICtx) int {
 
 	ac.TpLogWarn("Doing server init...")
@@ -418,6 +418,11 @@ func Init(ac *atmi.ATMICtx) int {
 		return atmi.FAIL
 	}
 
+	if err := ac.TpAdvertise("HEADER_ECHO", "HEADER_ECHO", HEADER_ECHO); err != nil {
+		fmt.Println(err)
+		return atmi.FAIL
+	}
+
 	if err := ac.TpAdvertise("REQPARAMS", "REQPARAMS", REQPARAMS); err != nil {
 		fmt.Println(err)
 		return atmi.FAIL
@@ -446,13 +451,13 @@ func Init(ac *atmi.ATMICtx) int {
 	return atmi.SUCCEED
 }
 
-//Server shutdown
-//@param ac ATMI Context
+// Server shutdown
+// @param ac ATMI Context
 func Uninit(ac *atmi.ATMICtx) {
 	ac.TpLogWarn("Server is shutting down...")
 }
 
-//Executable main entry point
+// Executable main entry point
 func main() {
 	//Have some context
 	ac, err := atmi.NewATMICtx()

@@ -95,7 +95,32 @@ function go_out {
     exit $1
 }
 
+###############################################################################
+echo "Check EXT header echo parse, shall be no square brackets"
+###############################################################################
+{
 
+for i in {1..100}
+do
+
+	RSP=`curl -i -H "Content-Type: application/json" -X POST --data "{}" http://localhost:8080/ext_header_echo 2>&1`
+	echo "[$RSP]"
+	
+	if [[ "$RSP" != *"Content-Type: application/json"* ]]; then
+		echo "Expected [Content-Type: application/json] in response"
+		popd
+		go_out 73
+	fi
+
+	if [[ "$RSP" == *"Content-Type: [application/json]"* ]]; then 
+		echo "'[application/json]' not expected in response"
+		popd
+		go_out 73
+	fi
+
+done
+
+}
 
 ###############################################################################
 echo "Checking transactional Web Services API"
@@ -105,7 +130,7 @@ trancl
 if [[ $? -ne 0 ]]; then
 	echo "Transactional WS API failed"
 	popd
-	go_out 73
+	go_out 74
 fi
 
 ###############################################################################

@@ -8,9 +8,78 @@ import (
 	atmi "github.com/endurox-dev/endurox-go"
 )
 
-//Incoming serivce copy some stuff test fields
-//@param ac ATMI Context
-//@param svc Service call information
+// Reply back with request headers
+// See Bug #800
+func HEADER_ECHO(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
+
+	ret := SUCCEED
+
+	//Get UBF Handler
+	ub, _ := ac.CastToUBF(&svc.Data)
+
+	//Return to the caller
+	defer func() {
+		if SUCCEED == ret {
+			ac.TpReturn(atmi.TPSUCCESS, 0, ub, 0)
+		} else {
+			ac.TpReturn(atmi.TPFAIL, 0, ub, 0)
+		}
+	}()
+
+	ub.TpLogPrintUBF(atmi.LOG_DEBUG, "Incoming request:")
+
+	//sz, _ := ub.BSizeof()
+	//Get return buf...
+	ub_ret, errA := ac.NewUBF(1024)
+
+	if nil != errA {
+		ac.TpLogError("Failed to alloc buffer: %s", errA.Message())
+		ret = FAIL
+		return
+	}
+
+	first := true
+	for true {
+
+		id, occ, err := ub.BNext(first)
+		first = false
+		if nil != err {
+			break
+		}
+
+		id_add := id
+
+		//Translate to response headers.
+		if id_add == ubftab.EX_IF_REQHN {
+			id_add = ubftab.EX_IF_RSPHN
+		} else if id_add == ubftab.EX_IF_REQHV {
+			id_add = ubftab.EX_IF_RSPHV
+		}
+
+		val, errU := ub.BGet(id, occ)
+		if nil != errU {
+			ac.TpLogError("failed to get %d[%d]: %s", id, occ, errU.Message())
+			ret = FAIL
+			return
+		}
+
+		ac.TpLogDebug("Mapping out %d[%d] [%v]", id, occ, val)
+
+		if errU := ub_ret.BAdd(id_add, val); nil != errU {
+			ac.TpLogError("failed to set %d[%d]: %s", id_add, occ, errU.Message())
+			ret = FAIL
+			return
+		}
+	}
+
+	//Return new buff...
+	ub = ub_ret
+
+}
+
+// Incoming serivce copy some stuff test fields
+// @param ac ATMI Context
+// @param svc Service call information
 func INMAND(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 
 	ret := SUCCEED
@@ -106,7 +175,7 @@ func INMAND(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	return
 }
 
-//Add string to buffer content
+// Add string to buffer content
 func addToNetData(data string, ub *atmi.TypedUBF) {
 
 	//Check is there req data present, we will add there
@@ -130,7 +199,7 @@ func addToNetData(data string, ub *atmi.TypedUBF) {
 
 }
 
-//Incoming opt service
+// Incoming opt service
 func INOPT(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	ret := SUCCEED
 
@@ -155,7 +224,7 @@ func INOPT(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	}
 }
 
-//Incoming error service
+// Incoming error service
 func INERR(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	ret := SUCCEED
 
@@ -182,7 +251,7 @@ func INERR(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 
 }
 
-//Outgoing error service
+// Outgoing error service
 func OUTERR(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	ret := SUCCEED
 
@@ -209,7 +278,7 @@ func OUTERR(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 
 }
 
-//Outgiong mandatory service, fail in case if "T_STRING_2_FLD[0]" is set to "ETEST"
+// Outgiong mandatory service, fail in case if "T_STRING_2_FLD[0]" is set to "ETEST"
 func OUTMAND(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	ret := SUCCEED
 
@@ -235,7 +304,7 @@ func OUTMAND(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 
 }
 
-//opt out service
+// opt out service
 func OUTOPT(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	ret := SUCCEED
 
@@ -267,7 +336,7 @@ func OUTOPT(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	ub.BAdd(ubftab.EX_IF_RSPHV, "application/test")
 }
 
-//Incoming OK service
+// Incoming OK service
 func INOK(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	ret := SUCCEED
 
@@ -293,7 +362,7 @@ func INOK(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 
 }
 
-//IN Fail service
+// IN Fail service
 func INFAIL(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	ret := SUCCEED
 
@@ -312,7 +381,7 @@ func INFAIL(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 	}()
 }
 
-//Test Request params
+// Test Request params
 func REQPARAMS(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 
 	//Get UBF Handler
@@ -350,8 +419,8 @@ func REQPARAMS(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 
 }
 
-//Just receive some request
-//Set the tpurcode and in case of data 3, set error response too
+// Just receive some request
+// Set the tpurcode and in case of data 3, set error response too
 func REQERRCODES(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 
 	ret := SUCCEED
@@ -384,8 +453,8 @@ func REQERRCODES(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 
 }
 
-//Filter & prepare body with reporting the actual
-//Response
+// Filter & prepare body with reporting the actual
+// Response
 func RSPERRFILTER(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 
 	//Get UBF Handler

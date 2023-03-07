@@ -87,12 +87,12 @@ defaults={"errors":"http"
         ,"reqlogsvc": "GETFILE"
         ,"noreqfilersp": true
         }
-      
-# Service 1 
+
+# Service 1
 /svc1={"svc":"DATASV1", "notime":false, "conv":"json2ubf", "errors":"json", "async":false
         ,"errfmt_json_code":"\"error_code1\":%d"
         ,"errfmt_json_msg":"\"error_message1\":\"%s\""}
-        
+
 # Echo service:
 /echo={"notime":false, "conv":"json2ubf", "errors":"json", "async":false, "echo":true}
 
@@ -127,7 +127,7 @@ names are following:
 
 - *EX_IF_REQDATA* - is loaded with HTTP Message body, byte array;
 
-- *EX_IF_REQHN* - request header names;
+- *EX_IF_REQHN* - request header names. Multi-occurrence header values are supported;
 
 - *EX_IF_REQHV* - request header values, same occurrence with names;
 
@@ -145,25 +145,25 @@ names are following:
 
 If fields are prepared OK, list of comma separated services found in *finman*
 are executed with UBF buffer. This can be used to build up the target request buffer.
-In case if any service fails from mandatory list, it is treated as general 
-error and then incoming error service chain *finerr* is executed (as optional). 
-When generating response *EX_NETRCODE* field with expected http code is read. 
-If field is missing in buffers, then *restincl* will respond with error 500, 
+In case if any service fails from mandatory list, it is treated as general
+error and then incoming error service chain *finerr* is executed (as optional).
+When generating response *EX_NETRCODE* field with expected http code is read.
+If field is missing in buffers, then *restincl* will respond with error 500,
 without any body. In case of error and if buffer contains *EX_NETRCODE*, then
 system will attempt to return the *EX_IF_RSPDATA*.
 
-If there was no error, after all incoming filter chains done, 
-target service is executed. Once that is done, the response chain is activated. 
-If there was no error during target service call, the *foutman* mandatory chain 
+If there was no error, after all incoming filter chains done,
+target service is executed. Once that is done, the response chain is activated.
+If there was no error during target service call, the *foutman* mandatory chain
 is executed. If it succeed, then optional chain *foutopt* chain is executed.
 
 In case if destination service was called in synchronous mode, the user return
 value *tpurcode(3)* from *tpcall(3)* is added to UBF buffer field *EX_IF_TPURCODE*.
 
 If there was error during the target service execution or mandatory out filter
-chain execution (*foutman*), the *fouterr* service chain is executed. 
-If *EX_NETRCODE* is found in the body, then UBF content is used for response 
-generation and http status is set to *EX_NETRCODE*. If in case of error 
+chain execution (*foutman*), the *fouterr* service chain is executed.
+If *EX_NETRCODE* is found in the body, then UBF content is used for response
+generation and http status is set to *EX_NETRCODE*. If in case of error
 *EX_NETRCODE* is not found, the response is set to 500 with out any content.
 
 The response is generated in following way:
@@ -172,11 +172,11 @@ The response is generated in following way:
 
 - http headers are loaded from *EX_IF_RSPHN* and *EX_IF_RSPHV*
 
-- http response cookies are loaded from *EX_IF_RSPCN*, *EX_IF_RSPCV*, 
-*EX_IF_RSPCPATH*, *EX_IF_RSPCDOMAIN*, *EX_IF_RSPCEXPIRES*, *EX_IF_RSPCMAXAGE*, 
+- http response cookies are loaded from *EX_IF_RSPCN*, *EX_IF_RSPCV*,
+*EX_IF_RSPCPATH*, *EX_IF_RSPCDOMAIN*, *EX_IF_RSPCEXPIRES*, *EX_IF_RSPCMAXAGE*,
 *EX_IF_RSPCSECURE*, *EX_IF_RSPCHTTPONLY*
 
-- http content type is according to *ubftab.EX_IF_RSPHN* (Content-Type) value 
+- http content type is according to *ubftab.EX_IF_RSPHN* (Content-Type) value
 found in *EX_IF_RSPHV*. If Conent-Type is not provided in response, 'text/plain'
 is used.
 
@@ -184,10 +184,15 @@ is used.
 handling mode *ext* works only with buffer conversion mode *ext*. See more
 details bellow for *ext* error handler mode.
 
+For response *EX_IF_RSPHN* and *EX_IF_RSPHV* header field pairs generally supports
+multi-occurrence headers, exception is for *Content-Type:* for which if multi-occurrence
+are used, only last value will be present in response (or field will be set automatically
+set depending to the scenario).
+
 ==== File Upload
 
 *restincl* supports file upload to temporary folder 'TEMP_DIR' set by *tempdir* flag.
-File upload works only in *ext* buffer mode. Upload mode is enabled by setting 
+File upload works only in *ext* buffer mode. Upload mode is enabled by setting
 *fileupload* parameter to *true*.
 
 The upload process performs following
@@ -195,7 +200,7 @@ steps:
 
 1. Processes *finman*, *finopt* filters (with parsed headers)
 
-2. Downloads the uploaded files to temporary directory to temporary file names. 
+2. Downloads the uploaded files to temporary directory to temporary file names.
 Multiple files may be uploaded. Attributes of each of the files are loaded into UBF buffer
 occurrences.
 
@@ -204,8 +209,8 @@ occurrences.
 4. When response is received from service, temporary files are deleted.
 
 5. If for given file ordered file UBF field occurrence *EX_IF_RSPFILEACTION*
-value contains *K* (Keep flag), the file is not deleted. If *EX_IF_RSPFILEACTION* 
-occurrence is not present or set to other value (including value is *D* - delete), 
+value contains *K* (Keep flag), the file is not deleted. If *EX_IF_RSPFILEACTION*
+occurrence is not present or set to other value (including value is *D* - delete),
 file is deleted as in 4.
 
 Following list of fields are added of the uploaded files:
@@ -333,7 +338,7 @@ MIME type will be set to: 'text/plain'.
 With 'JSON2VIEW' mode, it is expected that configured web service will receive JSON
 document formatted in two levels, outer level is object with view name (which is
 configured in Enduro/X environment *VIEWDIR* and *VIEWFILES*. The second level
-of the JSON document basically is fields encoded in key:value format. 
+of the JSON document basically is fields encoded in key:value format.
 Array's types is supported. The array elements are loaded into UBF buffer
 field occurrences. The BLOB elements are encoded as Base64 data and are loaded
 into VIEW buffer's carray fields typed fields in decoded (binary form). The standard
@@ -369,7 +374,7 @@ float   float_fld   -                   1       -       -       -
 double  double_fld  -                   1       -       -       -
 string  string_fld  -                   2       -       20      -
 carray  carray_fld  -                   1       -       25      -
-        
+
 # optional response fields, used if configured so:
 
 string  rspmessage  -                   1       -       255      -
@@ -388,7 +393,7 @@ MIME type will be set to: 'text/plain'.
 For error handling if configured so (using json2view errors), the *restincl* can
 install the ATMI error code and message in the VIEW before converting to JSON,
 Thus *rspcode* and *rspmessage* can be produced back in the JSON with corresponding
-content. In case of wrong configuration ('errfmt_view_rsp' does not contain 
+content. In case of wrong configuration ('errfmt_view_rsp' does not contain
 response fields) or 'errfmt_view_rsp' is not set at all, but error mechanism is
 'json2view' and response view does not have response fields, the *restincl* will
 generate '{}' - empty JSON object error. The caller shall assume this as format
@@ -412,7 +417,7 @@ is generated as pure string, with MIME set to 'text/plain'.
 
 === Conversion buffer type: 'raw' - BLOB message
 
-In this case arbitrary binary (BLOB) data is received from POST message. 
+In this case arbitrary binary (BLOB) data is received from POST message.
 The BLOB is loaded inti 'CARRAY' typed buffer and destination service is invoked
 with this buffer. If service invocation is success, then the received BLOB message
 from XATMI sub-system is returned to caller. In this case response will be generated
@@ -428,20 +433,20 @@ Following sub-sections describes each handling mode.
 As described in buffer 'ext' buffer conversion mode, this error handling mechanism
 consists of following key features:
 
-- If incoming mandatory filters or buffer preparation fails, 
+- If incoming mandatory filters or buffer preparation fails,
 then 'finerr' services is called.
-If after service calls buffer contains *EX_NETRCODE* (http code), then UBF buffer contents 
+If after service calls buffer contains *EX_NETRCODE* (http code), then UBF buffer contents
 are used for generating response. Otherwise http error code 500 is returned with
 out any body.
 
 - If incoming filters where succeed, but target service or outgoing mandatory
-filters did fail, the 'fouterr' chain is executed. And in the same way if 
+filters did fail, the 'fouterr' chain is executed. And in the same way if
 *EX_NETRCODE* in final stages are present in buffer, then value from this is used
 for http code and buffer contents are used for sending back responses. If return
 code is not present, then error code *500* is returned, with any further processing.
 
-Ext mode of error handling includes additional diagnostics information 
-for the service errors. When incoming processing fails (including target service), 
+Ext mode of error handling includes additional diagnostics information
+for the service errors. When incoming processing fails (including target service),
 following fields are add to the buffer and are available for filters:
 
 - *EX_IF_ECODE* XATMI error code.
@@ -456,7 +461,7 @@ service call.
 === Error handling type: 'http' - return error codes in HTTP protocol
 
 With this error handling method, the error codes are returned within HTTP protocol.
-The error code can be mapped from XATMI subsystem to HTTP codes by using 
+The error code can be mapped from XATMI subsystem to HTTP codes by using
 'errors_fmt_http_map' parameter in service or 'default' parameter block. The default
 mapping which is set if 'errors_fmt_http_map' is not present, is following:
 
@@ -516,7 +521,7 @@ mapping which is set if 'errors_fmt_http_map' is not present, is following:
 
 This is suitable for 'json' and 'json2ubf' buffer types. On response the JSON
 block is appended at then end with two fields. The fields are set with format
-string *%s* for error message in 'errfmt_json_msg' parameter, for example 
+string *%s* for error message in 'errfmt_json_msg' parameter, for example
 *"error_message":"%s"*. The error code format is set with *%d* in 'errfmt_json_code'
 parameter, for example: *"error_code":%d*. The error codes are XATMI standard defined
 in xatmi.h. For example if calling JSON service and call times out, then response
@@ -531,7 +536,7 @@ will be look like:
 
 === Error handling type: 'json2ubf' - UBF format field in JSON response message
 
-With this error handling mechanisms, which is suitable for 'JSON2UBF' buffer 
+With this error handling mechanisms, which is suitable for 'JSON2UBF' buffer
 conversion mode, the error message is loaded into top level JSON field 'EX_IF_ECODE'
 and error message is loaded into 'EX_IF_EMSG' field. This is suitable in case if
 using *restout* on the other Enduor/X server to bridge the servers using HTTP/Rest
@@ -611,7 +616,7 @@ Ip address on which http server is listening for incoming connections. Default
 *0.0.0.0*.
 
 *workers* = 'NUMBER_OF_XATMI_SESSIONS'::
-Number XATMI sessions. These sessions are use for serving the incoming calls - 
+Number XATMI sessions. These sessions are use for serving the incoming calls -
 i.e. doing the calls to XATMI sub-system. If the number is less than incoming calls,
 the calls will be suspended while there will be no XATMI session free. Once it is
 made free, then call will be served (i.e. called corresponding XATMI counterpart).
@@ -620,7 +625,7 @@ The default value for parameter is *10*.
 *gencore* = 'GENERATE_CORE_FILE'::
 If set to *1*, then in case of segmentation fault, the core dump will be generated
 instead of Golang default signal handler which just prints some info in stderr.
-The default value is *0* which means use default Golang panic handling mechanisms. 
+The default value is *0* which means use default Golang panic handling mechanisms.
 
 *tls_enable* = 'ENABLE_HTTPS'::
 With this setting set to *1*, HTTPS will be enabled. Default value is *0*. To complete
@@ -646,7 +651,7 @@ message is received. The invocation might be synchronous, in which case caller w
 wait for service to complete or receive XATMI time-out. If service completes, then
 response is generated back to caller in configured format (conv parameter). If
 service fails or times-out. The error is returned. Depending on error handling
-mode (*errors* parameter), the data buffer can be returned too, including the 
+mode (*errors* parameter), the data buffer can be returned too, including the
 erroneous buffer data, because XATMI services at application level errors *TPESVCFAIL*
 returns the data buffer from service even the error occurred. The data is returned
 with error in case of following error handling methods: *http*, *json*, *json2ubf*.
@@ -715,7 +720,7 @@ filled with NULLs, then start NULLs will be converted to JSON anyway.
 Default is *false*.
 
 *errfmt_view_rsp*  = 'ERRFMT_VIEW_RSP'::
-View name to be used when sending the errors *json2view* errors. In case of 1) 
+View name to be used when sending the errors *json2view* errors. In case of 1)
 if there is error and response buffer does not have error fields, view
 'errfmt_view_rsp' will be instantiated and fields will set with the error code.
 If 'errfmt_view_rsp' is invalid, then response will contain '{}' - empty JSON
@@ -745,7 +750,7 @@ The default value for parameter is *false*.
 
 *conv* = 'BUFFER_CONVERTION_TYPE'::
 Request/response buffer conversion method. Available constants *json2ubf*, *json*,
-*text* and *raw*. Buffer methods are described above in manpage. Shortly: *json2ubf* - 
+*text* and *raw*. Buffer methods are described above in manpage. Shortly: *json2ubf* -
 converts incoming JSON formatted document (with one level key:value (including arrays))
 to Enduro/X *UBF* buffer format. *json* makes the *JSON XATMI* data buffer, *text* makes
 *STRING XATMI* data buffer. The *raw* method load the data into *CARRAY* XATMI buffer.
@@ -759,9 +764,9 @@ set to *json2ubf*, then when request is received and is converted to UBF XATMI
 buffer type, the service is invoked by *tplogsetreqfile(3)* XATMI function. If
 service returns 'EX_NREQLOGFILE' UBF field, then current request logging is switched
 to given request file. When service invocation is completed and data is returned
-back to caller, the *restincl* will close the request logging by invoking 
+back to caller, the *restincl* will close the request logging by invoking
 *tplogclosereqfile(3)*. This mechanism is useful if per session or some other
-correlator (for example banking card number (PAN) hash is used for separating the logs) 
+correlator (for example banking card number (PAN) hash is used for separating the logs)
 based logging is needed. Thus to employ the functionality fully, the target services
 should use the request logging too.
 The default value for this parameter is *empty* - not set.
@@ -802,7 +807,7 @@ for example:
 --------------------------------------------------------------------------------
 
 means that XATMI error code 13 (time-out)
-will be mapped to HTTP status code 404. In case of any other XATMI error (\*), 
+will be mapped to HTTP status code 404. In case of any other XATMI error (\*),
 the HTTP status code will be set to 200.
 The default value is as described *above*.
 
@@ -847,7 +852,7 @@ continue. Default is empty.
 *finerr* = 'SERVICE_LIST'::
 Comma separated list of services to be executed when in *ext* mode incoming
 mandatory filters or buffer setup failed. In case if *EX_NETRCODE* is present,
-it is assumed that buffer content is ready for response generation. This is 
+it is assumed that buffer content is ready for response generation. This is
 optional service list. Default is empty.
 
 *foutman* = 'SERVICE_LIST'::
@@ -856,14 +861,14 @@ and target service was OK. This is mandatory list, any service error will trigge
 *fouterr* chain to process.
 
 *foutopt* = 'SERVICE_LIST'::
-Comma separated list of services to be executed when in *ext* mode input filters, 
-target service was OK and *foutman* list were executed OK. This is optional list, 
+Comma separated list of services to be executed when in *ext* mode input filters,
+target service was OK and *foutman* list were executed OK. This is optional list,
 any service errors will be ignored.
 
 *fouterr* = 'SERVICE_LIST'::
 Comma separated list of services to be executed when in *ext* mode target service
-or outgoing mandatory filters have failed. In case if *EX_NETRCODE* is present 
-(set by this or previous services), it is assumed that buffer content is ready 
+or outgoing mandatory filters have failed. In case if *EX_NETRCODE* is present
+(set by this or previous services), it is assumed that buffer content is ready
 for response generation. This is optional service list. Default is empty.
 
 *fileupload* = 'true|false'::
@@ -919,7 +924,7 @@ will perform following logic:
 . '/static.*' by regexp mask will provide any matched file name from "${NDRX_APPHOME}/static"
 sub-folder. For example /static/app1/test.ccs will be provided.
 
-. '/' will strictly on root host provide only 'index.html' from static 
+. '/' will strictly on root host provide only 'index.html' from static
 resources directory.
 
 . 'index.html' in the same way if at host root index is access then, will be provided from
@@ -949,7 +954,7 @@ API provides result JSON with error code, error message and transaction id (if
 applicable).
 
 In any case of success or error JSON body is returned (if it was possible to
-generate response). In case if request was success, HTTP code *200* is returned. 
+generate response). In case if request was success, HTTP code *200* is returned.
 In case if request is invalid (invalid args, etc), response code is set to *400*,
 in case if some Enduro/X internal issues has happened, status code *500* is returned.
 
@@ -974,7 +979,7 @@ for 32bit platforms this is defaulted to *10*.
 
 === Request message
 
-Request shall be HTTP POST JSON to the specified URL. 
+Request shall be HTTP POST JSON to the specified URL.
 
 .API Request message
 [width="80%", options="header"]
@@ -987,7 +992,7 @@ Request shall be HTTP POST JSON to the specified URL.
 
 *tpabort* - abort transaction.
 |timeout|ULONG1..20|Optional|Transaction timeout in seconds. If not specified, default
-value *0* is used, which means maximum transaction time. Field is used only 
+value *0* is used, which means maximum transaction time. Field is used only
 when operation is *tpbegin*, otherwise ignored.
 |flags|LONG1..20|Opt|Reserved for future use, and if specified, shall be set to *0*.
 |tptranid|STRING1..256|Cond|Transaction token value. Used for *tpcommit*, *tpabort*.
@@ -1053,7 +1058,7 @@ system is not aware of) which might appear in future releases on *restincl*.
 
 --------------------------------------------------------------------------------
 
-{   
+{
     "operation":"tpcommit"
     ,"error_code":0
     ,"error_message":"Succeed"
@@ -1112,7 +1117,7 @@ returned by 2. response header 'endurox-tptranid-rsp'.
 'tptranid' must be set here to header 'endurox-tptranid-rsp' value returned from
 step 3. In case if 3. did time-out, then use 'endurox-tptranid-rsp' from step 2.
 
-For sample code of transaction usage see 
+For sample code of transaction usage see
 *endurox-connect/tests/01_restin/src/trancl/trancl.go* source code.
 
 === Additional notes for error handling in transaction mode calls
@@ -1122,15 +1127,15 @@ services in transaction modes.
 
 ==== Transaction timed-out by tmsrv while handling some REST calls
 
-If route flag 'txnooptim' (default *true*) is set to *true* and  transaction 
+If route flag 'txnooptim' (default *true*) is set to *true* and  transaction
 is expired when performing service calls with 'endurox-tptranid-req'
-header set, the error *TPESYSTEM* (code 12) is returned, as internally 
+header set, the error *TPESYSTEM* (code 12) is returned, as internally
 *tpresume(3)* call would fail with this error code. If flag 'txnooptim' is set
 to *false* and call is made to previously already called resource manager (RM), then
 it is possible that *TPETRAN* (code 14) would be returned. Recommended way is to
 to leave 'txnooptim' as *true*, as this ensures that transaction is terminated
 as soon as possible, and there is less chance for orphaned transaction, in case
-if for known RM on *TMJOIN* (if supported) on rolled back transaction does 
+if for known RM on *TMJOIN* (if supported) on rolled back transaction does
 not return error code.
 
 
@@ -1140,13 +1145,13 @@ Retry commits currently are not supported. Thus if particular 'tptranid' did
 succeed with *tpcommit* (error was 0), if performing commit again, error *TPEABORT* (code 1)
 would be returned. This is due to fact that *tmsrv(8)* does not hold the history
 of transactions, and by trying commit unknown transaction tmsrv reports it is *TPEABORT*
-this would be the typical case when unknown transaction id is being committed but 
+this would be the typical case when unknown transaction id is being committed but
 tmsrv rolled it back due to time-out.
 
 
 === Sample configuration
 
-*restincl* must be configured with standard NULL switch (*libndrxxanulls.so*), 
+*restincl* must be configured with standard NULL switch (*libndrxxanulls.so*),
 other switches are not supported. NULL switch ensures that process may participate
 in global transaction by not touching any real resources by it self.
 
@@ -1167,7 +1172,7 @@ Fragment from *ndrxconfig.xml(5)*:
                         <cctag>TRAN</cctag>
                         <srvid>200</srvid>
                         <sysopt>-e ${NDRX_APPHOME}/log/tmsrv-rm1.log -r -- -t1 -l${NDRX_APPHOME}/tmlogs/rm2</sysopt>
-                </server> 
+                </server>
     </servers>
     ...
         <clients>

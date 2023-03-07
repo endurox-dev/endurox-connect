@@ -103,7 +103,7 @@ echo "Check EXT header echo parse, shall be no square brackets"
 for i in {1..100}
 do
 
-	RSP=`curl -i -H "Content-Type: application/json" -X POST --data "{}" http://localhost:8080/ext_header_echo 2>&1`
+	RSP=`curl -i -H "Content-Type: application/json" -H "Some: New" -H "Some: Other" -X POST --data "{}" http://localhost:8080/ext_header_echo 2>&1`
 	echo "[$RSP]"
 	
 	if [[ "$RSP" != *"Content-Type: application/json"* ]]; then
@@ -114,6 +114,18 @@ do
 
 	if [[ "$RSP" == *"Content-Type: [application/json]"* ]]; then 
 		echo "'[application/json]' not expected in response"
+		popd
+		go_out 73
+	fi
+
+	if [[ "$RSP" != *"Some: New"* ]]; then
+		echo "Expected [Some: New] in response"
+		popd
+		go_out 73
+	fi
+
+	if [[ "$RSP" != *"Some: Other"* ]]; then
+		echo "Expected [Some: Other] in response"
 		popd
 		go_out 73
 	fi

@@ -92,7 +92,7 @@ func genRspHeaders(ac *atmi.ATMICtx, bufu *atmi.TypedUBF, w http.ResponseWriter,
 			if HdrName == "Content-Type" {
 				ret = HdrValue
 			} else {
-				w.Header().Set(HdrName, HdrValue)
+				w.Header().Add(HdrName, HdrValue)
 			}
 
 		}

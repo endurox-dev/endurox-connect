@@ -5,7 +5,7 @@ TCPGATESV(8)
 
 NAME
 ----
-tcpgatesv - Enduro/X user programmable tpc gateway (client/server roles, XATMI server).
+tcpgatesv - Enduro/X user programmable TCP/IP gateway (client/server roles, XATMI server).
 
 SYNOPSIS
 --------
@@ -13,19 +13,28 @@ SYNOPSIS
 
 DESCRIPTION
 -----------
-Use programmable tcp gateway. The server gives for programmer abstraction over the tcp
-sockets. This module gives programmer abstraction over of the socket to the next level - 
-XATMI services. By using tpc gateway for programmer to send network message, it is sufficient
-for dong the XATMI service invocation with specific UBF buffer, containing the message to
-be sent to network. The network address now is abstracted to XATMI service name. All other
-details technical details of socket operations are covered by *tcpgatesv*.
+
+User programmable tcp gateway. This module gives programmer abstraction over of
+the TCP/IP socket to the next level - XATMI services. By using tpc gateway for
+programmer to send network message, it is sufficient
+for doing the standard XATMI service invocation (e.g. *tpcall(3)*) with specific UBF buffer,
+which containing the message to be sent to network. Network address
+is abstracted to XATMI service name. All other details technical details of socket
+operations are covered by *tcpgatesv* and mainly are set in the configuration file
+for the connection instance. Several processes may be started in the system, where
+each instance is configured by ini sub-section, and instance may cover different
+connection (port number, server/client roles).
+
+*tcpgatesv* mostly covers all the functionality typically which is required for
+connecting Bank POS, ATM terminals, and handle different modes of ISO8583 connections.
+However *tcpgatesv* maybe useful in other custom protocol based connectivity applications.
 
 The getaway is able to handle multiple simultaneous connections. The connections are identified
-by connection id, which cosists of two parts - simple connection id (started from Nr. 1) and
+by connection id, which consists of two parts - simple connection id (started from Nr. 1) and
 by compiled connection id, where part of the number contains the actual timestamp when
 connection is established.
 
-Getaway can operate with persistent connections, so that tcpgatesv opens the number of
+Getaway can operate with persistent connections, so that *tcpgatesv* opens the number of
 connections, and callers (from both ends XATMI and network) can do the invocations synchronously
 or asynchronously. In async mode it is still possible to simulate synchronous service invocations,
 that is done in case if 'corr_svc' parameter is set. This parameter indicates which
@@ -36,8 +45,8 @@ in progress, if found, then they are replied with buffer coming from 'corr_svc'.
 If correlation id is not parsed or no waiters in progress, then 'incoming_svc' is
 called with given incoming/'corr_svc' response buffer.
 
-Geteway can operate in one request-new connection mode from both ends, it can accept the request
-from network (in this case we must be passive - wait for conn). And it can create new connection
+Geteway can operate in one request/new connection mode from both ends, it can accept the request
+from network (in this case we must be passive (socket server) - wait for conn). And it can create new connection
 when doing the XATMI request to network. After receiving response from network or getting timeout,
 the connection is closed.
 
@@ -47,10 +56,10 @@ When connection is established either in active or passive mode, the status of c
 is sent to status service.
 
 It is possible to configure gateway to send keep-a-live messages. The keep a live message
-is zero length. Thus can be safely ignored by network target device. The same as *tcpgatesv*
-does.
+is message with zero data length but with framing bytes. Such messages can be safely
+ignored by network target device. The same as *tcpgatesv* does.
 
-Tcpgateway uses different message framing algorithms, to avoid partially read messages
+*tcpgatesv* uses different message framing algorithms, to avoid partially read messages
 from network, which can occur if message size is larger than message transfer unit (MTU).
 Framing mode is controlled by 'framing' parameter. Following options are supported:
 

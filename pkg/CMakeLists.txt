@@ -218,23 +218,6 @@ endif()
 INCLUDE (${CMAKE_ROOT}/Modules/CheckTypeSize.cmake)
 CHECK_TYPE_SIZE("void*"  EX_SIZEOF_VOIDPTR)
 MATH (EXPR EX_PLATFORM_BITS "${EX_SIZEOF_VOIDPTR} * 8")
-#
-# Fix arch for AIX
-#
-IF(CMAKE_SYSTEM_PROCESSOR MATCHES "^powerpc")
-        set(CPACK_RPM_PACKAGE_ARCHITECTURE "ppc")
-ENDIF()
-
-set(EX_CPU_ARCH "${CMAKE_SYSTEM_PROCESSOR}_${EX_PLATFORM_BITS}")
-
-#
-# MAP the CPU name
-#
-if( (${EX_CPU_ARCH} STREQUAL "x86_64_64") OR (${EX_CPU_ARCH} STREQUAL "amd64_64") OR
-      (${EX_CPU_ARCH} STREQUAL "386_64") OR (${EX_CPU_ARCH} STREQUAL "amd64")
-      OR (${EX_CPU_ARCH} STREQUAL "i386_64") )
-    set(EX_CPU_ARCH "x86_64")
-endif()
 
 message("Generator: ${CPACK_GENERATOR}")
 

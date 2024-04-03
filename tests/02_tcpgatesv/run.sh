@@ -448,10 +448,16 @@ fi
 echo ">>> Test for any log errors"
 ################################################################################
 
+# check that tcpgate did not died, Support #828
+if [ "X`grep \"Client process \\[tcpgatesv\\], pid\" log/ULOG* 2>/dev/null`" != "X" ]; then
+        echo "ULOG contains message about tcpgatesv (died?)!"
+        go_out 20
+fi
+
 # Catch is there is test error!!!
 if [ "X`grep TESTERROR log/*.log`" != "X" ]; then
         echo "Test error detected!"
-        go_out 20
+        go_out 21
 fi
 
 # The go_out will do the shutdown!

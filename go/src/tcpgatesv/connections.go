@@ -663,7 +663,6 @@ func HandleConnection(con *ExCon) {
 			if MReqReply == RR_NONPERS_NET2EX {
 				ac.TpLogInfo("CONN: %d - send_and_shut recieved - terminating",
 					con.id_comp)
-
 				ok = false
 			}
 
@@ -691,6 +690,11 @@ func HandleConnection(con *ExCon) {
 	//Remove from channel
 	MarkConnAsBusy(ac, con, false)
 
+	//Support #828
+	//However, consider TpTerm() to be used after each NotifyStatus() call
+        //(to avoid extra IPC queues open for each connection) or use works for this
+        //purpose.
+	ac.TpTerm()
 }
 
 //This will setup connection

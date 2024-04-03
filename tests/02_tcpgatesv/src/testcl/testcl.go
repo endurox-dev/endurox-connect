@@ -157,6 +157,7 @@ func runMany(gw string, n int) {
 	Mdone <- true
 
 	ac.TpLogInfo("#%d done.. (return)", n)
+	ac.TpTerm()
 
 	return
 

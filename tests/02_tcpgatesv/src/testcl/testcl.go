@@ -543,6 +543,11 @@ func apprun(ac *atmi.ATMICtx) error {
 	case "offsetsync":
 		/* Call sync service test the request and resposne data
 		 * we will send 300 bytes and we will receive 400 bytes
+		 * len_incl supported modes:
+		 * 0 - llll, no half swap
+		 * 1 - LLLL, half swap
+		 * 2 - pppp, no half swap
+		 * 3 - PPPP, half swap
 		 */
 		ac.TpLogInfo("Command: [%s] 2", command)
 		if len(os.Args) < 5 {
@@ -571,11 +576,7 @@ func apprun(ac *atmi.ATMICtx) error {
 
 			ba := make([]byte, 300)
 
-			if inclLen > 0 {
-				ba[0] = 1
-			} else {
-				ba[0] = 0
-			}
+			ba[0] = byte(inclLen)
 
 			ba[1] = 0x12
 			ba[2] = 0x13
@@ -636,21 +637,40 @@ func apprun(ac *atmi.ATMICtx) error {
 				}
 			}
 
-			//The lenght  of response packet is 400 bytes, thus verify the
+			var first_byte, second_byte byte
+
+			//The lenght of response packet is 400 bytes, thus verify the
 			//header bytes. As we swap the halves and it was little endian
 			//then first two bytes should be in front
+			if inclLen <= 1 {
+				//len in bytes, llll/LLLL
 
-			rsp_len := 400
+				rsp_len := 400
 
-			if inclLen <= 0 {
-				rsp_len -= 8
+				if inclLen <= 0 {
+					rsp_len -= 8
+				}
+				first_byte = byte((rsp_len >> 8) & 0xff)
+				second_byte = byte(rsp_len & 0xff)
+
+			} else if inclLen == 2 {
+				//pppp
+				//BCD, does not include len (400-8=392)
+				first_byte = 0x03
+				second_byte= 0x92
+
+			} else if inclLen == 3 {
+				//PPPP
+				//BCD, include len, swap...
+				first_byte = 0x04
+				second_byte= 0x00
+			} else {
+				ac.TpLogError("TESTERROR unsupported inclLen=%d", inclLen)
+				return errors.New("TESTERROR unsupported inclLen!")
 			}
-			first_byte := byte((rsp_len >> 8) & 0xff)
-			second_byte := byte(rsp_len & 0xff)
 
-			if inclLen > 0 {
-				//In this case we swap bytes too
-
+			if inclLen == 1 || inclLen == 3 {
+				//In this case we swap bytes too, LLLL or PPPP
 				if first_byte != arrRsp[4] {
 					ac.TpLogError("TESTERROR LEN ind  at index %d, expected %d got %d",
 						4, first_byte, arrRsp[4])
@@ -663,7 +683,7 @@ func apprun(ac *atmi.ATMICtx) error {
 					return errors.New("TESTERROR in header!")
 				}
 			} else {
-
+				//llll, pppp
 				if first_byte != arrRsp[6] {
 					ac.TpLogError("TESTERROR (2) LEN ind  at index %d, expected %d got %d",
 						6, first_byte, arrRsp[6])

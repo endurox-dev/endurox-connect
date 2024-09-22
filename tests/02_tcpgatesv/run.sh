@@ -126,7 +126,7 @@ echo "Sleep 90 - let async calls to complete..."
 sleep 90
 
 ################################################################################
-echo ">>> Run offset tests, len not included"
+echo ">>> Run offset tests, len not included, llll"
 ################################################################################
 NROFCALLS=$(($NUMCALL+5))
 NROFCALLS_CMP=$NUMCALL
@@ -140,7 +140,7 @@ if [[ $RET != 0 ]]; then
 fi
 
 ################################################################################
-echo ">>> Run offset tests, swap bytes, len included"
+echo ">>> Run offset tests, swap bytes, len included, LLLL"
 ################################################################################
 NROFCALLS=$(($NUMCALL+5))
 NROFCALLS_CMP=$NUMCALL
@@ -154,6 +154,35 @@ if [[ $RET != 0 ]]; then
     go_out 50
 fi
 
+
+################################################################################
+echo ">>> Run offset tests, len not included, pppp"
+################################################################################
+NROFCALLS=$(($NUMCALL+5))
+NROFCALLS_CMP=$NUMCALL
+COMMAND="offsetsync"
+testcl $COMMAND $NROFCALLS TCP_P_SYNCOFFP_A 2
+RET=$?
+
+if [[ $RET != 0 ]]; then
+    echo "testcl $COMMAND $NROFCALLS TCP_P_SYNCOFFP_A failed"
+    go_out 51
+fi
+
+################################################################################
+echo ">>> Run offset tests, swap bytes, len included, PPPP"
+################################################################################
+NROFCALLS=$(($NUMCALL+5))
+NROFCALLS_CMP=$NUMCALL
+COMMAND="offsetsync"
+testcl $COMMAND $NROFCALLS TCP_P_SYNCOFFIP_A 3
+
+RET=$?
+
+if [[ $RET != 0 ]]; then
+    echo "testcl $COMMAND $NROFCALLS TCP_P_SYNCOFFIP_A failed"
+    go_out 50
+fi
 
 ################################################################################
 echo ">>> Run async calls, sync invocation"

@@ -275,19 +275,42 @@ func TESTOFFSET(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 		return
 	}
 
-	rsp_len := 300
+	var first_byte,  second_byte byte
 
-	if inclLen <= 0 {
-		rsp_len -= 8
+	if inclLen <= 1 {
+		//len in bytes, llll/LLLL
+
+		rsp_len := 300
+
+		if inclLen <= 0 {
+			rsp_len -= 8
+		}
+
+		first_byte = byte((rsp_len >> 8) & 0xff)
+		second_byte = byte(rsp_len & 0xff)
+
+	} else if inclLen == 2 {
+		//pppp
+		//BCD, does not include len (300-8=292)
+		first_byte = 0x02
+		second_byte= 0x92
+
+	} else if inclLen == 3 {
+		//PPPP
+		//BCD, include len, swap...
+		first_byte = 0x03
+		second_byte= 0x00
+	} else {
+		ac.TpLogError("TESTERROR unsupported inclLen=%d", inclLen)
+		ret = FAIL
+		return
 	}
-	first_byte := byte((rsp_len >> 8) & 0xff)
-	second_byte := byte(rsp_len & 0xff)
 
-	if inclLen > 0 {
+	if inclLen == 1 || inclLen == 3 {
+		//LLLL, PPPP
 		//In this case we swap bytes too
-
 		if first_byte != ba[4] {
-			ac.TpLogError("TESTERROR LEN ind  at index %d, expected %d got %d",
+			ac.TpLogError("TESTERROR LEN ind at index %d, expected %d got %d",
 				4, first_byte, ba[4])
 			ret = FAIL
 			return
@@ -300,7 +323,7 @@ func TESTOFFSET(ac *atmi.ATMICtx, svc *atmi.TPSVCINFO) {
 			return
 		}
 	} else {
-
+		//llll, pppp
 		if first_byte != ba[6] {
 			ac.TpLogError("TESTERROR (2) LEN ind  at index %d, expected %d got %d",
 				5, first_byte, ba[5])

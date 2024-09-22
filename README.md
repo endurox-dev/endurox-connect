@@ -27,4 +27,5 @@ Release binaries may be found here: https://www.mavimax.com/downloads
 - Version 8.0.4 released on 07/03/2023 (stable) Bug #800
 - Version 2.5.4 released on 03/04/2024 (stable) Bug #828
 - Version 2.0.6 released on 03/04/2024 (stable) Bug #828
-
+- Version 2.5.6 marked on 22/09/2025 (stable) Feature #846
+- Version 8.0.6 marked on 22/09/2025 (stable) Feature #846

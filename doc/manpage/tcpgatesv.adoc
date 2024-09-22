@@ -75,6 +75,10 @@ Framing mode is controlled by 'framing' parameter. Following options are support
 
 . B+ - big endian byte order (from one to 8 bytes), message length includes length bytes
 
+. p+ - packed BCD (from one to 8 bytes)
+
+. P+ - packed BCD (from one to 8 bytes), message length includes length bytes
+
 . d - Message end delimiter byte
 
 . D - Message start and end delimiter byte
@@ -159,6 +163,26 @@ Mode: 'framing' = BBBBBBBB, framing_half_swap=1
 --------------------------------------------------------------------------------
   0000  00 00 00 00 1d 00 00 00 48 45 4c 4c 4f 20 57 4f  ........HELLO WO
   0010  52 4c 44 00 10 11 12 13 54 45 53 54 ff           RLD.....TEST.
+--------------------------------------------------------------------------------
+
+Mode: 'framing' = pp, framing_half_swap=0
+-------------------------------------------
+
+'framing' = pp
+
+--------------------------------------------------------------------------------
+  0000  00 21 48 45 4c 4c 4f 20 57 4f 52 4c 44 00 10 11  .!HELLO WORLD...
+  0010  12 13 54 45 53 54 ff                             ..TEST.
+--------------------------------------------------------------------------------
+
+Mode: 'framing' = PPPP, framing_half_swap=0
+-----------------------------------------------
+
+'framing' = PPPP
+
+--------------------------------------------------------------------------------
+  0000  00 00 00 25 48 45 4c 4c 4f 20 57 4f 52 4c 44 00  ...%HELLO WORLD.
+  0010  10 11 12 13 54 45 53 54 ff                       ....TEST.
 --------------------------------------------------------------------------------
 
 Mode: 'framing' = d, framing_half_swap=N/A
@@ -279,7 +303,6 @@ EX_NETOURIP	127.0.0.1
 EX_NETTHEIRIP	127.0.0.1
 
 --------------------------------------------------------------------------------
-
 
 Incoming request at correlation service (other end reads network and sends data to
 ('corr_svc'), at the destination with no reply waiter, it will just invoke the
@@ -406,6 +429,10 @@ Described above. Shortly:
 
 'A+' - ASCII text byte order, does include length by it self
 
+'p+' - packed BCD, does not include length by it self
+
+'P+' - packed BCD, does include length by it self
+
 'd' - Use message stop indicator (set by 'delim_start')
 
 'D' - Use message start & stop indicators (set by 'delim_stop')
@@ -529,7 +556,7 @@ Parameter > 0 is valid only for persistent connection modes, i.e. 'req_reply' va
 The default is *0*.
 
 *max_connections* = 'MAX_NR_OF_CONNECTIONS'::
-Max number of simulatnious connections supported by gateway. In case of
+Max number of simulatneous connections supported by gateway. In case of
 active mode and using persistent connections, this is the number of connects
 gateway will try to keep open (reconnect if needed). In case of non-persistent
 mode (ex-to-net, 'req_reply'=*3*), the 'max_connections' must be greater

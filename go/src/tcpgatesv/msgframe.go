@@ -46,19 +46,21 @@ import (
  */
 const (
 	FRAME_LITTLE_ENDIAN      = 'l' //Little Endian, does not include len bytes it self
-	FRAME_LITTLE_ENDIAN_ILEN = 'L' //Big Endian, include len bytes
+	FRAME_LITTLE_ENDIAN_ILEN = 'L' //Little Endian, include len bytes
 	FRAME_BIG_ENDIAN         = 'b' //Big endian, does not includ bytes len it self
 	FRAME_BIG_ENDIAN_ILEN    = 'B' //Big endian, include len it self
 	FRAME_ASCII              = 'a' //Ascii, does not include len it self
-	FRAME_ASCII_ILEN         = 'A' //Ascii, does not include len it self
+	FRAME_ASCII_ILEN         = 'A' //Ascii, include len it self
+	FRAME_BCD                = 'p' //Packed BCD, does not include len bytes
+	FRAME_BCD_ILEN           = 'P' //Packed BCD, include len bytes
 	FRAME_DELIM_STOP         = 'd' //Delimiter, stop
 	FRAME_DELIM_BOTH         = 'D' //Delimiter, stop & start
 )
 
-//This sets number of bytes to read from message, if not running in delimiter
-//mode
-//@param ac	ATMI Context into which we run
-//@return Error or nil
+// This sets number of bytes to read from message, if not running in delimiter
+// mode
+// @param ac	ATMI Context into which we run
+// @return Error or nil
 func ConfigureNumberOfBytes(ac *atmi.ATMICtx) error {
 	var c rune
 	var n int
@@ -109,6 +111,15 @@ func ConfigureNumberOfBytes(ac *atmi.ATMICtx) error {
 			"does include prefix len", MFramingLen)
 		MFamingInclPfxLen = true
 		break
+	case FRAME_BCD:
+		ac.TpLogInfo("Packed BCD mode, %d bytes, "+
+			"does not include prefix len", MFramingLen)
+		break
+	case FRAME_BCD_ILEN:
+		ac.TpLogInfo("Packed BCD mode, %d bytes, "+
+			"does include prefix len", MFramingLen)
+		MFamingInclPfxLen = true
+		break
 	case FRAME_DELIM_STOP:
 		MFramingLen = 0
 		ac.TpLogInfo("Stopping delimiter: %x", MDelimStop)
@@ -149,9 +160,52 @@ func ConfigureNumberOfBytes(ac *atmi.ATMICtx) error {
 	return nil
 }
 
-//Read the message from connection
-//@param con 	Connection handler
-//@return <Binary message read>, <Error or nil>
+// Decode packed BCD into int64
+// @param bcd byte array packed BCD
+// @return uint64
+func fromBCD(bcd []byte) int64 {
+	var i int64 = 0
+	for k := range bcd {
+		r0 := bcd[k] & 0xf
+		r1 := bcd[k] >> 4 & 0xf
+
+		if r0 > 9 || r1 > 9 {
+			return -1
+		}
+
+		r := r1*10 + r0
+		i = i*int64(100) + int64(r)
+	}
+	return i
+}
+
+// Encode int64 into packed BCD
+// @param i value
+// @param length frame prefix length in bytes
+// @return byte array
+func toBCD(i uint64, length int) []byte {
+	var bcd []byte
+
+	for k := 0; k < length; k++ {
+		low := i % 10
+		i /= 10
+		hi := i % 10
+		i /= 10
+		var x []byte
+		x = append(x, byte((hi&0xf)<<4)|byte(low&0xf))
+		bcd = append(x, bcd[:]...)
+	}
+
+	if length < len(bcd) {
+		return nil
+	}
+
+	return bcd
+}
+
+// Read the message from connection
+// @param con 	Connection handler
+// @return <Binary message read>, <Error or nil>
 func GetMessage(ac *atmi.ATMICtx, con *ExCon) ([]byte, error) {
 
 	if MFramingLen > 0 {
@@ -199,8 +253,15 @@ func GetMessage(ac *atmi.ATMICtx, con *ExCon) ([]byte, error) {
 			headerSwapped, len(headerSwapped))
 
 		//Decode the length now...
-		if MFramingCode != FRAME_ASCII && MFramingCode != FRAME_ASCII_ILEN {
-
+		if MFramingCode == FRAME_BCD || MFramingCode == FRAME_BCD_ILEN {
+			//Keep the header bytes if any...
+            tmp:=headerSwapped[MFramingOffset:]
+			mlen = fromBCD(tmp)
+			if mlen == -1 {
+				return nil, errors.New(fmt.Sprintf(
+					"Received invalid length header: %x", tmp)
+			}
+		} else if MFramingCode != FRAME_ASCII && MFramingCode != FRAME_ASCII_ILEN {
 			for i := MFramingOffset; i < MFramingLen; i++ {
 				//Move the current byte to front
 				mlen <<= 8
@@ -339,7 +400,7 @@ func GetMessage(ac *atmi.ATMICtx, con *ExCon) ([]byte, error) {
 	}
 }
 
-//Put message on socket
+// Put message on socket
 func PutMessage(ac *atmi.ATMICtx, con *ExCon, data []byte) error {
 
 	ac.TpLogInfo("Building outgoing message: len hdr bytes %d (real: %d)",
@@ -377,7 +438,14 @@ func PutMessage(ac *atmi.ATMICtx, con *ExCon, data []byte) error {
 		ac.TpLogDebug("Message len set to %d", mlen)
 
 		//Generate the header
-		if MFramingCode != FRAME_ASCII && MFramingCode != FRAME_ASCII_ILEN {
+		if MFramingCode == FRAME_BCD || MFramingCode == FRAME_BCD_ILEN {
+			header = toBCD(uint64(mlen), MFramingLenReal)
+			if header == nil {
+				errMsg := fmt.Sprintf("Message does not fit (frame prefix too short)")
+				ac.TpLogError(errMsg)
+				return errors.New(errMsg)
+			}
+		} else if MFramingCode != FRAME_ASCII && MFramingCode != FRAME_ASCII_ILEN {
 			for i := 0; i < MFramingLenReal; i++ {
 				switch MFramingCode {
 				case FRAME_LITTLE_ENDIAN, FRAME_LITTLE_ENDIAN_ILEN:

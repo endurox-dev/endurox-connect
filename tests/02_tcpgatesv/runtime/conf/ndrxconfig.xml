@@ -250,6 +250,38 @@
 			<srvid>330</srvid>
 			<sysopt>-e ${NDRX_APPHOME}/log/tcpgatesv-pers-sync-offset-passive.log -r</sysopt>
 		</server>
+
+        <!-- bcd tests, start -->
+        <server name="tcpgatesv">
+			<cctag>pers/sync_offset_incl_P/active</cctag>
+			<min>1</min>
+			<max>1</max>
+			<srvid>331</srvid>
+			<sysopt>-e ${NDRX_APPHOME}/log/tcpgatesv-pers-sync-offset_incl_P-active.log -r</sysopt>
+		</server>
+		<server name="tcpgatesv">
+			<cctag>pers/sync_offset_incl_P/passive</cctag>
+			<min>1</min>
+			<max>1</max>
+			<srvid>332</srvid>
+			<sysopt>-e ${NDRX_APPHOME}/log/tcpgatesv-pers-sync-offset_incl_P-passive.log -r</sysopt>
+		</server>
+		<server name="tcpgatesv">
+			<cctag>pers/sync_offset_p/active</cctag>
+			<min>1</min>
+			<max>1</max>
+			<srvid>333</srvid>
+			<sysopt>-e ${NDRX_APPHOME}/log/tcpgatesv-pers-sync-offset_p-active.log -r</sysopt>
+		</server>
+		<server name="tcpgatesv">
+			<cctag>pers/sync_offset_p/passive</cctag>
+			<min>1</min>
+			<max>1</max>
+			<srvid>334</srvid>
+			<sysopt>-e ${NDRX_APPHOME}/log/tcpgatesv-pers-sync-offset_p-passive.log -r</sysopt>
+		</server>
+        <!-- bcd tests, end -->
+
 		<server name="tcpgatesv">
 			<cctag>pers/sequence/active</cctag>
 			<min>1</min>

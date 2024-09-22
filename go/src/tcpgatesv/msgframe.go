@@ -258,8 +258,7 @@ func GetMessage(ac *atmi.ATMICtx, con *ExCon) ([]byte, error) {
             tmp:=headerSwapped[MFramingOffset:]
 			mlen = fromBCD(tmp)
 			if mlen == -1 {
-				return nil, errors.New(fmt.Sprintf(
-					"Received invalid length header: %x", tmp)
+				return nil, errors.New(fmt.Sprintf("Received invalid length header: %x", tmp))
 			}
 		} else if MFramingCode != FRAME_ASCII && MFramingCode != FRAME_ASCII_ILEN {
 			for i := MFramingOffset; i < MFramingLen; i++ {

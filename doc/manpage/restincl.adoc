@@ -624,7 +624,8 @@ The default value for parameter is *10*. Note that every new HTTP request to the
 is processed in new lightweight thread (go-routine), where each of such thread 
 tries to get (or blocks on getting) a XATMI worker. This means, that
 handling large amount of parallel requests, does not make any significant pressure 
-on TCP backlog, even if the system is loaded, i.e. requests gets queued within the process.
+on TCP backlog, even if the system is loaded, i.e. requests gets queued within the process
+instead of the backlog.
 
 *gencore* = 'GENERATE_CORE_FILE'::
 If set to *1*, then in case of segmentation fault, the core dump will be generated

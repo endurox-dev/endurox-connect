@@ -71,7 +71,7 @@ code.
 
 . Asynchronous - invocation does the asynchronous call to XATMI service. The answer
 to http rest call is return of formatted error code and message. Indicating success
-or fail of asyn service invocation.
+or fail of async service invocation.
 
 The typical *restincl* configuration looks like:
 
@@ -620,7 +620,11 @@ Number XATMI sessions. These sessions are use for serving the incoming calls -
 i.e. doing the calls to XATMI sub-system. If the number is less than incoming calls,
 the calls will be suspended while there will be no XATMI session free. Once it is
 made free, then call will be served (i.e. called corresponding XATMI counterpart).
-The default value for parameter is *10*.
+The default value for parameter is *10*. Note that every new HTTP request to the restincl
+is processed in new lightweight thread (go-routine), where each of such thread 
+tries to get (or blocks on getting) a XATMI worker. This means, that
+handling large amount of parallel requests, does not make any significant pressure 
+on TCP backlog, even if the system is loaded, i.e. requests gets queued within the process.
 
 *gencore* = 'GENERATE_CORE_FILE'::
 If set to *1*, then in case of segmentation fault, the core dump will be generated

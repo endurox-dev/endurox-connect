@@ -33,6 +33,7 @@
 package main
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"io"
@@ -156,6 +157,20 @@ func ConfigureNumberOfBytes(ac *atmi.ATMICtx) error {
 	}
 
 	ac.TpLogInfo("Framing header bytes %d len bytes %d", MFramingLen, MFramingLenReal)
+
+	//Never trust the length prefix received from the network. The inbound
+	//message is limited to the Enduro/X max message size in any case, as
+	//anything bigger than that cannot be delivered to `incoming_svc'.
+	if MFramingMaxMsgLen <= 0 || int64(MFramingMaxMsgLen) > atmi.ATMIMsgSizeMax() {
+
+		ac.TpLogWarn("Max inbound message len [%d] not set or above Enduro/X "+
+			"max message size - using [%d]",
+			MFramingMaxMsgLen, atmi.ATMIMsgSizeMax())
+
+		MFramingMaxMsgLen = int(atmi.ATMIMsgSizeMax())
+	}
+
+	ac.TpLogInfo("Max inbound message len: %d", MFramingMaxMsgLen)
 
 	return nil
 }
@@ -359,20 +374,39 @@ func GetMessage(ac *atmi.ATMICtx, con *ExCon) ([]byte, error) {
 	} else {
 		ac.TpLogInfo("About to read message until delimiter 0x%x", MDelimStop)
 
-		//If we use delimiter, then read pu till that
-		data, err := con.reader.ReadBytes(MDelimStop)
+		//If we use delimiter, then read pu till that.
+		//Read it in chunks, so that the length can be checked while the
+		//data arrives - a peer which never sends the stop delimiter must
+		//not grow the buffer without any limit.
+		var data []byte
 
-		if err != nil {
+		for {
+			chunk, err := con.reader.ReadSlice(MDelimStop)
 
-			ac.TpLogError("Failed to read message with %x seperator: %s",
-				MDelimStop, err.Error())
-			return nil, err
+			// Bug #103, the data returned by ReadSlice is shared with the
+			// reader buffer and not reallocated, thus append (which copies)
+			// it to the buffer of our own
+			data = append(data, chunk...)
+
+			if int64(len(data)) > int64(MFramingMaxMsgLen) {
+				emsg := fmt.Sprintf("Error ! Message len received: %d "+
+					"(no %x seperator yet), max message size: %d",
+					len(data), MDelimStop, MFramingMaxMsgLen)
+				ac.TpLogError("%s", emsg)
+				return nil, errors.New(emsg)
+			}
+
+			if nil == err {
+				//Got the stop delimiter
+				break
+			}
+
+			if bufio.ErrBufferFull != err {
+				ac.TpLogError("Failed to read message with %x seperator: %s",
+					MDelimStop, err.Error())
+				return nil, err
+			}
 		}
-
-		// Bug #103, seems like the data returned by ReadSlice is somehow shared
-		// and not reallocated... Thus make a new buffer
-		//data := make([]byte, len(idata))
-		//copy(data, idata)
 
 		ac.TpLogDump(atmi.LOG_DEBUG, "Got the message with end seperator",
 			data, len(data))

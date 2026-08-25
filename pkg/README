@@ -32,3 +32,4 @@ Releases:
 8.0.2 - Bug #770, Support #780
 8.0.4 - Bug #800
 2.5.2 - Bug #770
+8.0.9 - Bug #936. Fixed Unbounded TCP frame length allocation in tcpgatesv which could lead to denial of service. Thanks EQSTLab for pointing out.

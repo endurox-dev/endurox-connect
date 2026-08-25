@@ -448,11 +448,23 @@ sent to network will be in following order: 0x50,0xe9,0x00,0x03.
 Default is *0*
 
 *max_msg_len* = 'MAX_MESSAGE_LENGTH::
-If set above *0*, then parameter indicates 
+If set above *0*, then parameter indicates
 max message length. This does not include framing bytes. If the incoming
 message goes over this number, the message is dropped and connection is restarted,
 because there might be error in framing byte readings by corrupted data.
-The default is *0*.
+The default is *0*. The incoming message length is always limited to the
+Enduro/X max message size (*NDRX_MSGSIZEMAX*) - if this parameter is left
+at *0* or is set above the *NDRX_MSGSIZEMAX*, the limit used is the
+*NDRX_MSGSIZEMAX*, as a larger message could not be delivered to the
+'incoming_svc' anyway. Thus the parameter may only be used to lower the limit.
+The limit applies to all framing formats. For the length prefix formats
+(*l*, *L*, *b*, *B*, *a*, *A*, *p*, *P*) the length received from the network
+is validated before any of the message body is read, so that a peer cannot
+make the gateway reserve the memory by sending a large length prefix only.
+For the delimiter formats (*d*, *D*) the data collected from the peer is
+checked while it arrives, so that a peer which never sends the stop delimiter
+does not grow the receive buffer without a limit. In both cases the connection
+is dropped when the limit is reached.
 
 *delim_start* = 'MESSAGE_START_DELIMITER::
 If using framing format *D*, the this paramter indicates the start

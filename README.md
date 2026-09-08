@@ -1,5 +1,5 @@
 # endurox-connect
-Enduro/X Connectivity packages
+Enduro/X Community Connect, connectivity package
 
 This module adds ability to expose to outer world Enduro/X services. It is bi-directional interface, providing:
 
